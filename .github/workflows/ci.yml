@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages
+      - name: ruff
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: mypy
+        run: uv run mypy packages/engine/arbiter_engine packages/datagen/arbiter_datagen
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages
+      - name: pytest
+        run: uv run pytest -q --cov=arbiter_engine --cov=arbiter_datagen --cov-report=term-missing
+
+  determinism:
+    # isolated so a failure here is unmistakable — this is the anti-cherry-pick gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages
+      - name: determinism + replay + resume
+        run: uv run pytest -q packages/engine/tests/test_determinism.py
+
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages
+      - name: end-to-end demo
+        run: |
+          uv run arbiter-datagen gen --scenario d2c --records 200 --seed 42 --out /tmp/ds
+          uv run arbiter run --spec specs/razorpay-settlement.yaml --dataset /tmp/ds --json | tee /tmp/run.json
+          RID=$(python -c "import json;print(json.load(open('/tmp/run.json'))['run_id'])")
+          uv run arbiter replay "$RID"
+          uv run arbiter verify "$RID"

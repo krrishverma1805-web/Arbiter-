@@ -1,0 +1,150 @@
+"""Append-only, hash-chained event store over SQLite/Postgres (docs/17 §2).
+
+Guarantees:
+  - append only: no UPDATE, no DELETE (except `purge`, which is audited)
+  - per-run hash chain: event.hash = sha256(prev_hash || type || actor || canonical(payload))
+  - `verify()` recomputes the chain and reports any break
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Any, cast
+
+from sqlalchemy import Engine
+from sqlmodel import Field, Session, SQLModel, col, create_engine, select
+
+from arbiter_engine.events.payloads import EventType, validate_payload
+from arbiter_engine.hashing import canonical_json, chain_hash
+
+GENESIS = ""  # prev_hash for seq 0
+
+
+class Event(SQLModel, table=True):
+    __tablename__ = "events"
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: str = Field(index=True)
+    seq: int
+    ts: str  # informational only — NOT hashed
+    type: str = Field(index=True)
+    payload: str  # canonical JSON — the semantic content, hash-chained
+    payload_schema: int = 1
+    meta: str = "{}"  # observability sidecar (timing, tokens, cost) — NOT hashed
+    actor: str
+    prev_hash: str
+    hash: str
+
+
+class ChainBroken(RuntimeError):
+    def __init__(self, run_id: str, seq: int, detail: str) -> None:
+        super().__init__(f"event chain broken in run {run_id} at seq {seq}: {detail}")
+        self.run_id, self.seq = run_id, seq
+
+
+class EventStore:
+    def __init__(self, url: str = "sqlite://") -> None:
+        connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+        self.engine: Engine = create_engine(url, connect_args=connect_args)
+        SQLModel.metadata.create_all(self.engine)
+
+    # -- append ---------------------------------------------------------------
+    def append(
+        self,
+        run_id: str,
+        event_type: EventType,
+        payload: dict[str, Any] | Any,
+        *,
+        actor: str = "engine",
+        meta: dict[str, Any] | None = None,
+    ) -> Event:
+        model = validate_payload(event_type, _as_dict(payload))
+        payload_json = canonical_json(model.model_dump(mode="json"))
+        with Session(self.engine) as session:
+            last = session.exec(
+                select(Event).where(Event.run_id == run_id).order_by(col(Event.seq).desc())
+            ).first()
+            seq = 0 if last is None else last.seq + 1
+            prev_hash = GENESIS if last is None else last.hash
+            h = chain_hash(
+                prev_hash,
+                event_type=str(event_type),
+                actor=actor,
+                payload=json.loads(payload_json),
+            )
+            ev = Event(
+                run_id=run_id,
+                seq=seq,
+                ts=datetime.now(UTC).isoformat(),
+                type=str(event_type),
+                payload=payload_json,
+                meta=canonical_json(meta or {}),
+                actor=actor,
+                prev_hash=prev_hash,
+                hash=h,
+            )
+            session.add(ev)
+            session.commit()
+            session.refresh(ev)
+            return ev
+
+    # -- read ---------------------------------------------------------------
+    def events(self, run_id: str) -> list[Event]:
+        with Session(self.engine) as session:
+            return list(
+                session.exec(select(Event).where(Event.run_id == run_id).order_by(col(Event.seq)))
+            )
+
+    def runs(self) -> list[str]:
+        with Session(self.engine) as session:
+            rows = session.exec(select(col(Event.run_id)).distinct()).all()
+            return sorted(set(rows))
+
+    def iter_payloads(self, run_id: str) -> Iterator[tuple[str, dict[str, Any]]]:
+        for ev in self.events(run_id):
+            yield ev.type, cast(dict[str, Any], json.loads(ev.payload))
+
+    # -- integrity --------------------------------------------------------------
+    def verify(self, run_id: str) -> dict[str, Any]:
+        prev = GENESIS
+        events = self.events(run_id)
+        for ev in events:
+            if ev.prev_hash != prev:
+                raise ChainBroken(run_id, ev.seq, "prev_hash mismatch")
+            expected = chain_hash(
+                prev,
+                event_type=ev.type,
+                actor=ev.actor,
+                payload=cast(dict[str, Any], json.loads(ev.payload)),
+            )
+            if expected != ev.hash:
+                raise ChainBroken(run_id, ev.seq, "hash mismatch (payload tampered?)")
+            prev = ev.hash
+        return {"intact": True, "events": len(events), "terminal_hash": prev}
+
+    _PURGE_LOG_DDL = (
+        "CREATE TABLE IF NOT EXISTS purge_log (run_id TEXT, reason TEXT, by_actor TEXT, at TEXT)"
+    )
+
+    def purge(self, run_id: str, *, reason: str, by: str) -> None:
+        """Hard-delete a run; record the deletion in a separate audited table."""
+        with Session(self.engine) as session:
+            conn = session.connection()
+            conn.exec_driver_sql(self._PURGE_LOG_DDL)
+            conn.exec_driver_sql(
+                "INSERT INTO purge_log VALUES (?, ?, ?, ?)",
+                (run_id, reason, by, datetime.now(UTC).isoformat()),
+            )
+            for ev in session.exec(select(Event).where(Event.run_id == run_id)):
+                session.delete(ev)
+            session.commit()
+
+
+def _as_dict(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict):
+        return cast(dict[str, Any], payload)
+    if hasattr(payload, "model_dump"):
+        return cast(dict[str, Any], payload.model_dump(mode="python"))
+    raise TypeError(f"payload must be a dict or pydantic model, got {type(payload).__name__}")

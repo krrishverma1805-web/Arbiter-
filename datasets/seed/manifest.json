@@ -1,0 +1,13 @@
+{
+  "dataset_hash": "5fc1247a857d929c",
+  "file_rows": {
+    "bank.csv": 23,
+    "ledger.csv": 120,
+    "razorpay_recon.csv": 127
+  },
+  "generator_version": "0.0.1",
+  "records": 120,
+  "scenario": "d2c",
+  "seed": 42,
+  "settlement_batches": 23
+}

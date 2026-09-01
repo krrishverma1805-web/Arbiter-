@@ -47,38 +47,51 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
 | **Reports** | `arbiter bench` → matching metrics (auto-match rate, precision, recall, **false-match rate**, ₹ coverage) **and** agent metrics (task-completion, tool-use accuracy, grounding, hallucination rate, escalation precision/recall, confidence calibration) — reproducibly, in CI |
 | **Attests** | `arbiter memo` → an auditor-ready Close Memo: totals tied, coverage, every exception + its resolution, and the audit-trail hash |
 
+## Status
+
+**Milestone M0 is built** (see [`docs/10`](docs/10-implementation-plan.md)): the uv workspace, the
+hash-chained event store with `verify`, deterministic CSV ingestion, the synthetic data
+generator with ground truth, and the `arbiter` CLI — with 27 tests, strict `mypy`/`ruff`, and CI
+including an isolated determinism gate. Matching, decomposition, the agent, `bench`, and the
+cockpit land in M1–M5.
+
 ## Quickstart
 
 ```bash
-git clone <repo> && cd arbiter
-make demo          # generates a 200-record batch, reconciles it, opens the cockpit
+git clone https://github.com/krrishverma1805-web/Arbiter- && cd Arbiter-
+make demo          # M0: generates a seed batch, ingests it, prints the run summary + audit hash
 ```
 
-Then:
+Working today (M0):
 
 ```bash
-arbiter gen --scenario d2c --records 800 --seed 42      # adversarial synthetic batch + ground truth
-arbiter run --spec specs/razorpay-settlement.yaml       # reconcile (deterministic core + agent)
-arbiter run --spec specs/razorpay-settlement.yaml --no-ai   # deterministic core only
-arbiter run --resume <run-id>                           # resume a crashed / interrupted run
-arbiter bench --spec specs/razorpay-settlement.yaml     # matching + agent scorecard vs ground truth
-arbiter bench --ablate                                  # --no-ai vs haiku vs sonnet vs opus: accuracy/cost/latency
-arbiter bench --calibration                             # reliability diagram + ECE for agent confidence
-arbiter replay <run-id>                                 # reproduce a completed run from its event log
-arbiter verify <run-id>                                 # check the audit hash chain is intact
-arbiter explain <exception-id>                          # evidence drawer, as text
-arbiter memo <run-id>                                   # generate the auditor-ready Close Memo (HTML/PDF)
+uv sync --all-packages
+uv run arbiter-datagen gen --scenario d2c --records 200 --seed 42 --out datasets/seed
+uv run arbiter run --spec specs/razorpay-settlement.yaml --dataset datasets/seed
+uv run arbiter run --spec specs/razorpay-settlement.yaml --dataset datasets/seed --json
+uv run arbiter replay <run-id>     # reproduce a completed run from its event log
+uv run arbiter verify <run-id>     # recompute the audit hash chain
+uv run arbiter events <run-id>     # dump the raw event log
+```
+
+Coming in M1–M5 (specified in [`docs/`](docs/), not yet implemented):
+
+```bash
+arbiter run --spec … --dataset … --no-ai   # deterministic core only, zero LLM calls
+arbiter bench --spec … [--ablate] [--calibration]   # matching + agent scorecards vs ground truth
+arbiter explain <exception-id>              # the evidence drawer, as text
+arbiter memo <run-id>                       # the auditor-ready Close Memo (HTML/PDF)
 ```
 
 ## What's in here
 
 | Path | |
 |---|---|
-| [`docs/`](docs/) | The full research, spec, architecture, design doctrine, competitive analysis, and honest red-team |
-| `packages/engine/` | Deterministic matching engine, decomposition, exception taxonomy, the one AI step, event store, bench harness |
-| `packages/datagen/` | Adversarial synthetic batch generator with labeled anomalies + ground truth |
-| `packages/api/` | FastAPI backend |
-| `web/` | Next.js cockpit — scorecard · exception queue · evidence drawer |
+| [`docs/`](docs/) | The full research, spec, architecture, design doctrine, competitive analysis, and honest red-team (27 docs + 5 ADRs) |
+| `packages/engine/` | The reconciliation engine — M0: money, hashing, event store, spec loader, ingestion, CLI. M1+: matching, decomposition, the agent, bench |
+| `packages/datagen/` | Synthetic batch generator — M0: clean batches + ground truth. M1: the labeled adversarial anomaly catalog |
+| `packages/api/` | FastAPI backend (M4) |
+| `web/` | Next.js cockpit — scorecard · exception queue · evidence drawer (M4) |
 | `specs/` | `razorpay-settlement.yaml` (flagship) · `gst-2b.yaml` (proof the engine is loop-agnostic) |
 
 ## Documentation

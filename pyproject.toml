@@ -1,0 +1,50 @@
+[project]
+name = "arbiter"
+version = "0.0.1"
+description = "A verification layer for money movement — Razorpay AI Buildathon (AI Finance Controller)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+
+[tool.uv.workspace]
+members = ["packages/engine", "packages/datagen"]
+
+[tool.uv.sources]
+arbiter-engine = { workspace = true }
+arbiter-datagen = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-PyYAML>=6.0",
+    "types-python-dateutil>=2.9",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "PTH"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Typer's idiom is `x: T = typer.Option(...)` in signatures.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["packages/engine/tests", "packages/datagen/tests"]
+markers = ["live: hits the Anthropic API (nightly only)"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = ["packages/engine", "packages/datagen"]
+
+[[tool.mypy.overrides]]
+module = ["dateutil.*"]
+ignore_missing_imports = true

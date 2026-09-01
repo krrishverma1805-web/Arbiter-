@@ -8,6 +8,24 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M0: scaffold, event store, ingestion, datagen (code begins)
+
+First code. uv workspace + two packages (`arbiter-engine`, `arbiter-datagen`). Shipped:
+money (integer paise), canonical hashing, the hash-chained event store + `verify`,
+the recon-spec loader, CSV ingestion (→ `RECORD_INGESTED` events), the clean-batch
+synthetic data generator with ground truth, the `arbiter` CLI (`run` / `replay` /
+`verify` / `events` / `gen`), 27 tests, ruff + mypy(strict) clean, CI (4 jobs incl. an
+isolated determinism gate). `arbiter run` ingests the 270-record seed batch
+deterministically; `arbiter replay` reproduces it.
+
+**Bugs caught during M0 (Failure Recovery):**
+
+| Symptom | Root cause | Fix | Prevention |
+|---|---|---|---|
+| `test_two_runs_produce_identical_hash_chains` failed on the first real run | `RUN_COMPLETED.wallclock_ms` (a wall-clock duration) was in the **hashed** payload → every run's terminal hash differed | moved timing to a non-hashed `Event.meta` sidecar; the hash chain now covers semantic content only (matches docs/12 §4) | the determinism test itself — it earned its keep on day one; it runs as an isolated CI job |
+| 120 ledger rows + 2 bank rows quarantined as "unparseable / missing amount" | (a) normalize didn't map the ledger's `order_total` to the amount field; (b) the CSV formula-injection neutralizer was prepending `'` to negative numbers **at ingest** | (a) added `order_total` to the amount resolution chain; (b) `neutralize_for_export` is now export-only, never at ingest (docs/14 C4) | `test_ingests_the_clean_dataset` asserts `rows_quarantined == 0`; identity property test on datagen |
+| bank amounts double-scaled | datagen wrote bank credits in paise while the bank source spec expects rupees | datagen writes bank statements in rupees (realistic) | `test_settlement_identity_holds_for_every_batch` |
+
 ## 2026-09-02 — Compliance, competitive-field, and completeness pass
 
 - **Git history corrected:** the first 3 commits were mis-attributed (author email

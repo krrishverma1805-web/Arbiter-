@@ -1,0 +1,39 @@
+# Hosted-mode stack (docs/13). For the demo, `make demo` needs none of this —
+# it runs on SQLite locally. This is the Postgres-backed deployment path.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: arbiter
+      POSTGRES_PASSWORD: arbiter
+      POSTGRES_DB: arbiter
+    ports: ["5432:5432"]
+    volumes: ["arbiter_pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arbiter"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # arrives in M4 (docs/10) — packages/api/Dockerfile does not exist yet.
+  api:
+    profiles: ["api"]
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    environment:
+      ARBITER_DB_URL: postgresql+psycopg://arbiter:arbiter@db:5432/arbiter
+      ARBITER_ENV: prod
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  arbiter_pgdata:

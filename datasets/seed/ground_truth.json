@@ -1,0 +1,511 @@
+{
+  "anomalies": [],
+  "generator_version": "0.0.1",
+  "period": [
+    "2026-08-01",
+    "2026-08-31"
+  ],
+  "records": 120,
+  "scenario": "d2c",
+  "seed": 42,
+  "true_matches": [
+    {
+      "bank_value_date": "2026-08-04",
+      "clean": true,
+      "expected_net_minor": 801211,
+      "group_id": "gt_RZP20260804F039F0E6",
+      "ledger_order_ids": [
+        "ord_00011",
+        "ord_00054",
+        "ord_00055",
+        "ord_00057",
+        "ord_00063"
+      ],
+      "processor_entity_ids": [
+        "pay_00011",
+        "pay_00054",
+        "pay_00055",
+        "pay_00057",
+        "pay_00063"
+      ],
+      "settlement_utr": "RZP20260804F039F0E6"
+    },
+    {
+      "bank_value_date": "2026-08-05",
+      "clean": true,
+      "expected_net_minor": 109746,
+      "group_id": "gt_RZP20260805DE6EA324",
+      "ledger_order_ids": [
+        "ord_00112"
+      ],
+      "processor_entity_ids": [
+        "pay_00112"
+      ],
+      "settlement_utr": "RZP20260805DE6EA324"
+    },
+    {
+      "bank_value_date": "2026-08-06",
+      "clean": true,
+      "expected_net_minor": 839402,
+      "group_id": "gt_RZP202608069753C796",
+      "ledger_order_ids": [
+        "ord_00007",
+        "ord_00029",
+        "ord_00048",
+        "ord_00050",
+        "ord_00070"
+      ],
+      "processor_entity_ids": [
+        "pay_00007",
+        "pay_00029",
+        "pay_00048",
+        "pay_00050",
+        "pay_00070"
+      ],
+      "settlement_utr": "RZP202608069753C796"
+    },
+    {
+      "bank_value_date": "2026-08-07",
+      "clean": true,
+      "expected_net_minor": 521655,
+      "group_id": "gt_RZP20260807021769B5",
+      "ledger_order_ids": [
+        "ord_00046",
+        "ord_00082",
+        "ord_00087"
+      ],
+      "processor_entity_ids": [
+        "pay_00046",
+        "pay_00082",
+        "pay_00087"
+      ],
+      "settlement_utr": "RZP20260807021769B5"
+    },
+    {
+      "bank_value_date": "2026-08-10",
+      "clean": true,
+      "expected_net_minor": 486096,
+      "group_id": "gt_RZP2026081081AEBA8F",
+      "ledger_order_ids": [
+        "ord_00031",
+        "ord_00088",
+        "ord_00111"
+      ],
+      "processor_entity_ids": [
+        "pay_00031",
+        "pay_00088",
+        "pay_00111"
+      ],
+      "settlement_utr": "RZP2026081081AEBA8F"
+    },
+    {
+      "bank_value_date": "2026-08-11",
+      "clean": true,
+      "expected_net_minor": 1943629,
+      "group_id": "gt_RZP202608111A901754",
+      "ledger_order_ids": [
+        "ord_00000",
+        "ord_00002",
+        "ord_00016",
+        "ord_00019",
+        "ord_00039",
+        "ord_00044",
+        "ord_00067",
+        "ord_00071",
+        "ord_00080",
+        "ord_00092",
+        "ord_00097",
+        "ord_00100",
+        "ord_00108"
+      ],
+      "processor_entity_ids": [
+        "pay_00000",
+        "pay_00002",
+        "pay_00016",
+        "pay_00019",
+        "pay_00039",
+        "pay_00044",
+        "pay_00067",
+        "pay_00071",
+        "pay_00080",
+        "pay_00092",
+        "pay_00097",
+        "pay_00100",
+        "pay_00108"
+      ],
+      "settlement_utr": "RZP202608111A901754"
+    },
+    {
+      "bank_value_date": "2026-08-12",
+      "clean": true,
+      "expected_net_minor": 302966,
+      "group_id": "gt_RZP202608125F11EFF2",
+      "ledger_order_ids": [
+        "ord_00041",
+        "ord_00060",
+        "ord_00072",
+        "ord_00093"
+      ],
+      "processor_entity_ids": [
+        "pay_00041",
+        "pay_00060",
+        "pay_00072",
+        "pay_00093",
+        "rfnd_00100"
+      ],
+      "settlement_utr": "RZP202608125F11EFF2"
+    },
+    {
+      "bank_value_date": "2026-08-13",
+      "clean": true,
+      "expected_net_minor": 302804,
+      "group_id": "gt_RZP202608134EDCA1E0",
+      "ledger_order_ids": [
+        "ord_00043",
+        "ord_00045",
+        "ord_00103"
+      ],
+      "processor_entity_ids": [
+        "pay_00043",
+        "pay_00045",
+        "pay_00103"
+      ],
+      "settlement_utr": "RZP202608134EDCA1E0"
+    },
+    {
+      "bank_value_date": "2026-08-14",
+      "clean": true,
+      "expected_net_minor": 455933,
+      "group_id": "gt_RZP202608148EE2120A",
+      "ledger_order_ids": [
+        "ord_00010",
+        "ord_00035",
+        "ord_00085",
+        "ord_00102"
+      ],
+      "processor_entity_ids": [
+        "pay_00010",
+        "pay_00035",
+        "pay_00085",
+        "pay_00102"
+      ],
+      "settlement_utr": "RZP202608148EE2120A"
+    },
+    {
+      "bank_value_date": "2026-08-17",
+      "clean": true,
+      "expected_net_minor": 934255,
+      "group_id": "gt_RZP20260817F3BD0529",
+      "ledger_order_ids": [
+        "ord_00009",
+        "ord_00023",
+        "ord_00094",
+        "ord_00105",
+        "ord_00106"
+      ],
+      "processor_entity_ids": [
+        "pay_00009",
+        "pay_00023",
+        "pay_00094",
+        "pay_00105",
+        "pay_00106"
+      ],
+      "settlement_utr": "RZP20260817F3BD0529"
+    },
+    {
+      "bank_value_date": "2026-08-18",
+      "clean": true,
+      "expected_net_minor": 1999798,
+      "group_id": "gt_RZP20260818F88E8496",
+      "ledger_order_ids": [
+        "ord_00008",
+        "ord_00020",
+        "ord_00021",
+        "ord_00026",
+        "ord_00037",
+        "ord_00042",
+        "ord_00049",
+        "ord_00052",
+        "ord_00056",
+        "ord_00098",
+        "ord_00099",
+        "ord_00114",
+        "ord_00115",
+        "ord_00116",
+        "ord_00118"
+      ],
+      "processor_entity_ids": [
+        "pay_00008",
+        "pay_00020",
+        "pay_00021",
+        "pay_00026",
+        "pay_00037",
+        "pay_00042",
+        "rfnd_00043",
+        "pay_00049",
+        "pay_00052",
+        "pay_00056",
+        "pay_00098",
+        "pay_00099",
+        "pay_00114",
+        "pay_00115",
+        "pay_00116",
+        "pay_00118"
+      ],
+      "settlement_utr": "RZP20260818F88E8496"
+    },
+    {
+      "bank_value_date": "2026-08-19",
+      "clean": true,
+      "expected_net_minor": 532481,
+      "group_id": "gt_RZP20260819272B2D23",
+      "ledger_order_ids": [
+        "ord_00032",
+        "ord_00062",
+        "ord_00078",
+        "ord_00104"
+      ],
+      "processor_entity_ids": [
+        "pay_00032",
+        "pay_00062",
+        "pay_00078",
+        "pay_00104",
+        "rfnd_00118"
+      ],
+      "settlement_utr": "RZP20260819272B2D23"
+    },
+    {
+      "bank_value_date": "2026-08-20",
+      "clean": true,
+      "expected_net_minor": 408977,
+      "group_id": "gt_RZP2026082087F24E91",
+      "ledger_order_ids": [
+        "ord_00003",
+        "ord_00017",
+        "ord_00096"
+      ],
+      "processor_entity_ids": [
+        "pay_00003",
+        "pay_00017",
+        "pay_00096"
+      ],
+      "settlement_utr": "RZP2026082087F24E91"
+    },
+    {
+      "bank_value_date": "2026-08-21",
+      "clean": true,
+      "expected_net_minor": 1033855,
+      "group_id": "gt_RZP2026082155799DAE",
+      "ledger_order_ids": [
+        "ord_00004",
+        "ord_00036",
+        "ord_00047",
+        "ord_00065",
+        "ord_00066",
+        "ord_00083"
+      ],
+      "processor_entity_ids": [
+        "pay_00004",
+        "pay_00036",
+        "pay_00047",
+        "pay_00065",
+        "pay_00066",
+        "pay_00083"
+      ],
+      "settlement_utr": "RZP2026082155799DAE"
+    },
+    {
+      "bank_value_date": "2026-08-24",
+      "clean": true,
+      "expected_net_minor": 1080415,
+      "group_id": "gt_RZP202608246E23F0B9",
+      "ledger_order_ids": [
+        "ord_00015",
+        "ord_00034",
+        "ord_00077",
+        "ord_00107"
+      ],
+      "processor_entity_ids": [
+        "pay_00015",
+        "pay_00034",
+        "pay_00077",
+        "pay_00107"
+      ],
+      "settlement_utr": "RZP202608246E23F0B9"
+    },
+    {
+      "bank_value_date": "2026-08-25",
+      "clean": true,
+      "expected_net_minor": 2576247,
+      "group_id": "gt_RZP202608259F6B25BD",
+      "ledger_order_ids": [
+        "ord_00013",
+        "ord_00014",
+        "ord_00038",
+        "ord_00064",
+        "ord_00068",
+        "ord_00073",
+        "ord_00074",
+        "ord_00075",
+        "ord_00081",
+        "ord_00109",
+        "ord_00113",
+        "ord_00117"
+      ],
+      "processor_entity_ids": [
+        "pay_00013",
+        "pay_00014",
+        "pay_00038",
+        "pay_00064",
+        "pay_00068",
+        "pay_00073",
+        "pay_00074",
+        "pay_00075",
+        "pay_00081",
+        "pay_00109",
+        "pay_00113",
+        "pay_00117"
+      ],
+      "settlement_utr": "RZP202608259F6B25BD"
+    },
+    {
+      "bank_value_date": "2026-08-26",
+      "clean": true,
+      "expected_net_minor": 1366066,
+      "group_id": "gt_RZP20260826847B1806",
+      "ledger_order_ids": [
+        "ord_00001",
+        "ord_00022",
+        "ord_00030",
+        "ord_00059",
+        "ord_00061",
+        "ord_00076",
+        "ord_00089",
+        "ord_00090"
+      ],
+      "processor_entity_ids": [
+        "pay_00001",
+        "pay_00022",
+        "pay_00030",
+        "pay_00059",
+        "pay_00061",
+        "pay_00076",
+        "pay_00089",
+        "pay_00090"
+      ],
+      "settlement_utr": "RZP20260826847B1806"
+    },
+    {
+      "bank_value_date": "2026-08-27",
+      "clean": true,
+      "expected_net_minor": 924831,
+      "group_id": "gt_RZP20260827B102DC1E",
+      "ledger_order_ids": [
+        "ord_00005",
+        "ord_00006",
+        "ord_00024",
+        "ord_00028",
+        "ord_00033",
+        "ord_00040",
+        "ord_00069",
+        "ord_00095"
+      ],
+      "processor_entity_ids": [
+        "pay_00005",
+        "pay_00006",
+        "pay_00024",
+        "pay_00028",
+        "pay_00033",
+        "pay_00040",
+        "pay_00069",
+        "pay_00095",
+        "rfnd_00117"
+      ],
+      "settlement_utr": "RZP20260827B102DC1E"
+    },
+    {
+      "bank_value_date": "2026-08-28",
+      "clean": true,
+      "expected_net_minor": 1209798,
+      "group_id": "gt_RZP20260828FB99DCA8",
+      "ledger_order_ids": [
+        "ord_00025",
+        "ord_00051",
+        "ord_00058",
+        "ord_00084",
+        "ord_00091",
+        "ord_00101",
+        "ord_00110",
+        "ord_00119"
+      ],
+      "processor_entity_ids": [
+        "rfnd_00024",
+        "pay_00025",
+        "pay_00051",
+        "pay_00058",
+        "pay_00084",
+        "pay_00091",
+        "pay_00101",
+        "pay_00110",
+        "pay_00119"
+      ],
+      "settlement_utr": "RZP20260828FB99DCA8"
+    },
+    {
+      "bank_value_date": "2026-08-31",
+      "clean": true,
+      "expected_net_minor": 81348,
+      "group_id": "gt_RZP20260831EC900B8D",
+      "ledger_order_ids": [
+        "ord_00018"
+      ],
+      "processor_entity_ids": [
+        "pay_00018"
+      ],
+      "settlement_utr": "RZP20260831EC900B8D"
+    },
+    {
+      "bank_value_date": "2026-09-01",
+      "clean": true,
+      "expected_net_minor": 969434,
+      "group_id": "gt_RZP202609012D9FF95F",
+      "ledger_order_ids": [
+        "ord_00012",
+        "ord_00027",
+        "ord_00053",
+        "ord_00079",
+        "ord_00086"
+      ],
+      "processor_entity_ids": [
+        "pay_00012",
+        "pay_00027",
+        "pay_00053",
+        "pay_00079",
+        "pay_00086"
+      ],
+      "settlement_utr": "RZP202609012D9FF95F"
+    },
+    {
+      "bank_value_date": "2026-09-02",
+      "clean": true,
+      "expected_net_minor": -81348,
+      "group_id": "gt_RZP202609024F300B45",
+      "ledger_order_ids": [],
+      "processor_entity_ids": [
+        "rfnd_00018"
+      ],
+      "settlement_utr": "RZP202609024F300B45"
+    },
+    {
+      "bank_value_date": "2026-09-03",
+      "clean": true,
+      "expected_net_minor": -339802,
+      "group_id": "gt_RZP202609034A40D888",
+      "ledger_order_ids": [],
+      "processor_entity_ids": [
+        "rfnd_00079"
+      ],
+      "settlement_utr": "RZP202609034A40D888"
+    }
+  ]
+}
