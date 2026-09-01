@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -127,6 +127,8 @@ class Exception_(BaseModel):
     amount_impact_minor: int = 0  # signed ₹ at stake — ranking key
     confidence: float | None = None
     candidates: list[MatchCandidate] = Field(default_factory=list)
+    agent_proposal: dict[str, Any] | None = None  # a Proposal (docs/19 §4), gated
+    agent_escalation: dict[str, Any] | None = None  # an Escalate
     resolution: dict[str, str] | None = None
     status: ExceptionStatus = "open"
 

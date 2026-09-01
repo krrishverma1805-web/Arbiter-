@@ -50,6 +50,7 @@ class RunProjection:
 def fold_run(store: EventStore, run_id: str) -> RunProjection:
     proj = RunProjection(run_id=run_id)
     classified: dict[str, tuple[str, str, float | None]] = {}
+    agent_outcomes: dict[str, tuple[str, dict[str, object]]] = {}
     for etype, payload in store.iter_payloads(run_id):
         match etype:
             case EventType.RUN_STARTED:
@@ -73,6 +74,10 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
                     payload["classified_by"],
                     payload.get("confidence"),
                 )
+            case EventType.AGENT_PROPOSAL_CREATED:
+                agent_outcomes[payload["exception_id"]] = ("proposal", payload["proposal"])
+            case EventType.AGENT_ESCALATED:
+                agent_outcomes[payload["exception_id"]] = ("escalate", payload["escalation"])
             case EventType.SCORECARD_COMPUTED:
                 proj.scorecard = payload["scorecard"]
             case EventType.RUN_COMPLETED:
@@ -82,19 +87,24 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
             case _:
                 pass
 
-    if classified:
-        proj.exceptions = [
-            e.model_copy(
-                update={
-                    "category": classified[e.id][0],
-                    "classified_by": classified[e.id][1],
-                    "confidence": classified[e.id][2],
-                }
-            )
-            if e.id in classified
-            else e
-            for e in proj.exceptions
-        ]
+    if classified or agent_outcomes:
+        rebuilt: list[ReconException] = []
+        for e in proj.exceptions:
+            update: dict[str, object] = {}
+            if e.id in classified:
+                update["category"] = classified[e.id][0]
+                update["classified_by"] = classified[e.id][1]
+                update["confidence"] = classified[e.id][2]
+            if e.id in agent_outcomes:
+                kind, payload = agent_outcomes[e.id]
+                if kind == "proposal":
+                    update["agent_proposal"] = payload
+                    update["status"] = "proposed"
+                else:
+                    update["agent_escalation"] = payload
+                    update["status"] = "escalated"
+            rebuilt.append(e.model_copy(update=update) if update else e)
+        proj.exceptions = rebuilt
 
     proj.records.sort(key=lambda r: r.id)
     proj.matches.sort(key=lambda m: m.id)

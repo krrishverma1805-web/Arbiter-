@@ -49,6 +49,7 @@ class RunInputs:
     run_id: str | None = None
     resume: bool = False  # continue a crashed run from its last committed state
     rerun: bool = False  # force a fresh run even if a completed one exists
+    model: str | None = None  # override the agent model (e.g. for `bench --ablate`)
 
 
 def _dataset_hash(dataset_dir: Path) -> str:
@@ -75,7 +76,10 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
         seed=inputs.seed,
         no_ai=inputs.no_ai,
     )
-    cfg_hash = sha256_hex(canonical_json(cfg.model_dump(mode="json")))[:16]
+    cfg_payload = cfg.model_dump(mode="json")
+    if inputs.model:
+        cfg_payload["agent_model"] = inputs.model
+    cfg_hash = sha256_hex(canonical_json(cfg_payload))[:16]
     run_id = inputs.run_id or _deterministic_run_id(cfg_hash)
 
     existing = fold_run(store, run_id)
@@ -135,31 +139,38 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
             )
 
     # -- CLASSIFYING --
-    if EventType.EXCEPTION_OPENED in seen:
-        return fold_run(store, run_id)
-
-    exceptions = build_exceptions(
-        run_id, records, mr.matches, mr.decompositions, spec, candidates=mr.candidates
-    )
-    for exc in exceptions:
-        store.append(
-            run_id,
-            EventType.EXCEPTION_OPENED,
-            {"exception": exc.model_dump(mode="json")},
+    if EventType.EXCEPTION_OPENED not in seen:
+        exceptions = build_exceptions(
+            run_id, records, mr.matches, mr.decompositions, spec, candidates=mr.candidates
         )
-        if exc.classified_by != "unclassified":
+        for exc in exceptions:
             store.append(
-                run_id,
-                EventType.EXCEPTION_CLASSIFIED,
-                {
-                    "exception_id": exc.id,
-                    "category": exc.category or "UNEXPLAINED",
-                    "classified_by": exc.classified_by,
-                    "confidence": exc.confidence,
-                },
+                run_id, EventType.EXCEPTION_OPENED, {"exception": exc.model_dump(mode="json")}
             )
+            if exc.classified_by != "unclassified":
+                store.append(
+                    run_id,
+                    EventType.EXCEPTION_CLASSIFIED,
+                    {
+                        "exception_id": exc.id,
+                        "category": exc.category or "UNEXPLAINED",
+                        "classified_by": exc.classified_by,
+                        "confidence": exc.confidence,
+                    },
+                )
 
     proj = fold_run(store, run_id)
+
+    # -- INVESTIGATING (the agent — ADR-0004; skipped entirely with --no-ai) --
+    if not inputs.no_ai and EventType.RUN_COMPLETED not in seen:
+        from arbiter_engine.agent.orchestrate import run_investigations
+
+        replaying = EventType.AGENT_INTERACTION in seen
+        run_investigations(store, run_id, proj, spec, replay=replaying, model_override=inputs.model)
+        proj = fold_run(store, run_id)
+
+    if EventType.RUN_COMPLETED in seen:
+        return proj
     counts = {
         "records": proj.record_count,
         "matched_records": len(proj.matched_record_ids),

@@ -1,6 +1,8 @@
 name: ci
 
 on:
+  schedule:
+    - cron: "0 6 * * *"
   push:
     branches: [main]
   pull_request:
@@ -34,7 +36,7 @@ jobs:
           python-version: "3.12"
       - run: uv sync --all-packages
       - name: pytest
-        run: uv run pytest -q --cov=arbiter_engine --cov=arbiter_datagen --cov-report=term-missing
+        run: uv run pytest -q -m "not live" --cov=arbiter_engine --cov=arbiter_datagen --cov-report=term-missing
 
   determinism:
     # isolated so a failure here is unmistakable — this is the anti-cherry-pick gate
@@ -81,3 +83,19 @@ jobs:
         with:
           name: scorecard
           path: scorecard.json
+
+  nightly-live:
+    # the agent against the real API — runs on schedule only, needs the secret
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --all-packages
+      - name: live agent suite
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run pytest -q -m live

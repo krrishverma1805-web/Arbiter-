@@ -8,6 +8,38 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M3: the investigation agent (ADR-0004)
+
+The skeleton FSM gains an `INVESTIGATING` phase. For each `UNEXPLAINED` / `AMBIGUOUS`
+exception (never `SECURITY_REVIEW`), a bounded agent loop runs: `PLAN → INVESTIGATE
+(read-only tools) → HYPOTHESIZE & TEST → DECIDE → Proposal | Escalate`.
+
+- `agent/schemas.py` — strict `Proposal` / `Escalate` pydantic contracts; category is a
+  fixed enum (the agent cannot invent one).
+- `agent/prompts.py` — the frozen, hashed system prompt.
+- `agent/fencing.py` — every untrusted record field wrapped in `<untrusted-record-data>`;
+  the raw `<`/`>` replaced so an injected tag can't close the fence.
+- `agent/tools.py` — 5 read-only tools (`query_evidence`, `counterparty_history`,
+  `similar_exceptions`, `candidate_matches`, `decomposition_detail`) + the task-message
+  builder. **No tool mutates a match, a record, a ledger entry, or money** (docs/14 C3).
+- `agent/client.py` — pluggable `LLMClient`: `AnthropicClient` (real, `claude-opus-5`,
+  adaptive thinking), `RecordedClient` (replays `AGENT_INTERACTION` events — so
+  `arbiter replay` reproduces a run without the API), `ScriptedClient` (offline tests).
+- `agent/investigator.py` — the bounded loop (turn + token budgets; forces the decision
+  on the last turn; malformed output → escalation, never a guess).
+- `agent/orchestrate.py` — drives the phase, emits `AGENT_INVESTIGATION_STARTED`,
+  `AGENT_INTERACTION*`, `AGENT_PROPOSAL_CREATED | AGENT_ESCALATED`; per-run cost ceiling;
+  with no `ANTHROPIC_API_KEY` it escalates *deterministically* (no LLM call) so the run
+  still completes and stays reproducible.
+- `bench` gains the **agent scorecard** (task-completion, category accuracy of proposals,
+  escalation precision/recall, hallucination rate, tool calls, cost) and `--ablate`
+  (`--no-ai` vs haiku/sonnet/opus). `arbiter explain` prints the evidence + the agent's
+  proposal/escalation as text.
+
+`--no-ai` skips the phase entirely. `arbiter replay` and `--rerun` reproduce the exact
+terminal hash (verified). 74 tests + 1 skipped live test; a nightly CI job runs the
+live suite. ruff + mypy(strict) clean.
+
 ## 2026-09-02 — Benchmark correctness fix (the CI `bench` gate)
 
 **Symptom:** the `bench` CI job (which runs on an 800-record batch) would fail its

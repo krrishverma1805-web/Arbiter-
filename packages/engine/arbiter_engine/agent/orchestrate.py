@@ -1,0 +1,194 @@
+"""Drive the INVESTIGATING phase of a run (docs/12 §2).
+
+For each exception whose category is in the spec's `adjudication.invoke_for`
+(and never in `never_invoke_for`), run one bounded investigation and emit:
+  AGENT_INVESTIGATION_STARTED · AGENT_INTERACTION* · (AGENT_PROPOSAL_CREATED | AGENT_ESCALATED)
+
+`--no-ai` skips this phase entirely. `arbiter replay` re-runs it with a
+RecordedClient built from the stored AGENT_INTERACTION events, so a completed run
+reproduces without touching the API.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from arbiter_engine.agent.client import AnthropicClient, LLMClient, RecordedClient, Turn
+from arbiter_engine.agent.investigator import investigate
+from arbiter_engine.agent.prompts import INVESTIGATOR_V1_HASH
+from arbiter_engine.agent.tools import RunSnapshot, Tools
+from arbiter_engine.events.payloads import EventType
+from arbiter_engine.events.store import EventStore
+
+# very rough per-model output pricing ($/Mtok) for the cost ceiling
+_PRICE = {
+    "claude-opus-5": (5.0, 25.0),
+    "claude-haiku-4-5": (1.0, 5.0),
+    "claude-sonnet-5": (2.0, 10.0),
+}
+
+
+def _adjudication(spec: Any) -> dict[str, Any]:
+    return dict(getattr(spec, "adjudication", {}) or {})
+
+
+def in_scope(spec: Any) -> tuple[set[str], set[str]]:
+    adj = _adjudication(spec)
+    invoke = set(adj.get("invoke_for", ["UNEXPLAINED", "AMBIGUOUS"]))
+    never = set(adj.get("never_invoke_for", ["SECURITY_REVIEW"]))
+    return invoke, never
+
+
+def make_client(spec: Any, *, model_override: str | None = None) -> LLMClient:
+    adj = _adjudication(spec)
+    models = adj.get("models", {})
+    model = model_override or models.get("investigate", "claude-opus-5")
+    effort = (adj.get("effort", {}) or {}).get("investigate_default", "medium")
+    return AnthropicClient(model=model, effort=effort)
+
+
+def recorded_client_for(store: EventStore, run_id: str, exception_id: str) -> RecordedClient:
+    turns = [
+        p
+        for t, p in store.iter_payloads(run_id)
+        if t == EventType.AGENT_INTERACTION and p["exception_id"] == exception_id
+    ]
+    turns.sort(key=lambda p: p["turn"])
+    return RecordedClient(turns)
+
+
+def run_investigations(
+    store: EventStore,
+    run_id: str,
+    proj: Any,
+    spec: Any,
+    *,
+    client: LLMClient | None = None,
+    replay: bool = False,
+    model_override: str | None = None,
+) -> None:
+    invoke, never = in_scope(spec)
+    adj = _adjudication(spec)
+    turn_budget = int(adj.get("turn_budget", 6))
+    token_budget = int(adj.get("per_exception_token_budget", 12000))
+    cost_ceiling = float(adj.get("per_run_cost_ceiling_usd", 2.0))
+    thresholds = adj.get("stopping", {"theta_conclude": 0.8, "theta_escalate": 0.55})
+
+    already = {
+        p["exception_id"]
+        for t, p in store.iter_payloads(run_id)
+        if t in (EventType.AGENT_PROPOSAL_CREATED, EventType.AGENT_ESCALATED)
+    }
+    snap = RunSnapshot.from_projection(proj)
+    snap.candidates = {e.id: e.candidates for e in proj.exceptions if e.candidates}
+    spent = 0.0
+
+    targets = sorted(
+        (
+            e
+            for e in proj.exceptions
+            if (e.category in invoke or e.category is None)
+            and e.category not in never
+            and e.id not in already
+        ),
+        key=lambda e: (-abs(e.amount_impact_minor), e.id),
+    )
+
+    for exc in targets:
+        if replay:
+            active: LLMClient = recorded_client_for(store, run_id, exc.id)
+        elif client is not None:
+            active = client
+        elif spent >= cost_ceiling or not os.environ.get("ANTHROPIC_API_KEY"):
+            # no key or ceiling hit → escalate deterministically, no LLM call
+            store.append(
+                run_id,
+                EventType.AGENT_INVESTIGATION_STARTED,
+                {
+                    "exception_id": exc.id,
+                    "category_in": exc.category or "UNEXPLAINED",
+                    "model": "none",
+                    "prompt_hash": INVESTIGATOR_V1_HASH,
+                },
+            )
+            store.append(
+                run_id,
+                EventType.AGENT_ESCALATED,
+                {
+                    "exception_id": exc.id,
+                    "tool_calls": 0,
+                    "turns": 0,
+                    "escalation": {
+                        "kind": "escalate",
+                        "what_i_know": "AI investigation unavailable for this run.",
+                        "what_is_missing": "an ANTHROPIC_API_KEY or remaining cost budget",
+                        "question": "A human should review this exception.",
+                        "reason": "budget",
+                    },
+                },
+            )
+            continue
+        else:
+            active = make_client(spec, model_override=model_override)
+
+        store.append(
+            run_id,
+            EventType.AGENT_INVESTIGATION_STARTED,
+            {
+                "exception_id": exc.id,
+                "category_in": exc.category or "UNEXPLAINED",
+                "model": getattr(active, "model", "?"),
+                "prompt_hash": INVESTIGATOR_V1_HASH,
+            },
+        )
+        inv = investigate(
+            exc,
+            Tools(snap),
+            active,
+            spec,
+            turn_budget=turn_budget,
+            token_budget=token_budget,
+            thresholds=thresholds,
+        )
+        for rec in inv.interactions:
+            store.append(
+                run_id,
+                EventType.AGENT_INTERACTION,
+                {"exception_id": exc.id, **rec},
+                actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
+            )
+        if not replay and client is None:
+            pin, pout = _PRICE.get(getattr(active, "model", ""), (5.0, 25.0))
+            spent += inv.tokens_in / 1e6 * pin + inv.tokens_out / 1e6 * pout
+
+        if inv.outcome == "proposal" and inv.proposal is not None:
+            store.append(
+                run_id,
+                EventType.AGENT_PROPOSAL_CREATED,
+                {
+                    "exception_id": exc.id,
+                    "proposal": inv.proposal.model_dump(mode="json"),
+                    "tool_calls": inv.tool_calls,
+                    "turns": inv.turns,
+                    "tokens_in": inv.tokens_in,
+                    "tokens_out": inv.tokens_out,
+                },
+                actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
+            )
+        else:
+            esc = inv.escalation.model_dump(mode="json") if inv.escalation else {}
+            store.append(
+                run_id,
+                EventType.AGENT_ESCALATED,
+                {
+                    "exception_id": exc.id,
+                    "escalation": esc,
+                    "tool_calls": inv.tool_calls,
+                    "turns": inv.turns,
+                },
+                actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
+            )
+
+
+__all__ = ["run_investigations", "make_client", "Turn"]

@@ -35,6 +35,25 @@ class ExceptionScore:
 
 
 @dataclass
+class AgentScore:
+    enabled: bool = False
+    model: str = "none"
+    investigations: int = 0
+    proposals: int = 0
+    escalations: int = 0
+    escalation_reasons: dict[str, int] = field(default_factory=dict)
+    task_completion_rate: float = 0.0  # correct proposal OR justified escalation
+    category_accuracy: float = 0.0  # of proposals, how many match the true category
+    escalation_precision: float = 0.0
+    escalation_recall: float = 0.0
+    hallucination_rate: float = 0.0  # evidence_refs pointing at records not in the exception
+    tool_calls: int = 0
+    tokens_in: int = 0
+    tokens_out: int = 0
+    est_cost_usd: float = 0.0
+
+
+@dataclass
 class Scorecard:
     run_id: str
     spec: str
@@ -43,7 +62,7 @@ class Scorecard:
     exceptions: ExceptionScore
     throughput: dict[str, float]
     determinism: dict[str, Any]
-    ai: dict[str, Any] = field(default_factory=lambda: {"enabled": False, "note": "M3"})
+    agent: AgentScore = field(default_factory=AgentScore)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,7 +73,7 @@ class Scorecard:
             "exceptions": asdict(self.exceptions),
             "throughput": self.throughput,
             "determinism": self.determinism,
-            "ai": self.ai,
+            "agent": asdict(self.agent),
         }
 
 
@@ -72,6 +91,7 @@ def score_run(
     spec_name: str,
     wallclock_ms: int,
     replay_hash_match: bool,
+    agent_events: list[tuple[str, dict[str, Any]]] | None = None,
 ) -> Scorecard:
     gt = _load_ground_truth(dataset_dir)
     true_matches = gt["true_matches"]
@@ -171,6 +191,7 @@ def score_run(
     )
 
     rps = round(proj.record_count / (wallclock_ms / 1000), 1) if wallclock_ms else 0.0
+    agent = _score_agent(proj, anomalies, agent_events or [])
 
     return Scorecard(
         run_id=proj.run_id,
@@ -186,4 +207,88 @@ def score_run(
         exceptions=exceptions,
         throughput={"records_per_sec": rps, "wallclock_ms": wallclock_ms},
         determinism={"replay_hash_match": replay_hash_match},
+        agent=agent,
+    )
+
+
+_PRICE_M = {
+    "claude-opus-5": (5.0, 25.0),
+    "claude-haiku-4-5": (1.0, 5.0),
+    "claude-sonnet-5": (2.0, 10.0),
+}
+
+
+def _score_agent(
+    proj: RunProjection, anomalies: list[dict[str, Any]], events: list[tuple[str, dict[str, Any]]]
+) -> AgentScore:
+    from arbiter_engine.events.payloads import EventType
+
+    started = [p for t, p in events if t == EventType.AGENT_INVESTIGATION_STARTED]
+    interactions = [p for t, p in events if t == EventType.AGENT_INTERACTION]
+    props = [p for t, p in events if t == EventType.AGENT_PROPOSAL_CREATED]
+    escs = [p for t, p in events if t == EventType.AGENT_ESCALATED]
+    if not started:
+        return AgentScore(enabled=False)
+
+    model = next((s["model"] for s in started if s.get("model") not in (None, "none")), "none")
+    reasons: dict[str, int] = {}
+    for ev in escs:
+        r = (ev.get("escalation") or {}).get("reason", "?")
+        reasons[r] = reasons.get(r, 0) + 1
+
+    # true category for each investigated exception, from the anomaly labels
+    rec_id_by_entity = {r.external_ids.get("entity_id", r.id): r.id for r in proj.records}
+    true_cat_by_exc: dict[str, str] = {}
+    needs_human: set[str] = set()
+    exc_by_id = {e.id: e for e in proj.exceptions}
+    for a in anomalies:
+        rids = {rec_id_by_entity.get(x) for x in a.get("record_ids", [])}
+        for exc in proj.exceptions:
+            if rids & set(exc.record_ids):
+                true_cat_by_exc[exc.id] = a["true_category"]
+                if not a.get("deterministically_resolvable", True):
+                    needs_human.add(exc.id)
+
+    correct_props = 0
+    for p in props:
+        want = true_cat_by_exc.get(p["exception_id"])
+        got = (p.get("proposal") or {}).get("category")
+        if want and got == want:
+            correct_props += 1
+
+    esc_ids = {ev["exception_id"] for ev in escs}
+    esc_correct = len(esc_ids & needs_human)
+    esc_precision = esc_correct / len(esc_ids) if esc_ids else 0.0
+    esc_recall = esc_correct / len(needs_human) if needs_human else 0.0
+
+    # hallucination: an evidence_ref record_id not among the exception's records
+    halluc = 0
+    for p in props:
+        matched_exc = exc_by_id.get(p["exception_id"])
+        allowed = set(matched_exc.record_ids) if matched_exc else set()
+        for ref in (p.get("proposal") or {}).get("evidence_refs", []):
+            if allowed and ref.get("record_id") not in allowed:
+                halluc += 1
+                break
+
+    completed = correct_props + esc_correct
+    tin = sum(i.get("tokens_in", 0) for i in interactions)
+    tout = sum(i.get("tokens_out", 0) for i in interactions)
+    pin, pout = _PRICE_M.get(model, (0.0, 0.0))
+    return AgentScore(
+        enabled=True,
+        model=model,
+        investigations=len(started),
+        proposals=len(props),
+        escalations=len(escs),
+        escalation_reasons=dict(sorted(reasons.items())),
+        task_completion_rate=round(completed / len(started), 4) if started else 0.0,
+        category_accuracy=round(correct_props / len(props), 4) if props else 0.0,
+        escalation_precision=round(esc_precision, 4),
+        escalation_recall=round(esc_recall, 4),
+        hallucination_rate=round(halluc / len(props), 4) if props else 0.0,
+        tool_calls=sum(len(i.get("tool_calls", [])) for i in interactions),
+        tokens_in=tin,
+        tokens_out=tout,
+        est_cost_usd=round(tin / 1e6 * pin + tout / 1e6 * pout, 4),
     )

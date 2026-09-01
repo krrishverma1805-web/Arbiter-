@@ -85,31 +85,46 @@ def run(
     typer.echo(f"  terminal hash    : {verify['terminal_hash'][:16]}…")
 
 
+def _bench_once(spec: Path, dataset: Path, *, no_ai: bool, model: str | None, db: str | None):  # type: ignore[no-untyped-def]
+    store = _store(db) if db else EventStore("sqlite://")
+    proj = execute(store, RunInputs(spec_path=spec, dataset_dir=dataset, no_ai=no_ai, model=model))
+    store2 = EventStore("sqlite://")
+    proj2 = execute(
+        store2, RunInputs(spec_path=spec, dataset_dir=dataset, no_ai=no_ai, model=model)
+    )
+    replay_ok = (
+        store.verify(proj.run_id)["terminal_hash"] == store2.verify(proj2.run_id)["terminal_hash"]
+    )
+    agent_events = [(t, p) for t, p in store.iter_payloads(proj.run_id) if t.startswith("AGENT_")]
+    card = score_run(
+        proj,
+        dataset,
+        spec_name=spec.stem,
+        wallclock_ms=_run_wallclock(store, proj.run_id),
+        replay_hash_match=replay_ok,
+        agent_events=agent_events,
+    )
+    return store, proj, card
+
+
 @app.command()
 def bench(
     spec: Path = typer.Option(..., "--spec"),
     dataset: Path = typer.Option(..., "--dataset"),
     no_ai: bool = typer.Option(False, "--no-ai"),
     calibration: bool = typer.Option(False, "--calibration", help="also run the calibration study"),
+    ablate: bool = typer.Option(False, "--ablate", help="--no-ai vs haiku vs sonnet vs opus"),
+    model: str | None = typer.Option(None, "--model", help="override the agent model"),
     db: str | None = typer.Option(None, "--db"),
     out: Path | None = typer.Option(None, "--out", help="write scorecard.json here"),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Run a reconciliation and score it against the dataset's ground truth."""
-    store = _store(db)
-    proj = execute(store, RunInputs(spec_path=spec, dataset_dir=dataset, no_ai=no_ai))
+    if ablate:
+        _run_ablation(spec, dataset)
+        return
 
-    # determinism check: a second run must reproduce the hash chain
-    store2 = EventStore("sqlite://")
-    proj2 = execute(store2, RunInputs(spec_path=spec, dataset_dir=dataset, no_ai=no_ai))
-    replay_ok = (
-        store.verify(proj.run_id)["terminal_hash"] == store2.verify(proj2.run_id)["terminal_hash"]
-    )
-
-    wallclock = _run_wallclock(store, proj.run_id)
-    card = score_run(
-        proj, dataset, spec_name=f"{spec.stem}", wallclock_ms=wallclock, replay_hash_match=replay_ok
-    )
+    store, proj, card = _bench_once(spec, dataset, no_ai=no_ai, model=model, db=db)
     payload = card.to_dict()
 
     if calibration:
@@ -136,11 +151,70 @@ def bench(
         typer.echo(json.dumps(payload, indent=2))
     else:
         _print_scorecard(card)
+        _print_agent(payload["agent"])
         if calibration:
             _print_calibration(payload["calibration"])
     if out:
         out.write_text(json.dumps(payload, indent=2))
         typer.echo(f"\n→ {out}")
+
+
+def _run_ablation(spec: Path, dataset: Path) -> None:
+    """Compare --no-ai vs the model tiers on the same dataset (docs/12 §5)."""
+    import os as _os
+
+    configs: list[tuple[str, bool, str | None]] = [("--no-ai", True, None)]
+    if _os.environ.get("ANTHROPIC_API_KEY"):
+        configs += [
+            ("haiku", False, "claude-haiku-4-5"),
+            ("sonnet", False, "claude-sonnet-5"),
+            ("opus", False, "claude-opus-5"),
+        ]
+    typer.secho("\nAblation — accuracy × cost × latency", bold=True)
+    typer.echo(
+        f"  {'config':<10} {'cat.acc':>8} {'task.compl':>10} {'esc.recall':>10} {'cost$':>8}"
+    )
+    baseline_cat = None
+    for name, na, mdl in configs:
+        _s, _p, card = _bench_once(spec, dataset, no_ai=na, model=mdl, db=None)
+        a = card.agent
+        cat = card.exceptions.category_accuracy
+        if baseline_cat is None:
+            baseline_cat = cat
+        lift = (
+            f"  (lift {cat - baseline_cat:+.1%})"
+            if baseline_cat is not None and name != "--no-ai"
+            else ""
+        )
+        typer.echo(
+            f"  {name:<10} {cat:>7.1%} {a.task_completion_rate:>9.1%} "
+            f"{a.escalation_recall:>9.1%} {a.est_cost_usd:>7.2f}{lift}"
+        )
+    if len(configs) == 1:
+        typer.secho(
+            "  (set ANTHROPIC_API_KEY to include the model tiers)", fg=typer.colors.BRIGHT_BLACK
+        )
+
+
+def _print_agent(a: dict) -> None:  # type: ignore[type-arg]
+    if not a.get("enabled"):
+        typer.secho("  agent              disabled (--no-ai)", fg=typer.colors.BRIGHT_BLACK)
+        return
+    typer.secho(f"\n  agent — {a['model']}", bold=True)
+    typer.echo(
+        f"    investigations   {a['investigations']}  "
+        f"({a['proposals']} proposals, {a['escalations']} escalations {a['escalation_reasons']})"
+    )
+    typer.echo(f"    task-completion  {a['task_completion_rate']:.1%}")
+    typer.echo(f"    category acc.    {a['category_accuracy']:.1%}   (of proposals)")
+    typer.echo(
+        f"    escalation P/R   {a['escalation_precision']:.1%} / {a['escalation_recall']:.1%}"
+    )
+    typer.echo(f"    hallucination    {a['hallucination_rate']:.1%}")
+    typer.echo(
+        f"    cost             ${a['est_cost_usd']:.3f}  "
+        f"({a['tool_calls']} tool calls, {a['tokens_in']}+{a['tokens_out']} tok)"
+    )
 
 
 def _print_calibration(c: dict) -> None:  # type: ignore[type-arg]
@@ -191,7 +265,6 @@ def _print_scorecard(card) -> None:  # type: ignore[no-untyped-def]
     typer.echo(f"    records/sec      {card.throughput['records_per_sec']}")
     mark = "✓" if card.determinism["replay_hash_match"] else "✗ MISMATCH"
     typer.echo(f"    deterministic    {mark}")
-    typer.secho("  AI                 disabled (agent lands in M3)", fg=typer.colors.BRIGHT_BLACK)
 
 
 @app.command()
@@ -250,7 +323,66 @@ def events(run_id: str = typer.Argument(...), db: str | None = typer.Option(None
     """Dump the raw event log for a run."""
     store = _store(db)
     for ev in store.events(run_id):
-        typer.echo(f"{ev.seq:>4}  {ev.type:<18}  {ev.actor:<10}  {ev.hash[:12]}")
+        typer.echo(f"{ev.seq:>4}  {ev.type:<26}  {ev.actor:<28}  {ev.hash[:12]}")
+
+
+@app.command()
+def explain(
+    run_id: str = typer.Argument(..., help="run id (or 'last')"),
+    exception_id: str | None = typer.Argument(None),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """Print the evidence for a run's exceptions, as text (docs/05 §6)."""
+    from arbiter_engine.events.fold import fold_run
+    from arbiter_engine.money import format_minor
+
+    store = _store(db)
+    rid = store.runs()[-1] if run_id == "last" else run_id
+    proj = fold_run(store, rid)
+    targets = [e for e in proj.exceptions if exception_id in (None, e.id)]
+    if not targets:
+        typer.secho("no matching exception", fg=typer.colors.YELLOW)
+        raise typer.Exit(1)
+    recs = {r.id: r for r in proj.records}
+    for e in targets:
+        typer.secho(f"\n{e.id}  {e.category or 'UNCLASSIFIED'}  [{e.status}]", bold=True)
+        typer.echo(f"  impact       {format_minor(e.amount_impact_minor)}")
+        typer.echo(f"  classified   {e.classified_by}")
+        for rid_ in e.record_ids:
+            r = recs.get(rid_)
+            if r:
+                typer.echo(
+                    f"  · {r.source:<15} {r.kind:<10} {format_minor(r.amount_minor):>14}  "
+                    f"{r.reference or ''}"
+                )
+        d = next(
+            (
+                d
+                for d in proj.decompositions
+                if any(
+                    recs.get(x) and recs[x].external_ids.get("settlement_utr") == d.settlement_utr
+                    for x in e.record_ids
+                )
+            ),
+            None,
+        )
+        if d:
+            typer.echo(
+                f"  identity     expected {format_minor(d.expected_minor)}  "
+                f"actual {format_minor(d.actual_minor)}  residual {format_minor(d.residual_minor)}"
+            )
+        if e.agent_proposal:
+            p = e.agent_proposal
+            typer.secho("  proposed by Arbiter:", fg=typer.colors.CYAN)
+            typer.echo(f"    {p.get('category')} (confidence {p.get('confidence')})")
+            typer.echo(f"    {p.get('explanation')}")
+            typer.echo(f"    action: {p.get('suggested_action')}")
+        if e.agent_escalation:
+            esc = e.agent_escalation
+            typer.secho("  escalated by Arbiter:", fg=typer.colors.CYAN)
+            typer.echo(f"    knows:   {esc.get('what_i_know')}")
+            typer.echo(f"    missing: {esc.get('what_is_missing')}")
+            typer.echo(f"    ASK:     {esc.get('question')}")
 
 
 @app.command()

@@ -41,9 +41,8 @@ def test_adversarial_scorecard_is_honest(adversarial_dataset: Path, spec_path: P
         "exceptions",
         "throughput",
         "determinism",
-        "ai",
+        "agent",
     }
-    assert d["ai"]["enabled"] is False  # agent lands in M3
 
 
 def test_scorecard_is_serializable(adversarial_dataset: Path, spec_path: Path):

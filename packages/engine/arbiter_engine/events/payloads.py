@@ -24,6 +24,10 @@ class EventType(StrEnum):
     DECOMPOSITION_COMPUTED = "DECOMPOSITION_COMPUTED"
     EXCEPTION_OPENED = "EXCEPTION_OPENED"
     EXCEPTION_CLASSIFIED = "EXCEPTION_CLASSIFIED"
+    AGENT_INVESTIGATION_STARTED = "AGENT_INVESTIGATION_STARTED"
+    AGENT_INTERACTION = "AGENT_INTERACTION"
+    AGENT_PROPOSAL_CREATED = "AGENT_PROPOSAL_CREATED"
+    AGENT_ESCALATED = "AGENT_ESCALATED"
     SCORECARD_COMPUTED = "SCORECARD_COMPUTED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_PURGED = "RUN_PURGED"
@@ -87,6 +91,40 @@ class ExceptionClassified(BaseModel):
     confidence: float | None = None
 
 
+class AgentInvestigationStarted(BaseModel):
+    exception_id: str
+    category_in: str
+    model: str
+    prompt_hash: str
+
+
+class AgentInteraction(BaseModel):
+    exception_id: str
+    turn: int
+    stop_reason: str
+    text: str = ""
+    tool_calls: list[dict[str, Any]] = []
+    structured: dict[str, Any] | None = None
+    tokens_in: int = 0
+    tokens_out: int = 0
+
+
+class AgentProposalCreated(BaseModel):
+    exception_id: str
+    proposal: dict[str, Any]
+    tool_calls: int
+    turns: int
+    tokens_in: int
+    tokens_out: int
+
+
+class AgentEscalated(BaseModel):
+    exception_id: str
+    escalation: dict[str, Any]
+    tool_calls: int
+    turns: int
+
+
 class ScorecardComputed(BaseModel):
     scorecard: dict[str, Any]
 
@@ -112,6 +150,10 @@ EVENT_PAYLOADS: dict[EventType, type[BaseModel]] = {
     EventType.DECOMPOSITION_COMPUTED: DecompositionComputed,
     EventType.EXCEPTION_OPENED: ExceptionOpened,
     EventType.EXCEPTION_CLASSIFIED: ExceptionClassified,
+    EventType.AGENT_INVESTIGATION_STARTED: AgentInvestigationStarted,
+    EventType.AGENT_INTERACTION: AgentInteraction,
+    EventType.AGENT_PROPOSAL_CREATED: AgentProposalCreated,
+    EventType.AGENT_ESCALATED: AgentEscalated,
     EventType.SCORECARD_COMPUTED: ScorecardComputed,
     EventType.RUN_COMPLETED: RunCompleted,
     EventType.RUN_PURGED: RunPurged,
