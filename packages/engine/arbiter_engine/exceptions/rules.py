@@ -108,9 +108,27 @@ class RuleError(ValueError):
 
 _BANNED_NAMES = frozenset(
     {
-        "__import__", "eval", "exec", "compile", "open", "input", "globals", "locals",
-        "vars", "getattr", "setattr", "delattr", "hasattr", "type", "object", "super",
-        "breakpoint", "help", "exit", "quit", "memoryview",
+        "__import__",
+        "eval",
+        "exec",
+        "compile",
+        "open",
+        "input",
+        "globals",
+        "locals",
+        "vars",
+        "getattr",
+        "setattr",
+        "delattr",
+        "hasattr",
+        "type",
+        "object",
+        "super",
+        "breakpoint",
+        "help",
+        "exit",
+        "quit",
+        "memoryview",
     }
 )
 
@@ -125,9 +143,7 @@ def compile_rule(expr: str) -> ast.Expression:
             raise RuleError(f"disallowed expression element {type(node).__name__} in {expr!r}")
         if isinstance(node, ast.Attribute) and node.attr.startswith("_"):
             raise RuleError(f"private attribute access is not allowed: {expr!r}")
-        if isinstance(node, ast.Name) and (
-            node.id.startswith("__") or node.id in _BANNED_NAMES
-        ):
+        if isinstance(node, ast.Name) and (node.id.startswith("__") or node.id in _BANNED_NAMES):
             raise RuleError(f"disallowed name {node.id!r} in {expr!r}")
     return tree
 

@@ -51,3 +51,35 @@ def test_scorecard_is_serializable(adversarial_dataset: Path, spec_path: Path):
 
     card = _score(adversarial_dataset, spec_path)
     json.dumps(card.to_dict())  # must not raise
+
+
+def test_scorecard_holds_at_scale(tmp_path: Path, spec_path: Path):
+    """The CI gate runs on 800 records; the false-match rate must stay low there
+    and the anomaly density must stay realistic (a minority of batches)."""
+    from arbiter_datagen.generate import generate_dataset
+
+    ds = tmp_path / "scale"
+    generate_dataset(scenario="d2c", records=800, seed=42, out_dir=ds, difficulty="normal")
+    card = _score(ds, spec_path)
+    assert card.matching.false_match_rate <= 0.015, card.matching.false_match_rate
+    assert card.matching.auto_match_rate >= 0.80, card.matching.auto_match_rate
+
+    import json
+
+    gt = json.loads((ds / "ground_truth.json").read_text())
+    n_batches = 800 // 6
+    assert len(gt["anomalies"]) <= n_batches * 0.25  # anomalies are a minority
+
+
+def test_hard_difficulty_degrades_visibly(tmp_path: Path):
+    from arbiter_datagen.generate import generate_dataset
+
+    normal = tmp_path / "n"
+    hard = tmp_path / "h"
+    generate_dataset(scenario="d2c", records=400, seed=3, out_dir=normal, difficulty="normal")
+    generate_dataset(scenario="d2c", records=400, seed=3, out_dir=hard, difficulty="hard")
+    import json
+
+    n_anom = len(json.loads((normal / "ground_truth.json").read_text())["anomalies"])
+    h_anom = len(json.loads((hard / "ground_truth.json").read_text())["anomalies"])
+    assert h_anom > n_anom

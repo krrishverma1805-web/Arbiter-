@@ -78,47 +78,59 @@ def score_run(
     anomalies = gt["anomalies"]
 
     # --- matching ---
+    # Batches that SHOULD auto-tie: the clean ones, plus anomalies whose correct
+    # resolution is "accept the variance" (ROUNDING / SPLIT_SETTLEMENT).
     true_by_utr = {m["settlement_utr"]: m for m in true_matches}
-    pred_by_utr = {m.id.removeprefix("m_"): m for m in proj.matches if m.id.startswith("m_")}
-    # a predicted match on an anomaly UTR whose correct resolution is "accept the
-    # variance" (ROUNDING, SPLIT_SETTLEMENT) is a *correct* auto-tie, not a false one
     benign_utrs = {
         a["settlement_utr"]
         for a in anomalies
         if a.get("settlement_utr") and a["true_resolution"].get("action") == "accept_variance"
     }
-    correct = 0
-    false_matches = 0
-    for utr, pred in pred_by_utr.items():
-        ties = abs(pred.residual_minor) <= 100
-        if utr in true_by_utr and ties or utr in benign_utrs and ties:
-            correct += 1
-        else:
-            false_matches += 1
+    should_tie = set(true_by_utr) | benign_utrs
+
+    pred_by_utr = {m.id.removeprefix("m_"): m for m in proj.matches if m.id.startswith("m_")}
     predicted = len(pred_by_utr)
-    n_true = len(true_matches) + len(benign_utrs)
+
+    exc_records = {rid for e in proj.exceptions for rid in e.record_ids}
+    flagged_utrs = {utr for utr, m in pred_by_utr.items() if exc_records & set(m.all_ids)}
+
+    def _ties(m: object) -> bool:
+        return bool(abs(int(getattr(m, "residual_minor", 0))) <= 100)
+
+    correct_on_should = sum(
+        1 for utr in should_tie if utr in pred_by_utr and _ties(pred_by_utr[utr])
+    )
+    # false match: matcher auto-tied a batch whose identity does NOT close and no
+    # exception flagged it
+    false_matches = sum(
+        1
+        for utr, m in pred_by_utr.items()
+        if m.status == "auto" and not _ties(m) and utr not in flagged_utrs
+    )
+    legit_ties = sum(1 for m in pred_by_utr.values() if _ties(m))
+    n_should = len(should_tie) or 1
 
     total_dollar = sum(abs(m["expected_net_minor"]) for m in true_matches) or 1
     covered_dollar = sum(
         abs(true_by_utr[utr]["expected_net_minor"])
         for utr in pred_by_utr
-        if utr in true_by_utr and abs(pred_by_utr[utr].residual_minor) <= 100
+        if utr in true_by_utr and _ties(pred_by_utr[utr])
     )
     unexplained_dollar = sum(
         abs(e.amount_impact_minor) for e in proj.exceptions if e.category == "UNEXPLAINED"
     )
 
     matching = MatchingScore(
-        auto_match_rate=round(correct / n_true, 4) if n_true else 0.0,
-        precision=round(correct / predicted, 4) if predicted else 0.0,
-        recall=round(correct / n_true, 4) if n_true else 0.0,
+        auto_match_rate=round(correct_on_should / n_should, 4),
+        precision=round(legit_ties / predicted, 4) if predicted else 0.0,
+        recall=round(correct_on_should / n_should, 4),
         false_match_rate=round(false_matches / predicted, 4) if predicted else 0.0,
         low_confidence=sum(1 for m in proj.matches if m.status == "low_confidence"),
         dollar_coverage=round(covered_dollar / total_dollar, 4),
         dollar_unexplained=round(unexplained_dollar / total_dollar, 4),
-        true_matches=n_true,
+        true_matches=len(should_tie),
         predicted_matches=predicted,
-        correct_matches=correct,
+        correct_matches=correct_on_should,
     )
 
     # --- exceptions / classifier ---
@@ -166,7 +178,7 @@ def score_run(
         dataset={
             "dir": str(dataset_dir),
             "records": proj.record_count,
-            "true_matches": n_true,
+            "true_matches": len(should_tie),
             "anomalies": len(anomalies),
             "difficulty": gt.get("difficulty", "unknown"),
         },

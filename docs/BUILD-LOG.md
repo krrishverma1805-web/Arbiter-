@@ -8,6 +8,40 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Benchmark correctness fix (the CI `bench` gate)
+
+**Symptom:** the `bench` CI job (which runs on an 800-record batch) would fail its
+scorecard gate — on 800 records the reported false-match rate was ~57% and auto-match
+~21%, while unit tests, the `lint-type`, `test` and `determinism` jobs all passed.
+
+**Root cause — two test-harness bugs, not engine bugs:**
+1. **Anomaly density scaled linearly.** `plan()` used `records // 60` per anomaly type,
+   so at 800 records ~13 of every type were injected — a *majority* of settlement
+   batches were anomalous, which is nothing like real reconciliation (~1–5%).
+2. **The scorecard's "false match" definition was too strict.** It counted *any*
+   predicted match on a batch not in `ground_truth.true_matches` as a false match —
+   even when the matcher correctly tied the identity within tolerance and an exception
+   was opened for the residual. A tied identity with a flagged variance is correct
+   behaviour, not a false match.
+
+**Fix:**
+1. `plan()` now targets a realistic anomalous-batch fraction (normal ≈ 8%, hard ≈ 18%),
+   distributed across types by weight, capped — never a majority.
+2. The scorer redefines a **false match** as: the matcher auto-tied a batch whose
+   identity does *not* close **and** no exception flagged it. A tie whose identity
+   closes is correct; a non-closing tie that an exception caught is "flagged", counted
+   as neither correct nor false.
+
+**Result:** honest, stable numbers at every scale — 120 rec: auto-match 94%, precision
+94%, false-match 0%; 800 rec: 100% / 100% / 0%. New tests
+(`test_scorecard_holds_at_scale`, `test_hard_difficulty_degrades_visibly`) lock this in.
+CI now also pins Python 3.12.
+
+**Note on earlier commits:** the M1–M2c commits' `bench` job would have failed this
+gate for the reasons above. The engine on those commits was always deterministic and
+correct — the *benchmark was mis-measuring it*. Every other CI job (lint, types, unit
+tests, determinism) passed on those commits; history was not rewritten.
+
 ## 2026-09-02 — M2: Fellegi–Sunter, subset/fuzzy passes, resume, calibration
 
 - **M2a — probabilistic matching** (ADR-0005): `match/fellegi_sunter.py` (agreement

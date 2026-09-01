@@ -67,25 +67,38 @@ class BatchCtx:
             self.batches[utr]["bank_override"] = self.clean_net[utr]
 
 
+# Relative weights for how a fixed anomaly budget is split across types.
+_MIX: dict[str, float] = {
+    "FEE_DRIFT": 3.0,
+    "GST_ROUND": 3.0,
+    "TIMING_STRADDLE": 2.0,
+    "DUP_EXPORT": 1.0,
+    "SPLIT_BATCH": 1.5,
+    "PARTIAL_CAPTURE": 1.5,
+    "CHARGEBACK_LATE": 1.0,
+    "MISSING_UTR": 1.0,
+    "ORPHAN_CREDIT": 1.0,
+    "WRONG_ACCT": 0.8,
+}
+
+
 def plan(records: int, difficulty: str) -> dict[str, int]:
-    """Fixed anomaly counts for a batch size + difficulty. Deterministic."""
-    base = max(1, records // 60)  # ~1 of each per 60 orders
-    mult = {"easy": 0, "normal": 1, "hard": 2}.get(difficulty, 1)
-    if mult == 0:
+    """Anomaly counts for a batch size + difficulty. Deterministic.
+
+    Realistic: a real settlement statement has an issue on a small minority of
+    payout batches. With ~6 orders per settlement batch, `normal` puts an anomaly
+    on ~8% of batches, `hard` on ~18% — never a majority.
+    """
+    if difficulty == "easy":
         return {}
-    return {
-        "FEE_DRIFT": base * mult,
-        "GST_ROUND": base * mult,
-        "TIMING_STRADDLE": max(1, base) * mult,
-        "DUP_EXPORT": max(1, base // 2) * mult,
-        "SPLIT_BATCH": max(1, base // 2) * mult,
-        "PARTIAL_CAPTURE": max(1, base // 2) * mult,
-        "CHARGEBACK_LATE": max(1, base // 2) * mult,
-        "MISSING_UTR": max(1, base // 2) * mult,
-        "ORPHAN_CREDIT": max(1, base // 3) * mult,
-        "WRONG_ACCT": max(1, base // 3) * mult,
-        "INJECTION_NOTE": 1,  # always exactly one, so the control is visibly exercised
-    }
+    n_batches = max(1, records // 6)
+    frac = {"normal": 0.08, "hard": 0.18}.get(difficulty, 0.08)
+    budget = max(6, round(n_batches * frac))
+
+    total_weight = sum(_MIX.values())
+    counts = {k: max(1, round(budget * w / total_weight)) for k, w in _MIX.items()}
+    counts["INJECTION_NOTE"] = 1  # always exactly one — the security control is visibly exercised
+    return counts
 
 
 def inject(ctx: BatchCtx, counts: dict[str, int]) -> list[Anomaly]:
