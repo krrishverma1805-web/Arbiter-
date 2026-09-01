@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from typing import Any
 
 INJECTION_STRING = (
@@ -57,7 +58,13 @@ class BatchCtx:
     rng: random.Random
     gst_rate: float
     period_end_iso: str
+    clean_net: dict[str, int] = field(default_factory=dict)  # utr -> net before anomalies
     orphan_credits: list[int] = field(default_factory=list)
+
+    def freeze_bank(self, utr: str) -> None:
+        """The bank paid the pre-anomaly amount; the processor file is what's wrong."""
+        if utr in self.clean_net:
+            self.batches[utr]["bank_override"] = self.clean_net[utr]
 
 
 def plan(records: int, difficulty: str) -> dict[str, int]:
@@ -114,6 +121,7 @@ def _fee_drift(ctx: BatchCtx, aid: str) -> Anomaly | None:
     r["fee"] = str(new_fee)
     r["tax"] = str(int(round(new_fee * ctx.gst_rate)))
     impact = (new_fee - original_fee) + (int(r["tax"]) - int(round(original_fee * ctx.gst_rate)))
+    ctx.freeze_bank(r["settlement_utr"])  # bank paid the un-inflated amount
     return Anomaly(
         id=aid,
         kind="FEE_DRIFT",
@@ -134,6 +142,7 @@ def _gst_round(ctx: BatchCtx, aid: str) -> Anomaly | None:
     r = ctx.rng.choice(rows)
     drift = ctx.rng.choice([-2, -1, 1, 2])
     r["tax"] = str(max(0, int(r["tax"]) + drift))
+    ctx.freeze_bank(r["settlement_utr"])
     return Anomaly(
         id=aid,
         kind="GST_ROUND",
@@ -148,11 +157,23 @@ def _gst_round(ctx: BatchCtx, aid: str) -> Anomaly | None:
 
 
 def _timing_straddle(ctx: BatchCtx, aid: str) -> Anomaly | None:
-    # push a whole batch's settlement past the period end
-    late = [u for u, b in ctx.batches.items() if b["settled"].isoformat() < ctx.period_end_iso]
+    # push a whole batch's settlement 1-2 days past the period end: the processor
+    # report has these payments in this period, but the bank credit lands next month.
+    late = [
+        u
+        for u, b in ctx.batches.items()
+        if b["settled"].isoformat() < ctx.period_end_iso and not b.get("protected")
+    ]
     if not late:
         return None
     utr = ctx.rng.choice(sorted(late))
+    period_end = date.fromisoformat(ctx.period_end_iso)
+    new_settled = period_end + timedelta(days=ctx.rng.randint(1, 2))
+    ts = int(datetime(new_settled.year, new_settled.month, new_settled.day, 5).timestamp())
+    ctx.batches[utr]["settled"] = new_settled
+    for it in ctx.batches[utr]["items"]:
+        it["settled_at"] = str(ts)
+        it["settlement_id"] = f"setl_{new_settled.isoformat()}"
     return Anomaly(
         id=aid,
         kind="TIMING_STRADDLE",
@@ -181,6 +202,7 @@ def _dup_export(ctx: BatchCtx, aid: str) -> Anomaly | None:
     idx = ctx.recon_rows.index(r)
     ctx.recon_rows.insert(idx + 1, dup)
     ctx.batches[r["settlement_utr"]]["items"].append(dup)
+    ctx.freeze_bank(r["settlement_utr"])  # the bank paid once; the file lists it twice
     return Anomaly(
         id=aid,
         kind="DUP_EXPORT",
@@ -257,6 +279,7 @@ def _chargeback_late(ctx: BatchCtx, aid: str) -> Anomaly | None:
     if not later:
         return None
     utr = ctx.rng.choice(sorted(later))
+    ctx.batches[utr]["protected"] = True  # don't let a later injector drop this batch
     amt = int(victim["credit"])
     fee = 2500  # ₹25 chargeback fee
     cb = {
@@ -332,7 +355,9 @@ def _wrong_acct(ctx: BatchCtx, aid: str) -> Anomaly | None:
     utrs = [
         u
         for u, b in ctx.batches.items()
-        if b["settled"].isoformat() < ctx.period_end_iso and not b.get("drop_bank")
+        if b["settled"].isoformat() < ctx.period_end_iso
+        and not b.get("drop_bank")
+        and not b.get("protected")
     ]
     if not utrs:
         return None

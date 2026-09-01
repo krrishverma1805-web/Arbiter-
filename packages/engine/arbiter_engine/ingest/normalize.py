@@ -17,7 +17,10 @@ from arbiter_engine.money import MoneyParseError, to_minor
 from arbiter_engine.specs.model import SourceSpec
 
 _CARD_RE = re.compile(r"\b(?:\d[ -]?){13,19}\b")
-_UTR_RE = re.compile(r"\b([A-Z]{2,6}[A-Za-z0-9]{6,22}|\d{12,22})\b")
+# 1. a token immediately after the label "UTR" / "UTR NO" / "REF" (common bank format)
+_UTR_LABELLED = re.compile(r"\b(?:UTR|RRN|REF|TXN)[\s:.#-]*(?:NO[\s:.#-]*)?([A-Z0-9]{10,25})\b")
+# 2. fallback: a long alphanumeric token that contains digits (a bare reference number)
+_UTR_BARE = re.compile(r"\b(?=[A-Z0-9]*\d)([A-Z]{0,6}\d[A-Z0-9]{9,24})\b")
 
 _UNTRUSTED_DEFAULT = {"description", "notes", "narration"}
 
@@ -191,10 +194,25 @@ def _derive(expr: str, row: dict[str, str], cols: dict[str, str]) -> str | None:
     m = re.fullmatch(r"extract_utr\((\w+)\)", expr)
     if m:
         src = _pick(row, cols.get(m.group(1), m.group(1)))
-        if src:
-            found = _UTR_RE.search(str(src).upper())
-            return found.group(1) if found else None
+        return extract_utr(src)
     return None
+
+
+def extract_utr(text: str | None) -> str | None:
+    """Pull a bank UTR / reference number from a free-text narration.
+
+    Prefers a token that follows an explicit label ("UTR ...", "REF NO ..."),
+    then falls back to a long alphanumeric token that contains a digit. Common
+    English words never contain a digit, so the fallback is safe.
+    """
+    if not text:
+        return None
+    s = text.upper()
+    labelled = _UTR_LABELLED.search(s)
+    if labelled:
+        return labelled.group(1)
+    bare = _UTR_BARE.search(s)
+    return bare.group(1) if bare else None
 
 
 def _scrub_card(text: str) -> tuple[str, bool]:

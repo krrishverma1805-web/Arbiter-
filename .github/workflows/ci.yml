@@ -46,7 +46,7 @@ jobs:
       - name: determinism + replay + resume
         run: uv run pytest -q packages/engine/tests/test_determinism.py
 
-  demo:
+  bench:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,10 +54,26 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --all-packages
-      - name: end-to-end demo
+      - name: end-to-end demo + scorecard
         run: |
-          uv run arbiter-datagen gen --scenario d2c --records 200 --seed 42 --out /tmp/ds
+          uv run arbiter-datagen gen --scenario d2c --records 800 --seed 42 --out /tmp/ds
           uv run arbiter run --spec specs/razorpay-settlement.yaml --dataset /tmp/ds --json | tee /tmp/run.json
           RID=$(python -c "import json;print(json.load(open('/tmp/run.json'))['run_id'])")
           uv run arbiter replay "$RID"
           uv run arbiter verify "$RID"
+          uv run arbiter bench --spec specs/razorpay-settlement.yaml --dataset /tmp/ds --out scorecard.json
+      - name: gate on the scorecard
+        run: |
+          python - <<'EOF'
+          import json, sys
+          s = json.load(open("scorecard.json"))
+          m = s["matching"]
+          assert m["false_match_rate"] <= 0.015, f"false-match rate {m['false_match_rate']} > 1.5%"
+          assert m["auto_match_rate"] >= 0.80, f"auto-match rate {m['auto_match_rate']} < 80%"
+          assert s["determinism"]["replay_hash_match"], "non-deterministic run"
+          print("scorecard gate passed:", m)
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scorecard
+          path: scorecard.json

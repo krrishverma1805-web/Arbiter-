@@ -12,6 +12,8 @@ from pathlib import Path
 
 import typer
 
+from arbiter_engine.bench import score_run
+from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import ChainBroken, EventStore
 from arbiter_engine.replay import replay as do_replay
 from arbiter_engine.run import RunInputs, execute
@@ -46,6 +48,9 @@ def run(
         "status": proj.status,
         "records": proj.record_count,
         "by_source": proj.by_source(),
+        "matches": len(proj.matches),
+        "matched_records": len(proj.matched_record_ids),
+        "exceptions": len(proj.exceptions),
         "quarantined": proj.quarantined,
         "pii_dropped": proj.pii_dropped,
         "events": verify["events"],
@@ -62,8 +67,83 @@ def run(
         typer.echo(f"  quarantined rows : {proj.quarantined}")
     if proj.pii_dropped:
         typer.echo(f"  PII dropped      : {proj.pii_dropped}")
+    typer.echo(f"  matches          : {payload['matches']}  ({payload['matched_records']} records)")
+    typer.echo(f"  exceptions       : {payload['exceptions']}")
     typer.echo(f"  events           : {verify['events']}")
     typer.echo(f"  terminal hash    : {verify['terminal_hash'][:16]}…")
+
+
+@app.command()
+def bench(
+    spec: Path = typer.Option(..., "--spec"),
+    dataset: Path = typer.Option(..., "--dataset"),
+    no_ai: bool = typer.Option(False, "--no-ai"),
+    db: str | None = typer.Option(None, "--db"),
+    out: Path | None = typer.Option(None, "--out", help="write scorecard.json here"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Run a reconciliation and score it against the dataset's ground truth."""
+    store = _store(db)
+    proj = execute(store, RunInputs(spec_path=spec, dataset_dir=dataset, no_ai=no_ai))
+
+    # determinism check: a second run must reproduce the hash chain
+    store2 = EventStore("sqlite://")
+    proj2 = execute(store2, RunInputs(spec_path=spec, dataset_dir=dataset, no_ai=no_ai))
+    replay_ok = (
+        store.verify(proj.run_id)["terminal_hash"] == store2.verify(proj2.run_id)["terminal_hash"]
+    )
+
+    wallclock = _run_wallclock(store, proj.run_id)
+    card = score_run(
+        proj, dataset, spec_name=f"{spec.stem}", wallclock_ms=wallclock, replay_hash_match=replay_ok
+    )
+    store.append(proj.run_id, EventType.SCORECARD_COMPUTED, {"scorecard": card.to_dict()})
+
+    if as_json:
+        typer.echo(json.dumps(card.to_dict(), indent=2))
+    else:
+        _print_scorecard(card)
+    if out:
+        out.write_text(json.dumps(card.to_dict(), indent=2))
+        typer.echo(f"\n→ {out}")
+
+
+def _run_wallclock(store: EventStore, run_id: str) -> int:
+    import json as _json
+
+    for ev in store.events(run_id):
+        if ev.type == EventType.RUN_COMPLETED:
+            return int(_json.loads(ev.meta).get("wallclock_ms", 0))
+    return 0
+
+
+def _print_scorecard(card) -> None:  # type: ignore[no-untyped-def]
+    m, e = card.matching, card.exceptions
+    typer.secho(f"\nArbiter scorecard — {card.spec}  ({card.dataset['difficulty']})", bold=True)
+    typer.echo(
+        f"  dataset            {card.dataset['records']} records · "
+        f"{card.dataset['true_matches']} true matches · {card.dataset['anomalies']} anomalies"
+    )
+    typer.echo("  matching")
+    typer.echo(
+        f"    auto-match rate  {m.auto_match_rate:.1%}   ({m.correct_matches}/{m.true_matches})"
+    )
+    typer.echo(f"    precision        {m.precision:.1%}")
+    typer.echo(f"    recall           {m.recall:.1%}")
+    typer.echo(f"    false-match rate {m.false_match_rate:.1%}")
+    typer.echo(f"    $ coverage       {m.dollar_coverage:.1%}")
+    typer.echo(f"    $ unexplained    {m.dollar_unexplained:.1%}")
+    typer.echo("  exceptions")
+    typer.echo(f"    opened           {e.total}   {e.by_type}")
+    typer.echo(
+        f"    anomalies caught {e.detected_anomalies}/{e.total_anomalies}   "
+        f"category accuracy {e.category_accuracy:.1%}"
+    )
+    typer.echo("  throughput / integrity")
+    typer.echo(f"    records/sec      {card.throughput['records_per_sec']}")
+    mark = "✓" if card.determinism["replay_hash_match"] else "✗ MISMATCH"
+    typer.echo(f"    deterministic    {mark}")
+    typer.secho("  AI                 disabled (agent lands in M3)", fg=typer.colors.BRIGHT_BLACK)
 
 
 @app.command()

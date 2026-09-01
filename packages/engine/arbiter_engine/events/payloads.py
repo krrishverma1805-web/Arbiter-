@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from arbiter_engine.models import Record
+from arbiter_engine.models import Decomposition, Match, ReconException, Record
 
 
 class EventType(StrEnum):
@@ -20,6 +20,11 @@ class EventType(StrEnum):
     ROW_QUARANTINED = "ROW_QUARANTINED"
     PII_DROPPED = "PII_DROPPED"
     RECORD_INGESTED = "RECORD_INGESTED"
+    MATCH_CONFIRMED = "MATCH_CONFIRMED"
+    DECOMPOSITION_COMPUTED = "DECOMPOSITION_COMPUTED"
+    EXCEPTION_OPENED = "EXCEPTION_OPENED"
+    EXCEPTION_CLASSIFIED = "EXCEPTION_CLASSIFIED"
+    SCORECARD_COMPUTED = "SCORECARD_COMPUTED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_PURGED = "RUN_PURGED"
 
@@ -63,6 +68,29 @@ class RecordIngested(BaseModel):
     record: Record
 
 
+class MatchConfirmed(BaseModel):
+    match: Match
+
+
+class DecompositionComputed(BaseModel):
+    decomposition: Decomposition
+
+
+class ExceptionOpened(BaseModel):
+    exception: ReconException
+
+
+class ExceptionClassified(BaseModel):
+    exception_id: str
+    category: str
+    classified_by: str
+    confidence: float | None = None
+
+
+class ScorecardComputed(BaseModel):
+    scorecard: dict[str, Any]
+
+
 class RunCompleted(BaseModel):
     status: str  # "completed" | "failed"
     counts: dict[str, int]
@@ -80,6 +108,11 @@ EVENT_PAYLOADS: dict[EventType, type[BaseModel]] = {
     EventType.ROW_QUARANTINED: RowQuarantined,
     EventType.PII_DROPPED: PiiDropped,
     EventType.RECORD_INGESTED: RecordIngested,
+    EventType.MATCH_CONFIRMED: MatchConfirmed,
+    EventType.DECOMPOSITION_COMPUTED: DecompositionComputed,
+    EventType.EXCEPTION_OPENED: ExceptionOpened,
+    EventType.EXCEPTION_CLASSIFIED: ExceptionClassified,
+    EventType.SCORECARD_COMPUTED: ScorecardComputed,
     EventType.RUN_COMPLETED: RunCompleted,
     EventType.RUN_PURGED: RunPurged,
 }

@@ -187,22 +187,16 @@
     },
     {
       "deterministically_resolvable": true,
-      "dollar_impact_minor": 1282684,
+      "dollar_impact_minor": 302804,
       "id": "an_012",
       "kind": "TIMING_STRADDLE",
       "note": "settlement lands in the next period; bank credit is out of window",
       "record_ids": [
-        "pay_00001",
-        "pay_00022",
-        "pay_00030",
-        "pay_00059",
-        "pay_00061",
-        "pay_00076",
-        "pay_00089",
-        "pay_00090",
-        "cb_pay_00067"
+        "pay_00043",
+        "pay_00045",
+        "pay_00103"
       ],
-      "settlement_utr": "RZP20260826847B1806",
+      "settlement_utr": "RZP202608134EDCA1E0",
       "true_category": "TIMING",
       "true_resolution": {
         "action": "carry_forward"
@@ -210,12 +204,12 @@
     },
     {
       "deterministically_resolvable": false,
-      "dollar_impact_minor": 2503302,
+      "dollar_impact_minor": 924831,
       "id": "an_013",
       "kind": "WRONG_ACCT",
       "note": "settled by the processor but credited to another account",
       "record_ids": [],
-      "settlement_utr": "RZP202608259F6B25BD",
+      "settlement_utr": "RZP20260827B102DC1E",
       "true_category": "WRONG_ACCOUNT",
       "true_resolution": {
         "action": "route_to_human"
@@ -325,23 +319,6 @@
       "settlement_utr": "RZP202608125F11EFF2"
     },
     {
-      "bank_value_date": "2026-08-13",
-      "clean": true,
-      "expected_net_minor": 302804,
-      "group_id": "gt_RZP202608134EDCA1E0",
-      "ledger_order_ids": [
-        "ord_00043",
-        "ord_00045",
-        "ord_00103"
-      ],
-      "processor_entity_ids": [
-        "pay_00043",
-        "pay_00045",
-        "pay_00103"
-      ],
-      "settlement_utr": "RZP202608134EDCA1E0"
-    },
-    {
       "bank_value_date": "2026-08-17",
       "clean": true,
       "expected_net_minor": 845533,
@@ -421,34 +398,6 @@
         "pay_00107"
       ],
       "settlement_utr": "RZP202608246E23F0B9"
-    },
-    {
-      "bank_value_date": "2026-08-27",
-      "clean": true,
-      "expected_net_minor": 924831,
-      "group_id": "gt_RZP20260827B102DC1E",
-      "ledger_order_ids": [
-        "ord_00005",
-        "ord_00006",
-        "ord_00024",
-        "ord_00028",
-        "ord_00033",
-        "ord_00040",
-        "ord_00069",
-        "ord_00095"
-      ],
-      "processor_entity_ids": [
-        "pay_00005",
-        "pay_00006",
-        "pay_00024",
-        "pay_00028",
-        "pay_00033",
-        "pay_00040",
-        "pay_00069",
-        "pay_00095",
-        "rfnd_00117"
-      ],
-      "settlement_utr": "RZP20260827B102DC1E"
     },
     {
       "bank_value_date": "2026-08-28",

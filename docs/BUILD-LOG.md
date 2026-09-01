@@ -8,6 +8,40 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M1: matching engine, decomposition, classifier, `arbiter bench`
+
+The deterministic skeleton FSM now runs end to end:
+`INGESTING → MATCHING → DECOMPOSING → CLASSIFYING → RUN_COMPLETED`.
+
+- **match/** — blocking by `settlement_utr`; pass 1 (exact) + pass 2 (tolerant) with an
+  explicit confidence formula (`match/confidence.py`; Fellegi–Sunter m/u + calibration is
+  M2 per ADR-0005). Deterministic (sorted iteration, integer paise).
+- **decompose/** — the settlement identity `net = Σcredit − Σdebit − Σfee − Σtax` per UTR
+  group, with the ledger cross-check; residual drives classification.
+- **exceptions/** — the taxonomy, the deterministic injection scanner (untrusted fields →
+  `SECURITY_REVIEW`, never sent onward — docs/14 C2), and the M1 classifier covering
+  ROUNDING / FEE_DEDUCTION / TIMING / WRONG_ACCOUNT / PARTIAL_PAYMENT / DUPLICATE /
+  CHARGEBACK / MISSING_UTR / UNEXPLAINED.
+- **bench/** — `arbiter bench` scores a run against `ground_truth.json`: auto-match rate,
+  precision, recall, **false-match rate**, ₹ coverage, exception mix, category accuracy,
+  throughput, and a live determinism check (a second run must reproduce the hash chain).
+- datagen: anomalies now create *real* discrepancies — FEE_DRIFT/GST_ROUND/DUP_EXPORT
+  "freeze" the bank at the pre-anomaly amount so the processor file is what's wrong;
+  TIMING_STRADDLE actually shifts `settled_at` past the period end.
+
+**Honest M1 baseline** (seed batch, 270 records, difficulty=normal, no AI):
+auto-match 88.2% · precision 93.8% · false-match 6.2% · ₹ coverage 100% ·
+10/11 anomalies detected · 60% category accuracy · deterministic ✓. This is the number
+the agent (M3) is measured against.
+
+**Bugs caught during M1 (Failure Recovery):**
+
+| Symptom | Root cause | Fix | Prevention |
+|---|---|---|---|
+| 0 matches — every batch became an exception | `extract_utr` regex matched the word "RAZORPAY" as the UTR before the real reference | rewrote it: prefer a token after an explicit `UTR`/`REF` label, then a long alphanumeric token that *contains a digit* (English words never do) | direct `extract_utr` unit cases + the clean-batch test asserts full match |
+| GST_ROUND / FEE_DRIFT anomalies invisible | datagen recomputed the bank credit *after* the anomaly, so the identity still closed | `freeze_bank()` snapshots each batch's clean net before the anomaly phase | `test_adversarial_scorecard_is_honest` asserts a sub-perfect but strong baseline |
+| CHARGEBACK batch classified WRONG_ACCOUNT | a later TIMING_STRADDLE / WRONG_ACCT injector dropped the same batch the chargeback landed in | chargeback marks its batch `protected`; the drop-batch injectors skip protected batches | — |
+
 ## 2026-09-02 — M0: scaffold, event store, ingestion, datagen (code begins)
 
 First code. uv workspace + two packages (`arbiter-engine`, `arbiter-datagen`). Shipped:

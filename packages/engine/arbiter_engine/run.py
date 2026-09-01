@@ -1,9 +1,15 @@
-"""The reconciliation run — M0 slice (docs/10 M0, docs/12 §2).
+"""The reconciliation run — deterministic skeleton FSM (docs/12 §2).
 
-M0 pipeline:  RUN_STARTED -> ingest each source -> RUN_COMPLETED.
-The deterministic skeleton FSM (MATCHING, DECOMPOSING, CLASSIFYING, INVESTIGATING,
-SCORING, REPORTING) is added in M1-M3. Everything here is deterministic and
-replayable.
+M1 pipeline:
+  RUN_STARTED
+  -> INGESTING     (ingest each source -> RECORD_INGESTED)
+  -> MATCHING      (pass 1 exact, pass 2 tolerant -> MATCH_CONFIRMED)
+  -> DECOMPOSING   (settlement identity per utr -> DECOMPOSITION_COMPUTED)
+  -> CLASSIFYING   (deterministic classifier -> EXCEPTION_OPENED / _CLASSIFIED)
+  -> RUN_COMPLETED
+
+INVESTIGATING (the agent, M3), SCORING/REPORTING (bench + memo) follow.
+Everything here is deterministic and replayable.
 """
 
 from __future__ import annotations
@@ -17,8 +23,10 @@ from arbiter_engine import __version__
 from arbiter_engine.events.fold import RunProjection, fold_run
 from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import EventStore
+from arbiter_engine.exceptions import build_exceptions
 from arbiter_engine.hashing import canonical_json, sha256_hex
 from arbiter_engine.ingest.csv_source import ingest_csv
+from arbiter_engine.match import run_matching
 from arbiter_engine.models import RunConfig
 from arbiter_engine.specs import ReconSpec, load_spec, spec_hash
 
@@ -80,6 +88,7 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
         },
     )
 
+    # -- INGESTING --
     for source_name, source_spec in sorted(spec.sources.items()):
         csv_path = _resolve_source_file(inputs.dataset_dir, source_name)
         if csv_path is None:
@@ -87,8 +96,45 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
         ingest_csv(store, run_id, source_name, source_spec, csv_path)
 
     proj = fold_run(store, run_id)
+    records = proj.records
+
+    # -- MATCHING + DECOMPOSING --
+    mr = run_matching(run_id, records, spec)
+    for decomp in mr.decompositions:
+        store.append(
+            run_id,
+            EventType.DECOMPOSITION_COMPUTED,
+            {"decomposition": decomp.model_dump(mode="json")},
+        )
+    for match in mr.matches:
+        store.append(run_id, EventType.MATCH_CONFIRMED, {"match": match.model_dump(mode="json")})
+
+    # -- CLASSIFYING --
+    exceptions = build_exceptions(run_id, records, mr.matches, mr.decompositions, spec)
+    for exc in exceptions:
+        store.append(
+            run_id,
+            EventType.EXCEPTION_OPENED,
+            {"exception": exc.model_dump(mode="json")},
+        )
+        if exc.classified_by != "unclassified":
+            store.append(
+                run_id,
+                EventType.EXCEPTION_CLASSIFIED,
+                {
+                    "exception_id": exc.id,
+                    "category": exc.category or "UNEXPLAINED",
+                    "classified_by": exc.classified_by,
+                    "confidence": exc.confidence,
+                },
+            )
+
+    proj = fold_run(store, run_id)
     counts = {
         "records": proj.record_count,
+        "matched_records": len(proj.matched_record_ids),
+        "matches": len(proj.matches),
+        "exceptions": len(proj.exceptions),
         "quarantined": proj.quarantined,
         "pii_dropped": proj.pii_dropped,
         **proj.by_source(),

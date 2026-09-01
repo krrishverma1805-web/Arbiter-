@@ -172,6 +172,7 @@ def generate_dataset(
 
     # --- anomaly phase ---
     counts = plan(n_orders, difficulty)
+    clean_net = {utr: _net_minor(b["items"]) for utr, b in batches.items()}
     ctx = BatchCtx(
         recon_rows=recon_rows,
         orders=orders,
@@ -179,6 +180,7 @@ def generate_dataset(
         rng=rng,
         gst_rate=sc.gst_rate,
         period_end_iso=period_end.isoformat(),
+        clean_net=clean_net,
     )
     anomalies = inject(ctx, counts)
     dropped_batches = {
@@ -195,7 +197,8 @@ def generate_dataset(
         b = batches[utr]
         if utr in dropped_batches:
             continue  # timing straddle / wrong account: no credit in this statement
-        net = _net_minor(b["items"])
+        # FEE_DRIFT/GST_ROUND/DUP_EXPORT: the bank paid the pre-anomaly amount
+        net = b.get("bank_override", _net_minor(b["items"]))
         vd: date = b["settled"]
         narration = (
             f"NEFT CR RAZORPAY SOFTWARE PVT LTD UTR {utr}"
