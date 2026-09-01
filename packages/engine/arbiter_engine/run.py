@@ -110,7 +110,9 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
         store.append(run_id, EventType.MATCH_CONFIRMED, {"match": match.model_dump(mode="json")})
 
     # -- CLASSIFYING --
-    exceptions = build_exceptions(run_id, records, mr.matches, mr.decompositions, spec)
+    exceptions = build_exceptions(
+        run_id, records, mr.matches, mr.decompositions, spec, candidates=mr.candidates
+    )
     for exc in exceptions:
         store.append(
             run_id,

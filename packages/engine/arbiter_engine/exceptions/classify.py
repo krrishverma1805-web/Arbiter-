@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from arbiter_engine.decompose.identity import expected_net_minor
 from arbiter_engine.exceptions.injection import injection_signal
-from arbiter_engine.models import Decomposition, Match, ReconException, Record
+from arbiter_engine.models import Decomposition, Match, MatchCandidate, ReconException, Record
 from arbiter_engine.specs.model import ReconSpec
 
 
@@ -46,10 +46,13 @@ def build_exceptions(
     matches: list[Match],
     decompositions: list[Decomposition],
     spec: ReconSpec,
+    *,
+    candidates: dict[str, list[MatchCandidate]] | None = None,
 ) -> list[ReconException]:
     rounding = int((spec.identity or {}).get("rounding_tolerance_minor", 100))
     p_start, p_end = _period(spec)
     ctx = _Ctx(run_id, rounding, p_start, p_end)
+    cand_map = candidates or {}
 
     by_id = {r.id: r for r in records}
     matched_ids = {rid for m in matches for rid in m.all_ids}
@@ -186,15 +189,24 @@ def build_exceptions(
                 )
             )
 
-    # 3. orphan bank credits (no settlement_utr / not matched)
+    # 3. orphan bank credits (no settlement_utr match / not matched)
+    unmatched_block_nets = [
+        expected_net_minor(items) for utr, items in proc_blocks.items() if utr not in matched_utrs
+    ]
     for b in bank:
         if b.id in matched_ids:
             continue
         utr = b.external_ids.get("utr")
         if utr and utr in proc_blocks:
             continue  # handled above
-        cat = "MISSING_UTR" if not utr else "UNEXPLAINED"
-        rule = "rule:r_missing_utr" if not utr else "unclassified"
+        cands = cand_map.get(b.id, [])
+        # if the bank amount ties an unmatched settlement batch's net, the UTR was
+        # just lost from the narration; otherwise it's a genuine orphan credit
+        ties_a_batch = any(abs(b.amount_minor - net) <= rounding for net in unmatched_block_nets)
+        if ties_a_batch:
+            cat, rule, conf = "MISSING_UTR", "rule:r_missing_utr", 0.7
+        else:
+            cat, rule, conf = "UNEXPLAINED", "unclassified", None
         out.append(
             ReconException(
                 id=_eid(run_id, "orphan", b.id),
@@ -203,7 +215,8 @@ def build_exceptions(
                 category=cat,
                 classified_by=rule,
                 amount_impact_minor=abs(b.amount_minor),
-                confidence=0.6 if cat == "MISSING_UTR" else None,
+                confidence=conf,
+                candidates=cands,
                 status="open",
             )
         )

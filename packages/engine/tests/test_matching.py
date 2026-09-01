@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from arbiter_engine.decompose.identity import expected_net_minor, group_by_utr
-from arbiter_engine.events.fold import fold_run
 from arbiter_engine.events.store import EventStore
 from arbiter_engine.match import run_matching
 from arbiter_engine.run import RunInputs, execute
@@ -51,11 +50,7 @@ def test_conservation_nothing_lost(adversarial_dataset: Path, spec_path: Path):
     covered = proj.matched_record_ids | exception_records
     # at least matched-or-flagged; unmatched-and-unflagged should be rare/zero for records
     # that belong to a settlement_utr group
-    grouped_processor = {
-        r.id
-        for utr, items in group_by_utr(proj.records).items()
-        for r in items
-    }
+    grouped_processor = {r.id for utr, items in group_by_utr(proj.records).items() for r in items}
     uncovered = grouped_processor - covered
     assert len(uncovered) <= 2  # tolerance for M1; tightened in M2
 

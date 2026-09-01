@@ -34,7 +34,14 @@ def test_adversarial_scorecard_is_honest(adversarial_dataset: Path, spec_path: P
     assert 0.0 <= card.exceptions.category_accuracy <= 1.0
     d = card.to_dict()
     assert set(d) == {
-        "run_id", "spec", "dataset", "matching", "exceptions", "throughput", "determinism", "ai"
+        "run_id",
+        "spec",
+        "dataset",
+        "matching",
+        "exceptions",
+        "throughput",
+        "determinism",
+        "ai",
     }
     assert d["ai"]["enabled"] is False  # agent lands in M3
 
