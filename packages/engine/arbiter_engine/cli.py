@@ -36,12 +36,24 @@ def run(
     dataset: Path = typer.Option(..., "--dataset", help="directory with the source CSVs"),
     no_ai: bool = typer.Option(False, "--no-ai", help="deterministic core only, zero LLM calls"),
     seed: int | None = typer.Option(None, "--seed"),
+    resume: bool = typer.Option(False, "--resume", help="continue a crashed / interrupted run"),
+    rerun: bool = typer.Option(False, "--rerun", help="discard and re-run even if completed"),
     db: str | None = typer.Option(None, "--db"),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Run a reconciliation over a dataset."""
     store = _store(db)
-    proj = execute(store, RunInputs(spec_path=spec, dataset_dir=dataset, no_ai=no_ai, seed=seed))
+    proj = execute(
+        store,
+        RunInputs(
+            spec_path=spec,
+            dataset_dir=dataset,
+            no_ai=no_ai,
+            seed=seed,
+            resume=resume,
+            rerun=rerun,
+        ),
+    )
     verify = store.verify(proj.run_id)
     payload = {
         "run_id": proj.run_id,
@@ -78,6 +90,7 @@ def bench(
     spec: Path = typer.Option(..., "--spec"),
     dataset: Path = typer.Option(..., "--dataset"),
     no_ai: bool = typer.Option(False, "--no-ai"),
+    calibration: bool = typer.Option(False, "--calibration", help="also run the calibration study"),
     db: str | None = typer.Option(None, "--db"),
     out: Path | None = typer.Option(None, "--out", help="write scorecard.json here"),
     as_json: bool = typer.Option(False, "--json"),
@@ -97,15 +110,50 @@ def bench(
     card = score_run(
         proj, dataset, spec_name=f"{spec.stem}", wallclock_ms=wallclock, replay_hash_match=replay_ok
     )
-    store.append(proj.run_id, EventType.SCORECARD_COMPUTED, {"scorecard": card.to_dict()})
+    payload = card.to_dict()
+
+    if calibration:
+        from arbiter_engine.bench.calibration import calibrate
+
+        gt = json.loads((dataset / "ground_truth.json").read_text())
+        true_utrs = {m["settlement_utr"] for m in gt["true_matches"]}
+        benign = {
+            a["settlement_utr"]
+            for a in gt["anomalies"]
+            if a.get("settlement_utr") and a["true_resolution"].get("action") == "accept_variance"
+        }
+        preds: list[tuple[float, bool]] = []
+        for m in proj.matches:
+            key = m.id.removeprefix("m_")
+            correct = (key in true_utrs or key in benign) and abs(m.residual_minor) <= 100
+            preds.append((m.confidence, correct))
+        report = calibrate(preds)
+        payload["calibration"] = report.to_dict()
+
+    store.append(proj.run_id, EventType.SCORECARD_COMPUTED, {"scorecard": payload})
 
     if as_json:
-        typer.echo(json.dumps(card.to_dict(), indent=2))
+        typer.echo(json.dumps(payload, indent=2))
     else:
         _print_scorecard(card)
+        if calibration:
+            _print_calibration(payload["calibration"])
     if out:
-        out.write_text(json.dumps(card.to_dict(), indent=2))
+        out.write_text(json.dumps(payload, indent=2))
         typer.echo(f"\n→ {out}")
+
+
+def _print_calibration(c: dict) -> None:  # type: ignore[type-arg]
+    verdict = "well-calibrated" if c["well_calibrated"] else "RECALIBRATED"
+    typer.secho("\n  confidence calibration", bold=True)
+    typer.echo(f"    ECE              {c['ece']}   ({verdict})")
+    typer.echo(f"    predictions      {c['n']}")
+    for r in c["reliability"]:
+        bar = "█" * int(r["accuracy"] * 20)
+        rng = f"{r['range'][0]:.1f}-{r['range'][1]:.1f}"
+        typer.echo(
+            f"    {rng}  n={r['n']:<3}  conf={r['confidence']:.2f}  acc={r['accuracy']:.2f}  {bar}"
+        )
 
 
 def _run_wallclock(store: EventStore, run_id: str) -> int:

@@ -8,6 +8,28 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M2: Fellegi–Sunter, subset/fuzzy passes, resume, calibration
+
+- **M2a — probabilistic matching** (ADR-0005): `match/fellegi_sunter.py` (agreement
+  levels, m/u, weight = Σ log2(m/u), posterior from the block prior, a calibration
+  hook, and `from_labeled` frequency estimation); `match/compare.py` (comparison
+  vectors + Jaro–Winkler); `match/subset.py` (subset-sum matching — exact
+  meet-in-the-middle ≤22, greedy above, returns None on ambiguity). `match/engine.py`
+  rewritten to 4 passes: exact · tolerant (FS-weighted) · subset · fuzzy (candidates
+  attached, never auto-matched).
+- **M2b — resilience + calibration**: `arbiter run --resume` (resumes a crashed run
+  from its last committed stage — reproduces the exact terminal hash from every stage
+  boundary, tested) and `--rerun`; `arbiter bench --calibration` (reliability diagram,
+  Expected Calibration Error, Pool-Adjacent-Violators isotonic recalibration when
+  ECE > 0.05).
+
+**M2 calibration finding:** the deterministic matcher is *slightly over-confident* —
+16 matches all stated at 1.00 confidence, observed accuracy 0.94, ECE 0.062 → an
+isotonic map is fitted and disclosed. Exactly the kind of thing the calibration study
+exists to catch.
+
+50 tests. ruff + mypy(strict) clean.
+
 ## 2026-09-02 — M1: matching engine, decomposition, classifier, `arbiter bench`
 
 The deterministic skeleton FSM now runs end to end:

@@ -31,6 +31,15 @@ from arbiter_engine.models import RunConfig
 from arbiter_engine.specs import ReconSpec, load_spec, spec_hash
 
 
+class RunInProgress(RuntimeError):
+    def __init__(self, run_id: str) -> None:
+        super().__init__(
+            f"run {run_id} started but did not complete; pass resume=True to continue "
+            "or rerun=True to start over"
+        )
+        self.run_id = run_id
+
+
 @dataclass
 class RunInputs:
     spec_path: Path
@@ -38,6 +47,8 @@ class RunInputs:
     no_ai: bool = False
     seed: int | None = None
     run_id: str | None = None
+    resume: bool = False  # continue a crashed run from its last committed state
+    rerun: bool = False  # force a fresh run even if a completed one exists
 
 
 def _dataset_hash(dataset_dir: Path) -> str:
@@ -67,29 +78,40 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
     cfg_hash = sha256_hex(canonical_json(cfg.model_dump(mode="json")))[:16]
     run_id = inputs.run_id or _deterministic_run_id(cfg_hash)
 
-    # idempotency: a completed run with this exact config already exists
     existing = fold_run(store, run_id)
-    if existing.completed:
-        return existing
+    if existing.completed and not inputs.rerun:
+        return existing  # idempotent: identical config → the existing run
+    if existing.started and not (inputs.resume or inputs.rerun):
+        raise RunInProgress(run_id)
+    if inputs.rerun and (existing.started or existing.completed):
+        store.purge(run_id, reason="rerun", by="engine")
 
+    seen = {t for t, _ in store.iter_payloads(run_id)}
     started = time.monotonic()
-    store.append(
-        run_id,
-        EventType.RUN_STARTED,
-        {
-            "spec_name": spec.name,
-            "spec_version": spec.version,
-            "spec_hash": sh,
-            "dataset_hash": dh,
-            "seed": inputs.seed,
-            "config_hash": cfg_hash,
-            "no_ai": inputs.no_ai,
-            "engine_version": __version__,
-        },
-    )
 
-    # -- INGESTING --
+    if EventType.RUN_STARTED not in seen:
+        store.append(
+            run_id,
+            EventType.RUN_STARTED,
+            {
+                "spec_name": spec.name,
+                "spec_version": spec.version,
+                "spec_hash": sh,
+                "dataset_hash": dh,
+                "seed": inputs.seed,
+                "config_hash": cfg_hash,
+                "no_ai": inputs.no_ai,
+                "engine_version": __version__,
+            },
+        )
+
+    # -- INGESTING (resumable: skip sources already ingested) --
+    ingested = {
+        p["source"] for t, p in store.iter_payloads(run_id) if t == EventType.SOURCE_INGESTED
+    }
     for source_name, source_spec in sorted(spec.sources.items()):
+        if source_name in ingested:
+            continue
         csv_path = _resolve_source_file(inputs.dataset_dir, source_name)
         if csv_path is None:
             continue
@@ -98,18 +120,24 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
     proj = fold_run(store, run_id)
     records = proj.records
 
-    # -- MATCHING + DECOMPOSING --
+    # -- MATCHING + DECOMPOSING (deterministic; re-run in memory, emit once) --
     mr = run_matching(run_id, records, spec)
-    for decomp in mr.decompositions:
-        store.append(
-            run_id,
-            EventType.DECOMPOSITION_COMPUTED,
-            {"decomposition": decomp.model_dump(mode="json")},
-        )
-    for match in mr.matches:
-        store.append(run_id, EventType.MATCH_CONFIRMED, {"match": match.model_dump(mode="json")})
+    if EventType.MATCH_CONFIRMED not in seen and EventType.DECOMPOSITION_COMPUTED not in seen:
+        for decomp in mr.decompositions:
+            store.append(
+                run_id,
+                EventType.DECOMPOSITION_COMPUTED,
+                {"decomposition": decomp.model_dump(mode="json")},
+            )
+        for match in mr.matches:
+            store.append(
+                run_id, EventType.MATCH_CONFIRMED, {"match": match.model_dump(mode="json")}
+            )
 
     # -- CLASSIFYING --
+    if EventType.EXCEPTION_OPENED in seen:
+        return fold_run(store, run_id)
+
     exceptions = build_exceptions(
         run_id, records, mr.matches, mr.decompositions, spec, candidates=mr.candidates
     )
