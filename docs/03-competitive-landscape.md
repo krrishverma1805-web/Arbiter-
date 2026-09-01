@@ -61,6 +61,23 @@ Reconciliation / financial-close automation splits into four bands. Arbiter is p
 - **Weaknesses:** They are _engines_, not products — no exception-triage UX, no LLM adjudication, no scorecard, no learning loop, no domain models for settlement decomposition. You hire engineers to run them.
 - **Arbiter's angle:** Arbiter can _build on_ this layer (or borrow its patterns) and add the three things it lacks: the adjudication agent, the workable exception cockpit, and the honest benchmark. Open-source the Arbiter engine too → same developer trust, higher up the stack.
 
+### 2.8a Open-source AI reconciliation agents (the closest conceptual competitors)
+
+Independent projects have arrived at a philosophy nearly identical to Arbiter's. Honest teardown — a judge will find these, so we address them head-on.
+
+**`Manu6259/financial-reconciliation-agent`** ([GitHub](https://github.com/Manu6259/financial-reconciliation-agent))
+- **What:** AI agent for "messy consumer-brand finance" — categorizes transactions (RAG-grounded), reconciles deposits to payouts deterministically, generates auditable P&L. Sources: bank, Shopify, Amazon, Stripe, QuickBooks.
+- **Philosophy:** _"The LLM proposes; deterministic code disposes"_ — the model does categorization only; all numeric ops run through reproducible Python. **This is the same core principle as [ADR-0001](adr/0001-deterministic-core-ai-at-the-boundary.md).** Independent convergence is validation, not a threat.
+- **Has:** a real ablation study (no-RAG 53.6% → RAG 100%), citation coverage, a human-review queue, Streamlit dashboard, real failure modes handled (cryptic memos, gross-vs-net, settlement lag, reserve holds).
+- **Where Arbiter goes further:**
+  1. **Scale & honesty.** Tested on **69 transactions**; the 100% accuracy is on _same-distribution_ data (they acknowledge it). Arbiter runs **800+**, on **adversarial** data with a labeled catalog, and reports a **sub-100 number with a false-match rate** — the "100% on 69 rows" claim is exactly what the Buildathon bar ("one cherry-picked match proves nothing") warns against.
+  2. **Settlement decomposition.** They match deposit totals with a lag window. Arbiter models the identity `net = gross − MDR − GST − refunds − chargebacks` and flags a total-match that doesn't decompose as a false match.
+  3. **A real agent, not a single call.** Their LLM does one categorization call. Arbiter's agent runs a bounded investigation loop (plan → evidence → hypothesis test → conclude/escalate) and is evaluated as an agent ([doc 12](12-agent-design.md)).
+  4. **Calibration study**, **cycle-over-cycle learning demo**, **prompt-injection defense**, **multi-rail**, **India/Razorpay settlement domain**, **deterministic replay + tamper-evident log**.
+- **Verdict:** the strongest conceptual precedent; Arbiter is the same idea taken to production depth and measured honestly.
+
+**Others:** a securities month-end reconciliation PoC (synthetic brokerage data); `openaccountant/skills` (44 agent "skills" — categorization, P&L, tax — **no reconciliation/exception workflow**); an MCP bank-reconciliation server (GL matching, intercompany); [AI4Finance FinRobot](https://github.com/AI4Finance-Foundation/FinRobot) (analysis/forecasting, not recon). None do settlement decomposition, an honest adversarial benchmark, or the investigation-loop agent.
+
 ### 2.8 ClearTax / Zoho / Tally add-ons — India GST recon
 - **What:** GSTR-2B ↔ purchase-register matching with fuzzy vendor-name / invoice-number handling, tolerance thresholds, ITC hold tagging. ([aiaccountant](https://www.aiaccountant.com/blog/gstr-2b-reconciliation-tools-guide), [ClearTax](https://cleartax.in/s/gst-reconciliation))
 - **Strengths:** Own the India compliance workflow; trusted; cheap; integrated with filing.
@@ -94,7 +111,7 @@ Reconciliation / financial-close automation splits into four bands. Arbiter is p
 
 Five things, in priority order. Any one is a talking point; together they're a position.
 
-1. **The honest scorecard.** Every vendor claims "90%" or "99%." **Nobody publishes precision, recall, and false-match rate on reproducible labeled data.** Arbiter ships `arbiter bench` and an adversarial data generator so the number is _checkable by a stranger in one command_. In a market whose entire 2026 theme is "trust gap," a verifiable number is the product.
+1. **The honest scorecard.** Every vendor claims "90%" or "99%"; the closest OSS agent claims "100%" — on 69 same-distribution transactions. **Nobody publishes precision, recall, and false-match rate on reproducible _adversarial_ labeled data.** Arbiter ships `arbiter bench` + an adversarial generator with a labeled anomaly catalog so the number is _checkable by a stranger in one command_ and is honestly sub-100. In a market whose entire 2026 theme is "trust gap," a verifiable number — and the humility of not claiming 100% — is the product.
 
 2. **Settlement decomposition as a first-class model.** Generic matchers tie payout totals. Arbiter models the _identity_ (`net = gross − MDR − GST − refunds − chargebacks ± rounding`) and flags a "match" that doesn't decompose as a false match. This is real finance content, and it's exactly Razorpay's domain.
 
