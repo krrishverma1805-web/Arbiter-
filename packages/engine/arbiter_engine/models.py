@@ -53,6 +53,87 @@ class Record(BaseModel):
         return h.hexdigest()[:16]
 
 
+MatchPass = Literal["exact", "tolerant", "subset", "subset_heuristic", "transitive"]
+MatchStatus = Literal["auto", "low_confidence", "human_confirmed"]
+ExceptionStatus = Literal[
+    "open", "proposed", "escalated", "resolved", "wont_fix", "budget_exceeded", "security_review"
+]
+
+
+class Match(BaseModel):
+    """A group of records representing the same money (docs/17 §4)."""
+
+    model_config = {"frozen": True}
+
+    id: str
+    run_id: str
+    left_ids: list[str] = Field(default_factory=list)  # processor side
+    right_ids: list[str] = Field(default_factory=list)  # bank side
+    group_ids: list[str] = Field(default_factory=list)  # ledger side
+    match_pass: MatchPass
+    weight_bits: float | None = None  # Fellegi–Sunter match weight
+    per_field_weights: dict[str, float] = Field(default_factory=dict)
+    confidence: float  # calibrated P(match)
+    rule_id: str | None = None
+    residual_minor: int = 0
+    status: MatchStatus = "auto"
+
+    @property
+    def all_ids(self) -> list[str]:
+        return sorted({*self.left_ids, *self.right_ids, *self.group_ids})
+
+
+class Decomposition(BaseModel):
+    """The settlement identity, evaluated for one settlement_utr group (docs/15 §2)."""
+
+    model_config = {"frozen": True}
+
+    group_id: str
+    run_id: str
+    settlement_utr: str | None
+    expected_minor: int  # what the bank credit should be
+    actual_minor: int  # what it was
+    residual_minor: int  # actual − expected (0 ⇒ clean)
+    ledger_crosscheck_ok: bool
+    components: dict[str, int] = Field(default_factory=dict)  # gross, mdr, gst, refunds, ...
+
+    @property
+    def clean(self) -> bool:
+        return self.residual_minor == 0
+
+
+class MatchCandidate(BaseModel):
+    model_config = {"frozen": True}
+
+    hypothesis: str
+    record_ids: list[str]
+    score_bits: float
+    per_field_weights: dict[str, float] = Field(default_factory=dict)
+
+
+class Exception_(BaseModel):
+    """A non-match / broken identity that needs classification (docs/17 §5).
+
+    Named `Exception_` to avoid shadowing the builtin; exported as `ReconException`.
+    """
+
+    model_config = {"frozen": True}
+
+    id: str
+    run_id: str
+    record_ids: list[str] = Field(default_factory=list)
+    category: str | None = None
+    classified_by: str = "unclassified"  # "rule:<id>" | "agent" | "unclassified"
+    amount_impact_minor: int = 0  # signed ₹ at stake — ranking key
+    confidence: float | None = None
+    candidates: list[MatchCandidate] = Field(default_factory=list)
+    resolution: dict[str, str] | None = None
+    status: ExceptionStatus = "open"
+
+
+ReconException = Exception_
+
+
 class RunConfig(BaseModel):
     """Everything that influences a run's output — hashed into RUN_STARTED."""
 

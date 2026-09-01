@@ -9,11 +9,21 @@ REPO = Path(__file__).resolve().parents[3]
 
 @pytest.fixture(scope="session")
 def clean_dataset(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """A small seeded clean dataset, generated once per test session."""
+    """A small seeded dataset with no injected anomalies (identity holds exactly)."""
     from arbiter_datagen.generate import generate_dataset
 
-    out = tmp_path_factory.mktemp("dataset")
-    generate_dataset(scenario="d2c", records=60, seed=42, out_dir=out)
+    out = tmp_path_factory.mktemp("clean")
+    generate_dataset(scenario="d2c", records=60, seed=42, out_dir=out, difficulty="easy")
+    return out
+
+
+@pytest.fixture(scope="session")
+def adversarial_dataset(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A seeded dataset with the labeled adversarial anomaly catalog."""
+    from arbiter_datagen.generate import generate_dataset
+
+    out = tmp_path_factory.mktemp("adversarial")
+    generate_dataset(scenario="d2c", records=200, seed=42, out_dir=out, difficulty="normal")
     return out
 
 

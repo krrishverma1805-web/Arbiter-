@@ -1,12 +1,14 @@
-"""Clean-batch generator (docs/18 §3).
+"""Synthetic reconciliation batch generator (docs/18).
 
-Deterministic given (scenario, records, seed). Produces:
+Deterministic given (scenario, records, seed, difficulty). Produces:
   razorpay_recon.csv  bank.csv  ledger.csv  ground_truth.json  manifest.json
 
-The settlement identity holds exactly for every batch:
+For a clean batch (difficulty="easy") the settlement identity holds exactly for
+every settlement_utr group:
   bank_credit(utr) == sum(credit) - sum(debit) - sum(fee) - sum(tax)
 
-M1 layers the labeled adversarial anomalies on top of this.
+difficulty in {"easy","normal","hard"} layers the labeled adversarial anomaly
+catalog (anomalies.py) on top, recording ground truth for `arbiter bench`.
 """
 
 from __future__ import annotations
@@ -21,9 +23,9 @@ from pathlib import Path
 from typing import Any
 
 from arbiter_datagen import __version__
+from arbiter_datagen.anomalies import BatchCtx, inject, plan
 from arbiter_datagen.model import SCENARIOS
 
-# fixed 2026 India bank-holiday set (weekends handled separately)
 _HOLIDAYS_2026 = {
     date(2026, 1, 26),
     date(2026, 3, 6),
@@ -42,8 +44,7 @@ def _is_working_day(d: date) -> bool:
 
 
 def _add_working_days(d: date, n: int) -> date:
-    cur = d
-    added = 0
+    cur, added = d, 0
     while added < n:
         cur += timedelta(days=1)
         if _is_working_day(cur):
@@ -51,19 +52,35 @@ def _add_working_days(d: date, n: int) -> date:
     return cur
 
 
-def _rupees_to_paise(rupees: float) -> int:
-    return int(round(rupees * 100))
+def _batch_utr(settled: date, salt: str = "") -> str:
+    tag = settled.strftime("%Y%m%d")
+    h = hashlib.sha1(f"{tag}{salt}".encode()).hexdigest()[:8].upper()  # noqa: S324 - not security
+    return f"RZP{tag}{h}"
+
+
+def _net_minor(items: list[dict[str, Any]]) -> int:
+    return sum(
+        int(it["credit"]) - int(it["debit"]) - int(it["fee"]) - int(it["tax"]) for it in items
+    )
 
 
 def generate_dataset(
-    *, scenario: str, records: int, seed: int, out_dir: str | Path
+    *,
+    scenario: str,
+    records: int,
+    seed: int,
+    out_dir: str | Path,
+    difficulty: str = "normal",
 ) -> dict[str, Any]:
     if scenario not in SCENARIOS:
         raise ValueError(f"unknown scenario {scenario!r}; choose from {sorted(SCENARIOS)}")
+    if difficulty not in ("easy", "normal", "hard"):
+        raise ValueError("difficulty must be easy | normal | hard")
     sc = SCENARIOS[scenario]
     rng = random.Random(seed)  # noqa: S311 - deterministic synthetic data, not crypto
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    period_end = _PERIOD_START + timedelta(days=sc.period_days - 1)
 
     n_orders = max(1, records)
     orders: list[dict[str, Any]] = []
@@ -71,19 +88,16 @@ def generate_dataset(
     batches: dict[str, dict[str, Any]] = {}
 
     for i in range(n_orders):
-        oid = f"ord_{i:05d}"
-        pid = f"pay_{i:05d}"
-        eid = f"pay_{i:05d}"
-        order_rupees = math.exp(rng.gauss(sc.order_value_mu, sc.order_value_sigma))
-        order_rupees = max(49.0, round(order_rupees, 2))
-        gross = _rupees_to_paise(order_rupees)
+        oid, pid = f"ord_{i:05d}", f"pay_{i:05d}"
+        order_rupees = max(
+            49.0, round(math.exp(rng.gauss(sc.order_value_mu, sc.order_value_sigma)), 2)
+        )
+        gross = int(round(order_rupees * 100))
         method = _weighted_choice(rng, sc.method_mix.as_pairs())
         capture_day = _PERIOD_START + timedelta(days=rng.randint(0, sc.period_days - 4))
         settled = _add_working_days(capture_day, 2)
-
         mdr = sc.upi_flat_fee_paise if method == "upi" else int(round(gross * sc.mdr[method]))
         gst = int(round(mdr * sc.gst_rate))
-
         utr = _batch_utr(settled)
         batch = batches.setdefault(utr, {"utr": utr, "settled": settled, "items": []})
 
@@ -96,7 +110,7 @@ def generate_dataset(
             }
         )
         row = {
-            "entity_id": eid,
+            "entity_id": pid,
             "type": "payment",
             "debit": "0",
             "credit": str(gross),
@@ -125,13 +139,13 @@ def generate_dataset(
         recon_rows.append(row)
         batch["items"].append(row)
 
-        # refunds
         if rng.random() < sc.refund_rate:
             rgross = int(round(gross * rng.choice([0.5, 1.0])))
             r_settled = _add_working_days(settled, rng.randint(1, 3))
             r_utr = _batch_utr(r_settled)
             r_batch = batches.setdefault(r_utr, {"utr": r_utr, "settled": r_settled, "items": []})
             rrow = {
+                **{k: "" for k in row},
                 "entity_id": f"rfnd_{i:05d}",
                 "type": "refund",
                 "debit": str(rgross),
@@ -150,47 +164,85 @@ def generate_dataset(
                 "order_id": oid,
                 "order_receipt": f"rcpt-{i:05d}",
                 "method": method,
-                "card_network": row["card_network"],
-                "card_type": row["card_type"],
-                "dispute_id": "",
                 "description": f"Refund for {oid}",
                 "notes": "",
             }
             recon_rows.append(rrow)
             r_batch["items"].append(rrow)
 
-    # bank credits: one net line per settlement batch
+    # --- anomaly phase ---
+    counts = plan(n_orders, difficulty)
+    ctx = BatchCtx(
+        recon_rows=recon_rows,
+        orders=orders,
+        batches=batches,
+        rng=rng,
+        gst_rate=sc.gst_rate,
+        period_end_iso=period_end.isoformat(),
+    )
+    anomalies = inject(ctx, counts)
+    dropped_batches = {
+        a.settlement_utr for a in anomalies if a.kind in ("TIMING_STRADDLE", "WRONG_ACCT")
+    }
+    masked_utrs = {a.settlement_utr for a in anomalies if a.kind == "MISSING_UTR"}
+
+    # --- bank credits ---
     bank_rows: list[dict[str, Any]] = []
     true_matches: list[dict[str, Any]] = []
+    anomaly_utrs = {a.settlement_utr for a in anomalies if a.settlement_utr}
+
     for utr in sorted(batches):
         b = batches[utr]
-        net = sum(
-            int(it["credit"]) - int(it["debit"]) - int(it["fee"]) - int(it["tax"])
-            for it in b["items"]
+        if utr in dropped_batches:
+            continue  # timing straddle / wrong account: no credit in this statement
+        net = _net_minor(b["items"])
+        vd: date = b["settled"]
+        narration = (
+            f"NEFT CR RAZORPAY SOFTWARE PVT LTD UTR {utr}"
+            if utr not in masked_utrs
+            else "NEFT CR RAZORPAY SOFTWARE PVT LTD"
         )
-        value_date: date = b["settled"]
         bank_rows.append(
             {
-                "amount": f"{net / 100:.2f}",  # bank statements are in rupees
-                "value_date": value_date.isoformat(),
-                "posted_date": value_date.isoformat(),
-                "narration": f"NEFT CR RAZORPAY SOFTWARE PVT LTD UTR {utr}",
+                "amount": f"{net / 100:.2f}",
+                "value_date": vd.isoformat(),
+                "posted_date": vd.isoformat(),
+                "narration": narration,
                 "account_no": "XXXXXXXX4021",
             }
         )
-        true_matches.append(
+        if utr not in anomaly_utrs:
+            true_matches.append(
+                {
+                    "group_id": f"gt_{utr}",
+                    "settlement_utr": utr,
+                    "bank_value_date": vd.isoformat(),
+                    "processor_entity_ids": sorted(it["entity_id"] for it in b["items"]),
+                    "ledger_order_ids": sorted(
+                        {
+                            it["order_id"]
+                            for it in b["items"]
+                            if it["type"] == "payment" and it["order_id"]
+                        }
+                    ),
+                    "expected_net_minor": net,
+                    "clean": True,
+                }
+            )
+
+    for amt in ctx.orphan_credits:
+        vd = _PERIOD_START + timedelta(days=rng.randint(2, sc.period_days - 2))
+        bank_rows.append(
             {
-                "group_id": f"gt_{utr}",
-                "settlement_utr": utr,
-                "bank_value_date": value_date.isoformat(),
-                "processor_entity_ids": [it["entity_id"] for it in b["items"]],
-                "ledger_order_ids": sorted(
-                    {it["order_id"] for it in b["items"] if it["type"] == "payment"}
-                ),
-                "expected_net_minor": net,
-                "clean": True,
+                "amount": f"{amt / 100:.2f}",
+                "value_date": vd.isoformat(),
+                "posted_date": vd.isoformat(),
+                "narration": "NEFT CR SUNDRY RECEIPTS",
+                "account_no": "XXXXXXXX4021",
             }
         )
+
+    bank_rows.sort(key=lambda r: (r["value_date"], r["amount"]))
 
     _write_csv(out / "razorpay_recon.csv", recon_rows)
     _write_csv(out / "bank.csv", bank_rows)
@@ -200,13 +252,11 @@ def generate_dataset(
         "generator_version": __version__,
         "scenario": scenario,
         "seed": seed,
+        "difficulty": difficulty,
         "records": n_orders,
-        "period": [
-            _PERIOD_START.isoformat(),
-            (_PERIOD_START + timedelta(days=sc.period_days - 1)).isoformat(),
-        ],
+        "period": [_PERIOD_START.isoformat(), period_end.isoformat()],
         "true_matches": true_matches,
-        "anomalies": [],  # M1
+        "anomalies": [a.as_dict() for a in anomalies],
     }
     (out / "ground_truth.json").write_text(json.dumps(ground_truth, indent=2, sort_keys=True))
 
@@ -219,13 +269,22 @@ def generate_dataset(
         "generator_version": __version__,
         "scenario": scenario,
         "seed": seed,
+        "difficulty": difficulty,
         "records": n_orders,
         "file_rows": file_rows,
         "settlement_batches": len(batches),
+        "anomalies_injected": {k: v for k, v in sorted(_count_kinds(ground_truth).items())},
         "dataset_hash": _dataset_hash(out),
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True))
     return manifest
+
+
+def _count_kinds(gt: dict[str, Any]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for a in gt["anomalies"]:
+        out[a["kind"]] = out.get(a["kind"], 0) + 1
+    return out
 
 
 def _weighted_choice(rng: random.Random, pairs: list[tuple[str, float]]) -> str:
@@ -238,24 +297,21 @@ def _weighted_choice(rng: random.Random, pairs: list[tuple[str, float]]) -> str:
     return pairs[-1][0]
 
 
-def _batch_utr(settled: date) -> str:
-    tag = settled.strftime("%Y%m%d")
-    return f"RZP{tag}{hashlib.sha1(tag.encode()).hexdigest()[:8].upper()}"
-
-
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     if not rows:
         path.write_text("")
         return
-    fields = list(rows[0].keys())
+    fields = list({k for r in rows for k in r})
+    fields.sort(key=lambda k: (k not in rows[0], list(rows[0]).index(k) if k in rows[0] else 0))
     with path.open("w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=fields)
+        w = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
-        w.writerows(rows)
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in fields})
 
 
 def _dataset_hash(out: Path) -> str:
-    parts = []
-    for f in sorted(out.glob("*.csv")):
-        parts.append(f"{f.name}:{hashlib.sha256(f.read_bytes()).hexdigest()}")
+    parts = [
+        f"{f.name}:{hashlib.sha256(f.read_bytes()).hexdigest()}" for f in sorted(out.glob("*.csv"))
+    ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
