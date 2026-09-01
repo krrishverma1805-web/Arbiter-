@@ -25,12 +25,14 @@ The 2026 engineering consensus: **verification capacity, not generation speed, i
 Reconciliation, settlement and forecasting are still done by hand — not because the data entry is
 hard, but because someone has to _trust_ the result, and trust doesn't parallelize.
 
-Arbiter is built as a direct expression of that idea: a **deterministic core** does the matching and
-the money math (reproducibly, no LLM in the path), and an LLM is used at **exactly one bounded step** —
-explaining the variances a human would otherwise investigate by hand, as gated proposals a human
-confirms. Turn the AI off entirely with `--no-ai` and you still get ~88% of the value.
+Arbiter is built as a direct expression of that idea. It's a **hybrid-orchestration agent**: a
+deterministic state-machine skeleton does the matching and the money math (reproducibly, no LLM in
+the path), and an **agentic investigation loop** — plan → gather evidence → test a hypothesis →
+conclude or escalate — handles the one sub-problem that is genuinely a judgment call: the ambiguous
+exceptions a human would otherwise dig into by hand. The agent only ever *investigates and proposes*;
+a human confirms. Turn it off entirely with `--no-ai` and the deterministic core still stands.
 
-Full reasoning: [`docs/01-market-and-thesis.md`](docs/01-market-and-thesis.md).
+Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/12`](docs/12-agent-design.md) · why it's built this way: [`docs/11`](docs/11-plan-evaluation-and-gaps.md), [`ADR-0004`](docs/adr/0004-hybrid-orchestration.md).
 
 ## What it does
 
@@ -40,9 +42,10 @@ Full reasoning: [`docs/01-market-and-thesis.md`](docs/01-market-and-thesis.md).
 | **Matches** | 4 deterministic passes: exact → tolerant → set/subset (1 credit ↔ N orders) → fuzzy candidates |
 | **Decomposes** | Verifies `net = gross − MDR − GST-on-MDR − refunds − chargebacks ± rounding` line by line |
 | **Classifies** | Every non-match → a typed exception (`TIMING`, `DUPLICATE`, `FEE_DRIFT`, …), ranked by ₹ at stake |
-| **Adjudicates** | The ambiguous residue → Claude proposes a category + plain-language explanation + a fix + a rule. Proposals only — never auto-applied |
+| **Investigates** | The ambiguous residue → a bounded agent loop gathers evidence, tests a hypothesis, and either proposes a category + explanation + fix + rule, or escalates with one sharpened question. Proposals only — never auto-applied |
 | **Learns** | You accept a resolution → Arbiter drafts a durable rule → next cycle's auto-match rate rises |
-| **Reports** | `arbiter bench` → auto-match rate, precision, recall, **false-match rate**, ₹ coverage, throughput, LLM cost — reproducibly, in CI, on every commit |
+| **Reports** | `arbiter bench` → matching metrics (auto-match rate, precision, recall, **false-match rate**, ₹ coverage) **and** agent metrics (task-completion, tool-use accuracy, grounding, hallucination rate, escalation precision/recall, confidence calibration) — reproducibly, in CI |
+| **Attests** | `arbiter memo` → an auditor-ready Close Memo: totals tied, coverage, every exception + its resolution, and the audit-trail hash |
 
 ## Quickstart
 
@@ -54,12 +57,17 @@ make demo          # generates a 200-record batch, reconciles it, opens the cock
 Then:
 
 ```bash
-arbiter gen --scenario d2c --records 200 --seed 42     # adversarial synthetic batch + ground truth
-arbiter run --spec specs/razorpay-settlement.yaml       # reconcile
+arbiter gen --scenario d2c --records 800 --seed 42      # adversarial synthetic batch + ground truth
+arbiter run --spec specs/razorpay-settlement.yaml       # reconcile (deterministic core + agent)
 arbiter run --spec specs/razorpay-settlement.yaml --no-ai   # deterministic core only
-arbiter bench --spec specs/razorpay-settlement.yaml     # score vs ground truth
-arbiter replay <run-id>                                 # byte-identical reconstruction
+arbiter run --resume <run-id>                           # resume a crashed / interrupted run
+arbiter bench --spec specs/razorpay-settlement.yaml     # matching + agent scorecard vs ground truth
+arbiter bench --ablate                                  # --no-ai vs haiku vs sonnet vs opus: accuracy/cost/latency
+arbiter bench --calibration                             # reliability diagram + ECE for agent confidence
+arbiter replay <run-id>                                 # reproduce a completed run from its event log
+arbiter verify <run-id>                                 # check the audit hash chain is intact
 arbiter explain <exception-id>                          # evidence drawer, as text
+arbiter memo <run-id>                                   # generate the auditor-ready Close Memo (HTML/PDF)
 ```
 
 ## What's in here
@@ -83,11 +91,16 @@ Read in order:
 4. [`04-technical-architecture.md`](docs/04-technical-architecture.md) — the system, data model, algorithms, the AI boundary, tech choices
 5. [`05-design-doctrine.md`](docs/05-design-doctrine.md) — the cockpit: principles, interface model, visual system, interaction rules
 6. [`06-feature-inventory.md`](docs/06-feature-inventory.md) — every feature, its job, its priority
-7. [`07-evaluation-and-benchmark.md`](docs/07-evaluation-and-benchmark.md) — how Arbiter measures itself, honestly
+7. [`07-evaluation-and-benchmark.md`](docs/07-evaluation-and-benchmark.md) — how the matcher is measured, honestly
 8. [`08-why-it-might-not-sell.md`](docs/08-why-it-might-not-sell.md) — the internal red-team, and how to make it sellable
 9. [`09-open-strategic-questions.md`](docs/09-open-strategic-questions.md) — the decisions that are yours to make
 10. [`10-implementation-plan.md`](docs/10-implementation-plan.md) — build order, judging-criteria map, schedule, definition of done
-- [`adr/`](docs/adr/) — architecture decision records
+11. [`11-plan-evaluation-and-gaps.md`](docs/11-plan-evaluation-and-gaps.md) — adversarial review of the plan: the grade, the structural weakness, 14 gaps + fixes
+12. [`12-agent-design.md`](docs/12-agent-design.md) — the agent: skeleton, investigation loop, replay, model ablation, the full agent scorecard + calibration
+13. [`13-production-readiness.md`](docs/13-production-readiness.md) — deploy, secrets, migrations, tracing, resilience, SLOs, the runbook
+14. [`14-security-and-trust.md`](docs/14-security-and-trust.md) — threat model (prompt injection via record fields, tampering, secret leakage) + the controls
+- [`adr/`](docs/adr/) — architecture decision records (0001–0004)
+- [`KNOWN-FAILURE-MODES.md`](docs/KNOWN-FAILURE-MODES.md) — where the agent is weak, and the containment
 
 ## Non-goals for this version (stated deliberately)
 

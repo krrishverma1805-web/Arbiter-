@@ -24,21 +24,24 @@ The four stated criteria (from [01](01-market-and-thesis.md) §7), and exactly h
 
 ### Build Quality — "clean repo, execution reliability, code trust"
 - Monorepo with clear package boundaries ([04](04-technical-architecture.md) §9); `make demo` runs the whole thing in one command.
-- `pytest` + `hypothesis` property tests; ≥ 85% engine coverage; a determinism test that fails CI if two runs diverge.
-- Typed throughout (Pydantic v2 / TypeScript strict).
-- CI runs tests + `arbiter bench` on every commit and publishes the scorecard artifact.
-- Every architectural decision has an ADR in `docs/adr/`.
+- `pytest` + `hypothesis` property tests; ≥ 85% engine coverage; determinism + resume tests that fail CI if a run diverges or a mid-run kill changes the result.
+- Typed throughout (Pydantic v2 / TypeScript strict); Alembic migrations; OTEL traces; structured logs; `RUNBOOK.md` ([13](13-production-readiness.md)).
+- Three real ingest parsers (Razorpay recon, bank CSV + MT940, Tally/Zoho) — the unglamorous integration work done visibly ([11 G5](11-plan-evaluation-and-gaps.md)).
+- CI runs tests + both scorecards + `pip-audit`/`gitleaks` on every commit and publishes the artifacts.
+- Every architectural decision has an ADR (0001–0004).
 
 ### AI Judgment — "use AI where appropriate, deterministic where AI is unnecessary"
-- ADR-0001 states the doctrine: deterministic core, AI at exactly one bounded step, every AI output a gated proposal, `--no-ai` mode always works ([04](04-technical-architecture.md) §3).
-- The scorecard **measures the AI's lift** — category accuracy with vs. without the LLM. If the AI doesn't earn its place, the number will say so and we cut it.
-- Money math, matching, scoring, and replay contain zero LLM calls, by design and by test.
+- ADR-0001 + [ADR-0004](adr/0004-hybrid-orchestration.md): deterministic state-machine skeleton, one bounded **agentic investigation loop**, every agent output a gated proposal, `--no-ai` always works ([04 §3](04-technical-architecture.md), [12](12-agent-design.md)).
+- The **model ablation** (`--no-ai` / haiku / sonnet / opus, with accuracy × cost × latency) picks the shipped tiered policy from data — "the right tool in the right place," shown not claimed.
+- The **agent scorecard** (task-completion, tool-use accuracy, grounding, hallucination rate, escalation P/R) + the **calibration study** substantiate the judgment quantitatively.
+- Money math, matching, scoring, and replay contain zero LLM calls, by design and by test. Injection can't move money because tools are proposal-only ([14 C3](14-security-and-trust.md)).
 
 ### Failure Recovery — "show what broke and how you resolved it"
-- The exception ledger _is_ a failure-recovery system: every unresolved item is categorized, quantified, explained, and given a proposed fix + a rule that prevents recurrence.
-- `docs/BUILD-LOG.md` — a running, honest log of what broke during development and how it was fixed (kept from day one, not reconstructed at the end).
-- Deterministic replay + the regression gate = the engineering answer to "how do you recover when accuracy regresses."
-- The demo script deliberately shows an `UNEXPLAINED` exception Arbiter could not resolve, and narrates what it's missing.
+- The exception ledger _is_ a failure-recovery system: every unresolved item categorized, quantified, explained, given a proposed fix + a preventing rule.
+- The agent's own **optimal-stopping / escalation** behavior — it hands back a sharpened question when it can't resolve something — is failure recovery built into the agent, and it's measured (escalation recall).
+- `docs/BUILD-LOG.md` (build failures) **and** `docs/KNOWN-FAILURE-MODES.md` (the agent's own failures, from real runs, with the containment) — both kept from day one.
+- Resumable passes + deterministic replay + the regression gate = the engineering answer to "recover when a run crashes or accuracy regresses."
+- The demo deliberately shows one exception the agent escalated rather than guessed, and narrates what it's missing.
 
 ---
 
@@ -59,51 +62,59 @@ Assumes a solo builder, ~3 focused weeks. Adjust week lengths to your actual run
 - Matching pass 1 (exact) + pass 2 (tolerant) + confidence formula.
 - Settlement decomposition + residual computation.
 - Exception taxonomy + deterministic classifier (spec rules).
-- `datagen`: add the 12 labeled anomaly types with a difficulty dial.
-- `arbiter bench`: full scorecard (matching metrics, $ coverage, throughput, exception histogram) vs `ground_truth.json`.
-- CI: run bench, upload `scorecard.json` + HTML, comment metrics on PR.
-- **Exit:** honest scorecard on an adversarial batch; `--no-ai` is the only mode so far; determinism test green.
+- `datagen`: add the 12 labeled anomaly types with a difficulty dial + a labeled trajectory set + one injected-note record.
+- Three real ingest profiles: `razorpay_recon` (exact schema), `bank_csv` (HDFC/ICICI/Axis/generic) + `mt940`, `tally_daybook`/`zoho_books` ([doc 11 G5](11-plan-evaluation-and-gaps.md)).
+- Injection scanner → `SECURITY_REVIEW` quarantine ([doc 14 C2](14-security-and-trust.md)); file-intake hardening ([doc 14 C4](14-security-and-trust.md)).
+- `arbiter bench`: matching scorecard (metrics, $ coverage, throughput, exception histogram) vs `ground_truth.json`.
+- Alembic migrations; structured logging; OTEL scaffolding.
+- CI: run bench, upload `scorecard.json` + HTML, comment metrics on PR; `pip-audit`/`gitleaks`.
+- **Exit:** honest matching scorecard on an 800-record adversarial batch; `--no-ai` is the only mode so far; determinism + resume tests green.
 
 ### M2 — Hard matching + exception ranking (days 9–12)
 - Pass 3 (set/subset with bounded subset-sum) — the differentiating pass.
 - Pass 4 (fuzzy candidate scoring) + candidate attachment to exceptions.
 - $-impact ranking; exception grouping/dedup.
 - Decomposition D5 (over/undercharge detection).
-- Tune the deterministic core; record the `--no-ai` baseline numbers.
-- **Exit:** deterministic core hits its target auto-match rate on the adversarial batch; baseline scorecard committed.
+- Resumable passes; idempotent runs; `arbiter run --resume`; typed error handling.
+- Tune the deterministic core; **commit the `--no-ai` baseline scorecard** (the number the agent is measured against).
+- **Exit:** deterministic core hits its target auto-match rate on the adversarial batch; baseline committed; `arbiter verify` works.
 
-### M3 — The one AI step (days 13–16)
-- Adjudication agent: Anthropic SDK, `claude-opus-5`, adaptive thinking, the 4-tool read-only surface, strict `Proposal` structured output, frozen+hashed prompt.
-- Wire it to `AMBIGUOUS` / `UNEXPLAINED` exceptions only; per-exception budget + accounting.
-- Batch-API path for `bench`.
-- Scorecard: add category accuracy, resolution usefulness, **AI lift** (vs the M2 baseline), cost/tokens.
-- **Exit:** measured AI lift number exists; `arbiter run` (with AI) and `--no-ai` both green; cost < $0.05/exception.
+### M3 — The investigation agent (days 13–17)
+- Skeleton FSM (`INGESTING…REPORTING`) formalized with per-state events.
+- Investigation loop: plan → investigate (8 read-only tools) → hypothesize & test → conclude/escalate (optimal stopping). Anthropic SDK tool runner, frozen+hashed prompt, `<untrusted-data>` fencing, strict `Proposal`/`Escalate` structured output, turn/token/cost budgets.
+- `AGENT_INTERACTION` events → `arbiter replay` replays them; `--reinvestigate` forces fresh calls.
+- **Agent scorecard** in `arbiter bench`: task-completion, tool-use accuracy, grounding, hallucination rate, escalation P/R, trajectory efficiency, cost/latency, **AI lift** vs the M2 baseline.
+- `arbiter bench --ablate` (--no-ai / haiku / sonnet / opus) → pick the tiered default from the data.
+- `arbiter bench --calibration` → reliability diagram + ECE (+ isotonic recalibration if ECE > 0.05).
+- **Exit:** agent scorecard exists with real numbers; ablation table in the README; `run` (with agent) and `--no-ai` both green; cost < $1.50/demo run.
 
-### M4 — Cockpit (days 14–19, overlaps M3)
-- Next.js app, three surfaces: scorecard, exception queue (keyboard-first grid), evidence drawer.
-- Evidence drawer is the polished piece: 3 record cards, the identity equation, rule trail, AI proposal with clickable evidence refs, decision controls.
-- FastAPI endpoints behind it.
-- Light/dark parity, WCAG AA, reduced-motion.
-- **Exit:** a judge can triage the demo batch entirely in the cockpit.
+### M4 — Cockpit (days 15–20, overlaps M3)
+- Next.js app, three surfaces: scorecard (matching + agent), exception queue (keyboard-first grid), evidence drawer.
+- Evidence drawer is the polished piece: 3 record cards, the identity equation, rule trail, the agent's investigation trace + proposal with clickable evidence refs, decision controls.
+- Live run progress via SSE (pass-by-pass, then agent investigations streaming plan → conclusion).
+- FastAPI behind it; full loading/empty/error state coverage; optimistic resolution with rollback.
+- Light/dark parity, WCAG AA (axe in CI), reduced-motion.
+- **Exit:** a judge can watch a run and triage the demo batch entirely in the cockpit.
 
-### M5 — Learning loop, polish, submission (days 19–21)
+### M5 — Learning loop, assurance artifacts, polish, submission (days 20–23)
 - Resolution → rule synthesis → spec-diff review → re-run shows the number move.
-- Cycle demo: 3 monthly batches, rules carried forward, 85→93→97 curve on screen.
+- Cycle demo: 3 monthly batches, rules carried forward, the rising-curve on screen.
 - Starter rule packs.
-- `arbiter explain` (evidence drawer as text).
-- README, `BUILD-LOG.md` finalized, 5-min pitch video, architecture doc pass.
-- Audit-pack export.
-- **Exit:** all 7 success criteria from [02](02-product-spec.md) §7 pass from a clean checkout.
+- **Close Memo** (`arbiter memo`, HTML + PDF); audit-pack export; `arbiter explain`.
+- (stretch) deterministic cash-position readout off the reconciled ledger.
+- `KNOWN-FAILURE-MODES.md` populated from real bench runs; `RUNBOOK.md`; `/healthz`+`/readyz`.
+- README (with the ablation + calibration numbers), `BUILD-LOG.md` finalized, 5-min pitch video, doc pass.
+- **Exit:** all criteria from [02 §7](02-product-spec.md) **and** [doc 11 §7](11-plan-evaluation-and-gaps.md) pass from a clean checkout.
 
 ---
 
 ## 4. What ships in each priority band (from [06](06-feature-inventory.md))
 
-- **P0 (must):** A1–A5, A7, B1–B4, B6, C1–C8, D1–D3, E1–E6, F1–F5, F7–F9, G1, G5, H1–H4, I1–I6, J1–J4, K1–K3, K6, L1–L4.
-- **P1 (if time):** A6, B5, D4–D5, F6, F10, G2–G4, H5, I7, J5–J6, K4–K5, K7, L5.
-- **P2 (post):** all of section M.
+- **P0 (must):** A1–A5, A7, B1–B4, B6, C1–C8, D1–D3, E1–E6, F1–F1c, F2–F5, F7–F9, G1, G5, H1–H4, I1–I6, J1–J4, K1–K3, K6, L1–L4, **N1–N3, O1–O6, P1–P5, P7**.
+- **P1 (if time):** A6, B5, D4–D5, F1d, F6, F10, G2–G4, H5, I7, J5–J6, K4–K5, K7, L5, **N4–N6, O7, P6, P8, Q1–Q2**.
+- **P2 (post):** all of section M, **Q3**.
 
-If time runs short, cut P1 features before compromising any P0 — especially do not compromise `arbiter bench`, the determinism test, or the evidence drawer.
+If time runs short, cut P1 before compromising any P0 — and never compromise: `arbiter bench` (both scorecards), the determinism + resume tests, the proposal-only tool guarantee (O3), the injection defense (O1–O2), and the evidence drawer.
 
 ---
 
@@ -127,16 +138,22 @@ Stated in [02](02-product-spec.md) §6 and [06](06-feature-inventory.md) §M. Th
 
 ## 7. Definition of done (the submission checklist)
 
-- [ ] `git clone && make demo` → cockpit open with a real scorecard in < 3 min
-- [ ] `arbiter bench` → precision / recall / **false-match rate** / $ coverage / throughput / cost, reproducibly
-- [ ] `arbiter run --no-ai` → works; scorecard shows the deterministic baseline
-- [ ] AI lift is measured and stated (a real number, whatever it is)
-- [ ] `arbiter replay <id>` → byte-identical
-- [ ] CI green: tests, coverage gate, determinism test, regression gate, scorecard artifact
+Combines [doc 02 §7](02-product-spec.md) and [doc 11 §7](11-plan-evaluation-and-gaps.md).
+
+- [ ] `git clone && make demo` → cockpit open with a real scorecard, 800-record batch, in < 3 min
+- [ ] `arbiter bench` → **matching** scorecard (precision / recall / **false-match rate** / $ coverage / throughput) **and** **agent** scorecard (task-completion / tool-use accuracy / grounding / hallucination rate / escalation P/R), reproducibly
+- [ ] `arbiter bench --ablate` → the `--no-ai` / haiku / sonnet / opus table (accuracy × cost × latency) is in the README
+- [ ] `arbiter bench --calibration` → ECE ≤ 0.05 (or recalibrated + disclosed)
+- [ ] `arbiter run --no-ai` works; the deterministic baseline is committed; **AI lift** is a stated number
+- [ ] The agent runs a visible investigation loop (plan → evidence → hypothesis → conclude/escalate), not a one-shot call
+- [ ] `arbiter replay <id>` reproduces a completed run from its log; `arbiter run --resume` survives a mid-run kill; `arbiter verify` confirms the hash chain
+- [ ] Prompt-injection defense implemented; the demo data's injected note is caught and routed to `SECURITY_REVIEW`, not the agent
+- [ ] OTEL traces (`--trace`), structured logs, Alembic migrations, `/healthz`+`/readyz`, `RUNBOOK.md` exist
+- [ ] CI green: tests, coverage gate, determinism + resume tests, regression gate, `pip-audit`/`gitleaks`, both scorecards as artifacts
 - [ ] Cycle demo shows the auto-match rate rising across 3 batches
-- [ ] Evidence drawer: every number traceable to source in ≤ 2 clicks
-- [ ] `docs/` complete; every non-trivial decision has an ADR
-- [ ] `BUILD-LOG.md` — honest account of what broke and how it was fixed
-- [ ] README: what it is, why, quickstart, non-goals, the honest limitations
-- [ ] 5-minute pitch video: problem → demo (including one unresolved exception) → the benchmark → the architecture doctrine
+- [ ] `arbiter memo <id>` → the auditor-ready Close Memo (HTML + PDF) with the audit-trail hash
+- [ ] Evidence drawer: every number traceable to source in ≤ 2 clicks; full frontend state coverage; live run progress
+- [ ] `docs/` complete (01–14 + ADRs 0001–0004); `BUILD-LOG.md` + `KNOWN-FAILURE-MODES.md` populated from real runs
+- [ ] README: what it is, why, quickstart, non-goals, honest limitations, the ablation + calibration numbers
+- [ ] 5-minute pitch video: problem → watch a run → one escalated exception → both benchmarks → the hybrid-orchestration doctrine
 - [ ] Public repo, clean history, LICENSE (Apache-2.0 for the open-core engine)

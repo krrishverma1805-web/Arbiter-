@@ -80,9 +80,16 @@ This is the most important design decision and the one most directly judged. It 
 | Scorecard | Counting against ground truth | Measurement must not be model-dependent |
 | Replay | Event fold | Definitionally deterministic |
 
+> **Framing (see [ADR-0004](adr/0004-hybrid-orchestration.md) and [doc 12](12-agent-design.md)):** Arbiter is a
+> **hybrid-orchestration agent** — a deterministic state-machine skeleton (`INGESTING → MATCHING → DECOMPOSING →
+> CLASSIFYING → INVESTIGATING → SCORING → REPORTING`) with an **agentic investigation loop** for the one step below.
+> The skeleton decides *what happens and in what order* (fixed, replayable). The agent decides *how to investigate
+> one ambiguous exception* (plan → gather evidence → test hypothesis → conclude or escalate). Control always returns
+> to the skeleton. This is what makes "an agent" a true claim without weakening determinism.
+
 ### 3.2 What uses the LLM — exactly one step
 
-**Adjudication of exceptions the deterministic classifier tagged `AMBIGUOUS` or `UNEXPLAINED`.**
+**Investigation of exceptions the deterministic classifier tagged `AMBIGUOUS` or `UNEXPLAINED`** (never `SECURITY_REVIEW` — those bypass the agent, see [doc 14 C2](14-security-and-trust.md)). The full loop, tools, stopping rule, evaluation and calibration are in [doc 12](12-agent-design.md); the summary:
 
 - **Model:** `claude-opus-5` (adaptive thinking) for adjudication; `claude-haiku-4-5` optional for a cheap first-pass triage on large batches. Model id + prompt hash recorded on every proposal event.
 - **Input:** a compact evidence bundle (the unmatched record(s), the top candidate matches with scores, the relevant spec rules, the decomposition residual). Never the raw files.
@@ -175,9 +182,14 @@ Exception:
   confidence: float
   candidates: list[{match_hypothesis, score}]   # from fuzzy pass
   ai_proposal: Proposal | None
+  ai_trajectory_id: str | None   # link to the recorded AGENT_INTERACTION events (doc 12 §4)
   resolution: Resolution | None
-  status: str                 # "open" | "proposed" | "resolved" | "wont_fix" | "budget_exceeded"
+  status: str                 # "open" | "proposed" | "escalated" | "resolved" | "wont_fix" | "budget_exceeded" | "security_review"
 ```
+
+### 4.6 `AGENT_INTERACTION` event payload
+
+Every LLM request/response in the investigation loop is recorded so a completed run replays without re-calling the API ([doc 12](12-agent-design.md) §4): `{exception_id, turn, model, prompt_hash, request, response, tokens_in, tokens_out, cache_read, latency_ms, tool_calls[]}`.
 
 ---
 
@@ -284,16 +296,17 @@ All passes sort inputs by `Record.id` before iterating. No dict-ordering depende
 
 ---
 
-## 7. The adjudication agent (implementation)
+## 7. The investigation agent (implementation)
 
-- **SDK:** `anthropic` Python SDK, `client.messages.create` with `thinking={"type":"adaptive"}`, `output_config={"effort":"medium"}` for routine exceptions, `"high"` for `UNEXPLAINED`.
-- **Tool loop:** the SDK beta tool runner (`client.beta.messages.tool_runner`) with the 4 tools in §3.2; `max` ~6 tool turns per exception.
-- **Structured output:** the final `Proposal` is produced via `output_config={"format": {...}}` against the strict JSON schema — category is an enum of the spec taxonomy, so the model cannot invent a category.
-- **Prompt:** a frozen system prompt (hashed, versioned in `agent/prompts/`) that states: you explain variances and propose fixes; you never assert a match; cite evidence ids for every claim; if evidence is insufficient say so and stop.
-- **Batching:** exceptions are adjudicated concurrently (async) with a semaphore; the Message Batches API is used for `arbiter bench` runs to cut cost 50%.
-- **Cost control:** per-run token budget; `usage` accumulated and reported on the scorecard (`llm_cost_usd`, `llm_tokens_in/out`, `exceptions_adjudicated`).
-- **Caching:** the frozen system prompt + spec + taxonomy are a stable cache prefix (`cache_control`), so per-exception marginal cost is just the evidence bundle + output.
-- **Refusal handling:** `stop_reason == "refusal"` → exception stays `UNEXPLAINED`, logged; server-side fallback enabled per the current SDK guidance.
+Full design, loop, tools, stopping rule, model ablation and evaluation: **[doc 12](12-agent-design.md)**. Implementation notes:
+
+- **SDK:** `anthropic` Python SDK. Tiered model policy — `claude-haiku-4-5` for the first-pass triage classification, `claude-opus-5` (adaptive thinking, `effort: high` for `UNEXPLAINED`) for genuine investigations — the split is decided by `arbiter bench --ablate`, not asserted ([doc 12](12-agent-design.md) §5).
+- **Loop:** the SDK beta tool runner with the 8 read-only / proposal-only tools; turn budget 6, per-exception token budget 12k, per-run cost ceiling from the spec.
+- **Structured output:** the terminal `Proposal` (or `Escalate`) via `output_config={"format": {...}}` against a strict schema — `category` is an enum of the spec taxonomy, so the model cannot invent one.
+- **Prompt:** frozen, hashed, versioned in `agent/prompts/`. States: investigate, then propose or escalate; never assert a match; cite an evidence-ref for every factual claim; actively seek disconfirming evidence; if evidence is insufficient or contradictory, escalate with the single question a human should answer. Untrusted record content is `<untrusted-record-data>`-fenced and declared as data, never instructions ([doc 14 C1](14-security-and-trust.md)).
+- **Replay:** every request/response recorded as an `AGENT_INTERACTION` event (§4.6); `arbiter replay` replays these instead of re-calling the API.
+- **Batching / caching:** `bench` uses the Batch API (−50%); the frozen prompt + spec + taxonomy are a stable `cache_control` prefix so per-exception marginal cost ≈ evidence bundle + output.
+- **Failure handling:** 429/529 → capped backoff → escalate `provider_unavailable`; `stop_reason == "refusal"` → escalate, server-side fallback on; tool timeout → escalate with partial findings ([doc 13 §4](13-production-readiness.md)).
 
 ---
 
@@ -332,20 +345,24 @@ arbiter/
 ├── packages/
 │   ├── engine/
 │   │   ├── arbiter_engine/
-│   │   │   ├── ingest/  specs/  match/  decompose/
-│   │   │   ├── exceptions/  agent/  learn/  events/  bench/
+│   │   │   ├── ingest/           # format profiles: razorpay_recon, bank_csv, mt940, tally, zoho
+│   │   │   ├── specs/  match/  decompose/
+│   │   │   ├── exceptions/       # taxonomy, rule classifier, injection scanner (doc 14 C2)
+│   │   │   ├── agent/            # skeleton FSM + investigation loop + tools + prompts + eval
+│   │   │   ├── learn/  events/  bench/  memo/  telemetry/
 │   │   │   └── cli.py            # `arbiter` entrypoint (Typer)
-│   │   └── tests/
+│   │   └── tests/                # pytest + hypothesis; determinism, resume, calibration
 │   ├── datagen/
-│   │   └── arbiter_datagen/      # adversarial batch generator
+│   │   └── arbiter_datagen/      # adversarial batch generator + labeled trajectory set
 │   └── api/
-│       └── arbiter_api/          # FastAPI app
-├── web/                          # Next.js cockpit
+│       └── arbiter_api/          # FastAPI app (+ SSE /runs/{id}/stream)
+├── web/                          # Next.js cockpit + Close Memo renderer
 ├── specs/
 │   ├── razorpay-settlement.yaml  # reference spec
 │   └── gst-2b.yaml               # proof-of-generality spec
 ├── datasets/
-│   └── seed/                     # small committed demo batch + ground truth
+│   └── seed/                     # small committed demo batch + ground truth (incl. 1 injected note)
+├── alembic/                      # migrations
 └── .github/workflows/ci.yml
 ```
 
@@ -355,21 +372,25 @@ arbiter/
 
 | Property | Target | How verified |
 |---|---|---|
-| Throughput | ≥ 500 records/run in < 20 s (excl. LLM); ≥ 50 records is the floor per the track | `bench` reports wall-clock |
-| Determinism | 100% — two runs, identical event hash chain | CI determinism test |
-| LLM cost | < $0.05 per exception adjudicated (with caching + batch) | scorecard `llm_cost_usd` |
+| Throughput | ≥ 500 records/run in < 20 s (excl. LLM); demo batch = 800; `bench --scale 5000` documented | `bench` reports wall-clock |
+| Determinism | deterministic core: 100%, identical event hash chain; agent: replayable from recorded interactions ([doc 12 §4](12-agent-design.md)) | CI determinism + resume tests |
+| LLM cost | < $0.05 per exception; < $1.50 per demo run | scorecard `cost.llm_usd` |
 | Replay fidelity | byte-identical projections | `arbiter replay` diff test |
+| Agent quality | task-completion ≥ 80%, hallucination ≤ 2%, escalation recall ≥ 90%, ECE ≤ 0.05 | `arbiter bench` agent scorecard ([doc 12 §6](12-agent-design.md)) |
 | Cold start | `make demo` → cockpit open in < 3 min on a laptop | documented, timed |
 | Test coverage | engine ≥ 85% lines; matcher & decompose ≥ 95% | `pytest --cov` in CI |
+| Observability | OTEL spans per pass / exception / tool / LLM call; structured logs keyed by `run_id` | `arbiter run --trace` |
 
 ---
 
 ## 11. Known architectural gaps (stated, not hidden)
 
+Operational readiness (migrations, tracing, resilience, SLOs) is specified in **[doc 13](13-production-readiness.md)**; the security posture in **[doc 14](14-security-and-trust.md)**. Remaining deferrals:
+
 | Gap | Why acceptable for v1 | Post-hackathon path |
 |---|---|---|
-| No auth / multi-tenant / RBAC | Not judged; local-first demo | Add org model + row-level security on Postgres |
-| No live bank/ERP connectors | Connector sprawl is a deliberate non-goal ([08](08-why-it-might-not-sell.md)) | Connector SDK; start with Razorpay API + one bank aggregator |
+| No auth / multi-tenant / RBAC | Not judged; local-first demo; data model reserves `org_id` | Org model + row-level security on Postgres |
+| Live bank/ERP **API** connectors | Three real **file** parsers ship instead ([doc 11 G5](11-plan-evaluation-and-gaps.md)); API connectors are the first post-hackathon investment | Connector SDK; Razorpay API + an account aggregator |
 | Subset-sum heuristic above 40 candidates | Real settlement batches are usually smaller per `settlement_id`; heuristic is bounded and flagged | ILP solver (OR-Tools) behind the same interface |
 | Single-node, in-process | Demo scale | Queue (the engine is already event-driven) + workers |
 | No streaming ingest | Batch is the track's framing | The event store already supports incremental folds |

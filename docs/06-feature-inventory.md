@@ -63,11 +63,16 @@ Priority key: **P0** = required for a credible Buildathon submission · **P1** =
 | E5 | Exception dedup / grouping | Collapse 30 identical rounding diffs into one group | Queue must be workable, not overwhelming | P0 |
 | E6 | `budget-exceeded` status | Mark exceptions the AI couldn't finish in budget | Honesty; also a scorecard line | P0 |
 
-## F. AI adjudication (the one AI step)
+## F. AI investigation agent (the one AI step)
+
+> Full design in [doc 12](12-agent-design.md). This is a **bounded agent loop** (plan → investigate → hypothesize & test → conclude/escalate), not a single call — see [doc 11 G1](11-plan-evaluation-and-gaps.md) and [ADR-0004](adr/0004-hybrid-orchestration.md).
 
 | ID | Feature | Job | Why | Priority |
 |---|---|---|---|---|
-| F1 | Claude adjudication agent for `AMBIGUOUS` / `UNEXPLAINED` only | Explain the variance + propose category + fix | Compresses human verification time — the core thesis | P0 |
+| F1 | Investigation agent for `AMBIGUOUS` / `UNEXPLAINED` only | Plan an investigation, gather evidence, test a hypothesis, then explain + propose category + fix | Compresses human verification time — the core thesis | P0 |
+| F1b | Multi-step evidence-gathering loop (iterative read-only tool calls) | Let the agent decide what to look at and in what order | This is what makes it an agent, not a pipeline | P0 |
+| F1c | Optimal-stopping decision (conclude vs escalate with a sharpened question) | Autonomously judge when evidence is sufficient | Embodies the verification-bottleneck thesis; escalations are measured | P0 |
+| F1d | Tiered model policy (Haiku triage → Opus investigate), chosen by ablation | Right tool in the right place, proven with data | "AI Judgment" made visible; cost control | P1 |
 | F2 | Read-only evidence tool (`query_evidence`) | Agent's only data access | No agent tool touches money | P0 |
 | F3 | Structured `Proposal` output (category = spec enum) | Machine-checkable, can't invent categories | Safety + downstream automation | P0 |
 | F4 | Evidence-ref citations on every claim | Each sentence links to a record field | Trust surface; verifiable | P0 |
@@ -142,6 +147,50 @@ Priority key: **P0** = required for a credible Buildathon submission · **P1** =
 | L3 | `make demo` — one command, full loop, cockpit open | Onboarding in 3 minutes | Evaluation friction = lost points | P0 |
 | L4 | FastAPI: ingest / runs / exceptions / resolve / scorecard / replay | Cockpit backend + customer pipelines | Real integration path | P0 |
 | L5 | OpenAPI docs auto-generated | Self-documenting API | Build quality signal | P1 |
+
+## N. Agent evaluation & calibration ([doc 12 §6](12-agent-design.md))
+
+| ID | Feature | Job | Why | Priority |
+|---|---|---|---|---|
+| N1 | Labeled trajectory set (emitted by `datagen`) | Ground truth for agent behavior, not just outcomes | Can't measure an agent without it | P0 |
+| N2 | Agent scorecard: task-completion, tool-use accuracy, grounding, hallucination rate, escalation P/R, trajectory efficiency | Measure the agent the way 2026 agent evals do | This is what the AI-track judges actually score | P0 |
+| N3 | AI lift (agent vs `--no-ai`) | Quantify the agent's real contribution | Honesty; justifies the AI's existence | P0 |
+| N4 | Confidence calibration study (reliability diagram, ECE, isotonic recalibration) | Prove the confidence numbers are trustworthy | An uncalibrated confidence misleads the human | P1 |
+| N5 | Model ablation (`--no-ai` / haiku / sonnet / opus): accuracy × cost × latency | Justify the shipped default with data | "Right tool in the right place" shown, not claimed | P1 |
+| N6 | `KNOWN-FAILURE-MODES.md` populated from real runs | Show where the agent is weak + the containment | Failure Recovery criterion | P1 |
+
+## O. Security & trust ([doc 14](14-security-and-trust.md))
+
+| ID | Feature | Job | Why | Priority |
+|---|---|---|---|---|
+| O1 | Untrusted-field fencing + system-prompt data declaration | Stop prompt injection via `description` / `notes` / narration | Attacker-controlled data reaches the LLM | P0 |
+| O2 | Deterministic injection scanner → `SECURITY_REVIEW` quarantine (bypasses the agent) | Catch injection before it's investigated | Defense in depth | P0 |
+| O3 | Proposal-only tool surface (the backstop) | Money-safety independent of model-safety | Single most important control | P0 |
+| O4 | File intake hardening (size/row caps, CSV formula neutralization, safe XLSX) | Stop malicious files | DoS / formula injection | P0 |
+| O5 | Secret + PII redaction in logs/traces/memo; `gitleaks` pre-commit | No credential or financial-data leakage | Basic hygiene, often missed | P0 |
+| O6 | `arbiter verify` — recompute the hash chain | Tamper-evidence for the audit log | Audit integrity | P0 |
+| O7 | Demo data includes one injected note | The control is visibly exercised for a judge | Proof, not claim | P1 |
+
+## P. Observability & operations ([doc 13](13-production-readiness.md))
+
+| ID | Feature | Job | Why | Priority |
+|---|---|---|---|---|
+| P1 | OpenTelemetry spans (pass / exception / tool / LLM call, nested) + `arbiter run --trace` | Inspect any run step by step | Agent-observability standard | P0 |
+| P2 | Structured JSON logs keyed by `run_id` | Debuggable in production | Build quality | P0 |
+| P3 | Alembic migrations; same on SQLite + Postgres | Safe schema evolution | Production readiness | P0 |
+| P4 | Resumable passes + idempotent runs + `arbiter run --resume` | Survive a crash mid-batch | Resilience | P0 |
+| P5 | Typed retries / escalation on 429 / refusal / timeout | Graceful degradation, never a silent drop | Failure Recovery | P0 |
+| P6 | `/healthz` + `/readyz`, Docker healthcheck, graceful shutdown | Deployable | Production readiness | P1 |
+| P7 | Per-run LLM cost ceiling | Bounded spend on a hard batch | Cost control | P0 |
+| P8 | `docs/RUNBOOK.md` | Operate it: deploy, rollback, resume, rotate key, restore | Build quality signal | P1 |
+
+## Q. Assurance artifacts
+
+| ID | Feature | Job | Why | Priority |
+|---|---|---|---|---|
+| Q1 | **Close Memo** (`arbiter memo`) — HTML + PDF | The auditor/CFO-ready reconciliation report with the audit-trail hash | doc 08's "sell the assurance artifact, not the automation" made concrete | P1 |
+| Q2 | Audit pack export (records + events + scorecard + memo, self-contained) | Hand an auditor everything for one period | Real finance-team need | P1 |
+| Q3 | Cash-position readout (deterministic, off the reconciled ledger: settled + `on_hold` + upcoming) | One screen: "here's your position, and you can trust it because it's reconciled" | Closes the narrative loop to the "forecaster" track direction | P2 (stretch) |
 
 ## M. Post-hackathon (P2 — named so scope is explicit)
 

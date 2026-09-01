@@ -2,6 +2,8 @@
 
 _How Arbiter measures itself, honestly. This document is the direct answer to the Buildathon bar: "Throughput plus measured accuracy plus an honest exception list. One cherry-picked match proves nothing."_
 
+> **Scope:** this document covers the **matching engine**. The **agent** is evaluated separately and just as rigorously — task-completion rate, tool-use accuracy, grounding/faithfulness, hallucination rate, escalation precision/recall, trajectory efficiency, and a confidence-calibration study — in **[doc 12 §6](12-agent-design.md)**. `arbiter bench` emits both scorecards.
+
 ---
 
 ## 1. Principle: the benchmark is a product feature, not a slide
