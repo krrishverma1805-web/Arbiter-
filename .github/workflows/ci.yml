@@ -24,7 +24,7 @@ jobs:
       - name: ruff
         run: uv run ruff check . && uv run ruff format --check .
       - name: mypy
-        run: uv run mypy packages/engine/arbiter_engine packages/datagen/arbiter_datagen
+        run: uv run mypy packages/engine/arbiter_engine packages/datagen/arbiter_datagen packages/api/arbiter_api
 
   test:
     runs-on: ubuntu-latest
@@ -36,7 +36,7 @@ jobs:
           python-version: "3.12"
       - run: uv sync --all-packages
       - name: pytest
-        run: uv run pytest -q -m "not live" --cov=arbiter_engine --cov=arbiter_datagen --cov-report=term-missing
+        run: uv run pytest -q -m "not live" --cov=arbiter_engine --cov=arbiter_datagen --cov=arbiter_api --cov-report=term-missing
 
   determinism:
     # isolated so a failure here is unmistakable — this is the anti-cherry-pick gate

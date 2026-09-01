@@ -51,6 +51,7 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
     proj = RunProjection(run_id=run_id)
     classified: dict[str, tuple[str, str, float | None]] = {}
     agent_outcomes: dict[str, tuple[str, dict[str, object]]] = {}
+    resolutions: dict[str, dict[str, str]] = {}
     for etype, payload in store.iter_payloads(run_id):
         match etype:
             case EventType.RUN_STARTED:
@@ -78,6 +79,12 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
                 agent_outcomes[payload["exception_id"]] = ("proposal", payload["proposal"])
             case EventType.AGENT_ESCALATED:
                 agent_outcomes[payload["exception_id"]] = ("escalate", payload["escalation"])
+            case EventType.RESOLUTION_APPLIED:
+                resolutions[payload["exception_id"]] = {
+                    "action": payload["action"],
+                    "detail": payload.get("detail", ""),
+                    "actor": payload["actor"],
+                }
             case EventType.SCORECARD_COMPUTED:
                 proj.scorecard = payload["scorecard"]
             case EventType.RUN_COMPLETED:
@@ -87,7 +94,7 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
             case _:
                 pass
 
-    if classified or agent_outcomes:
+    if classified or agent_outcomes or resolutions:
         rebuilt: list[ReconException] = []
         for e in proj.exceptions:
             update: dict[str, object] = {}
@@ -103,6 +110,11 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
                 else:
                     update["agent_escalation"] = payload
                     update["status"] = "escalated"
+            if e.id in resolutions:
+                update["resolution"] = resolutions[e.id]
+                update["status"] = (
+                    "wont_fix" if resolutions[e.id]["action"] == "wont_fix" else "resolved"
+                )
             rebuilt.append(e.model_copy(update=update) if update else e)
         proj.exceptions = rebuilt
 

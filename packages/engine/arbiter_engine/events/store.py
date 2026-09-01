@@ -46,8 +46,15 @@ class ChainBroken(RuntimeError):
 
 class EventStore:
     def __init__(self, url: str = "sqlite://") -> None:
-        connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-        self.engine: Engine = create_engine(url, connect_args=connect_args)
+        kwargs: dict[str, Any] = {}
+        if url.startswith("sqlite"):
+            kwargs["connect_args"] = {"check_same_thread": False}
+        if url in ("sqlite://", "sqlite:///:memory:"):
+            # a shared in-memory DB that survives across connections (for the API + tests)
+            from sqlalchemy.pool import StaticPool
+
+            kwargs["poolclass"] = StaticPool
+        self.engine: Engine = create_engine(url, **kwargs)
         SQLModel.metadata.create_all(self.engine)
 
     # -- append ---------------------------------------------------------------

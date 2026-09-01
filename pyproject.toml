@@ -7,11 +7,12 @@ requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 
 [tool.uv.workspace]
-members = ["packages/engine", "packages/datagen"]
+members = ["packages/engine", "packages/datagen", "packages/api"]
 
 [tool.uv.sources]
 arbiter-engine = { workspace = true }
 arbiter-datagen = { workspace = true }
+arbiter-api = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -22,6 +23,7 @@ dev = [
     "mypy>=1.11",
     "types-PyYAML>=6.0",
     "types-python-dateutil>=2.9",
+    "httpx>=0.27",
 ]
 
 [tool.ruff]
@@ -37,7 +39,7 @@ extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
-testpaths = ["packages/engine/tests", "packages/datagen/tests"]
+testpaths = ["packages/engine/tests", "packages/datagen/tests", "packages/api/tests"]
 markers = ["live: hits the Anthropic API (nightly only)"]
 
 [tool.mypy]

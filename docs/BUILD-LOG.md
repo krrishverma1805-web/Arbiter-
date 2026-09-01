@@ -8,6 +8,26 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M4a: the HTTP API (docs/20 §1)
+
+`packages/api` — a FastAPI wrapping the engine, the cockpit backend + the customer
+integration surface. Routes: `/healthz` `/readyz`; `/v1/specs` `/v1/datasets`;
+`POST /v1/runs`; `/v1/runs` list + detail + `/scorecard` + `/matches` + `/exceptions`
++ `/verify` + `/replay` + `/stream` (SSE); `/v1/exceptions/{run}/{id}` (the
+evidence-drawer payload) + `/resolve` (→ `RESOLUTION_APPLIED`). RFC-9457-ish problem
+responses. New events: `RESOLUTION_APPLIED` / `RULE_DRAFTED` / `RULE_MERGED`, folded
+onto exceptions (a resolved exception carries its resolution + status).
+
+**Bug caught:** the API needs the store to persist across requests — an in-memory
+`sqlite://` engine drops its tables between connections. Fixed in `EventStore`: for
+`sqlite://` / `:memory:` it now uses a `StaticPool` (one kept-alive connection per
+engine, so separate `EventStore()` instances stay isolated — the determinism tests
+still pass).
+
+6 API tests (health, spec/dataset listing, full run lifecycle, evidence drawer +
+resolve, 404s). 79 tests total. Live smoke: `arbiter-api` serves and a `POST /v1/runs`
+completes end to end. ruff + mypy(strict) clean.
+
 ## 2026-09-02 — M3: the investigation agent (ADR-0004)
 
 The skeleton FSM gains an `INVESTIGATING` phase. For each `UNEXPLAINED` / `AMBIGUOUS`

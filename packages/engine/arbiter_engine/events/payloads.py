@@ -28,6 +28,9 @@ class EventType(StrEnum):
     AGENT_INTERACTION = "AGENT_INTERACTION"
     AGENT_PROPOSAL_CREATED = "AGENT_PROPOSAL_CREATED"
     AGENT_ESCALATED = "AGENT_ESCALATED"
+    RESOLUTION_APPLIED = "RESOLUTION_APPLIED"
+    RULE_DRAFTED = "RULE_DRAFTED"
+    RULE_MERGED = "RULE_MERGED"
     SCORECARD_COMPUTED = "SCORECARD_COMPUTED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_PURGED = "RUN_PURGED"
@@ -125,6 +128,30 @@ class AgentEscalated(BaseModel):
     turns: int
 
 
+class ResolutionApplied(BaseModel):
+    exception_id: str
+    action: str
+    detail: str = ""
+    actor: str
+    prior_status: str
+    source: str = "human"
+
+
+class RuleDrafted(BaseModel):
+    rule_id: str
+    when: str
+    classify: str
+    resolve: str
+    provenance_exception_id: str
+
+
+class RuleMerged(BaseModel):
+    rule_id: str
+    spec_version_before: int
+    spec_version_after: int
+    approved_by: str
+
+
 class ScorecardComputed(BaseModel):
     scorecard: dict[str, Any]
 
@@ -154,6 +181,9 @@ EVENT_PAYLOADS: dict[EventType, type[BaseModel]] = {
     EventType.AGENT_INTERACTION: AgentInteraction,
     EventType.AGENT_PROPOSAL_CREATED: AgentProposalCreated,
     EventType.AGENT_ESCALATED: AgentEscalated,
+    EventType.RESOLUTION_APPLIED: ResolutionApplied,
+    EventType.RULE_DRAFTED: RuleDrafted,
+    EventType.RULE_MERGED: RuleMerged,
     EventType.SCORECARD_COMPUTED: ScorecardComputed,
     EventType.RUN_COMPLETED: RunCompleted,
     EventType.RUN_PURGED: RunPurged,
