@@ -28,7 +28,18 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 isotonic map is fitted and disclosed. Exactly the kind of thing the calibration study
 exists to catch.
 
-50 tests. ruff + mypy(strict) clean.
+- **M2c — safe-AST rule engine** (ADR-0003): `exceptions/rules.py` parses a spec's
+  `rules:` `when:` expressions with Python's `ast` module against a strict node
+  whitelist (no `eval`, no imports, no comprehensions/lambdas, no dunder names, no
+  private-attribute access, per-object attribute allow-lists). `exceptions/context.py`
+  builds the `RuleContext` (safe helper fns: `abs`, `is_empty`, `injection_signal`,
+  `count_records`, `unmatched`, `ts_day`, …). The classifier now consults the spec's
+  rules first; a broken rule never crashes a run, it just doesn't fire. The reference
+  spec's 7 rules all compile and drive the `_classify_residual` path.
+
+66 tests (rule safety: `__import__`/`open`/`lambda`/comprehension/dunder all rejected;
+first-match-wins; broken-rule tolerance; the reference spec's rules compile).
+ruff + mypy(strict) clean.
 
 ## 2026-09-02 — M1: matching engine, decomposition, classifier, `arbiter bench`
 

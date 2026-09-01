@@ -13,10 +13,12 @@ An exception is opened for:
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from arbiter_engine.decompose.identity import expected_net_minor
+from arbiter_engine.exceptions.context import build_context
 from arbiter_engine.exceptions.injection import injection_signal
+from arbiter_engine.exceptions.rules import RuleEngine
 from arbiter_engine.models import Decomposition, Match, MatchCandidate, ReconException, Record
 from arbiter_engine.specs.model import ReconSpec
 
@@ -27,6 +29,8 @@ class _Ctx:
     rounding_minor: int
     period_start: str
     period_end: str
+    engine: RuleEngine | None = None
+    all_records: list[Record] = field(default_factory=list)
 
 
 def _eid(run_id: str, *parts: str) -> str:
@@ -51,7 +55,11 @@ def build_exceptions(
 ) -> list[ReconException]:
     rounding = int((spec.identity or {}).get("rounding_tolerance_minor", 100))
     p_start, p_end = _period(spec)
-    ctx = _Ctx(run_id, rounding, p_start, p_end)
+    try:
+        engine: RuleEngine | None = RuleEngine(spec.rules) if spec.rules else None
+    except Exception:  # noqa: BLE001 - a bad spec rule must not crash a run
+        engine = None
+    ctx = _Ctx(run_id, rounding, p_start, p_end, engine=engine, all_records=list(records))
     cand_map = candidates or {}
 
     by_id = {r.id: r for r in records}
@@ -257,6 +265,30 @@ def _classify_residual(
 
     total_fee = sum(it.fee_minor + it.tax_minor for it in items) or 1
 
+    # first: let the spec's `rules:` decide (docs/adr/0003)
+    if ctx.engine is not None:
+        rctx = build_context(
+            all_records=ctx.all_records,
+            exception_records=items,
+            residual_minor=residual,
+            amount_impact_minor=residual,
+            decomp=decomp,
+        )
+        hit = ctx.engine.classify(rctx)
+        if hit is not None:
+            return ReconException(
+                id=eid,
+                run_id=ctx.run_id,
+                record_ids=ids,
+                category=hit.classify,
+                classified_by=f"rule:{hit.id}",
+                amount_impact_minor=residual,
+                confidence=0.9 if hit.classify != "UNEXPLAINED" else None,
+                resolution={"action": hit.resolve} if hit.resolve else None,
+                status="open",
+            )
+
+    # fallback: built-in heuristics (M1 behaviour, retained until every case is a rule)
     if abs_res <= ctx.rounding_minor:
         cat, rule, conf = "ROUNDING", "rule:r_rounding", 0.95
     elif not decomp.ledger_crosscheck_ok:
