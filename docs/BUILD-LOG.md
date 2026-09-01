@@ -8,6 +8,29 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Compliance, competitive-field, and completeness pass
+
+- **Git history corrected:** the first 3 commits were mis-attributed (author email
+  `rajdeepsinghsakarwar@gmail.com` → GitHub account `Rajdeepsingh49`). Rewrote all commits to
+  `krrishverma1805-web <krrishverma1805@gmail.com>` and force-pushed. Local git config +
+  a memory now enforce the right identity for all future commits.
+- **Competitive landscape ([doc 03 §2.8a](03-competitive-landscape.md)):** added the OSS AI
+  reconciliation agents — notably `Manu6259/financial-reconciliation-agent`, which independently
+  arrived at the same "LLM proposes, deterministic code disposes" principle. Documented exactly
+  where Arbiter goes deeper (adversarial scale, settlement decomposition, the investigation-loop
+  agent, calibration, multi-rail, honest sub-100 benchmark).
+- **Doc 26 — Compliance & Data Protection:** RBI PA-PG Directions 2025 (card-data minimisation —
+  the schema already has no PAN field; data localisation for hosted), DPDP Act 2023/Rules 2025
+  (data-fiduciary obligations, `arbiter purge` for the erasure right), PCI-DSS scope (likely out,
+  by design), the minimised LLM payload.
+- **Doc 12 §6.1a:** replaced the hand-wavy "human-judged equivalent" for `resolution_usefulness`
+  with a proper LLM-as-judge protocol (binary reference-based rubric, cited evidence, judge
+  ensemble, human-validated to Cohen's κ ≥ 0.6).
+- **Doc 27 — Completeness Audit:** the full coverage matrix; the 3 items that are thin only
+  because they're empirical (real match rate, real AI lift, heuristic behaviour); everything
+  deliberately excluded + why. Verdict: the plan is done — build.
+- Code begins now at M0.
+
 ## 2026-09-02 — Deep-dive specification pass
 
 - Added 11 build-ready deep-dive docs (15–25) + ADR-0005 (Fellegi–Sunter matching) so nothing

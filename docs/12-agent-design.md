@@ -149,6 +149,20 @@ Matching metrics are in [doc 07](07-evaluation-and-benchmark.md). This section a
 | **Cost / exception**, **latency p50/p95** | from `usage` + timers | < $0.05, < 8s p50 |
 | **AI lift** | category accuracy (with brain) − category accuracy (`--no-ai`) | report the delta — this is the measured value of the AI |
 
+### 6.1a Scoring `resolution_usefulness` — the LLM-as-judge protocol
+
+`category` accuracy is a clean string match against ground truth. `suggested_action` usefulness is not — "raise a dispute for ₹4,120" and "flag the ₹4,120 fee overcharge to the processor" are equivalent but not string-equal. This needs a judge, and a naive "ask an LLM to score it 1–5" is unreliable (position bias, verbosity bias, style-over-substance) ([futureagi: LLM-as-judge 2026](https://futureagi.com/blog/llm-as-judge-best-practices-2026/), [arXiv 2606.19544](https://arxiv.org/pdf/2606.19544)). The protocol:
+
+1. **Reference-based, not open-ended.** The judge is given the exception, the agent's `suggested_action`, and the ground-truth `correct_resolution`, and asked a **binary** question: "does the proposed action achieve the same financial outcome as the reference?" — not a 1–5 score.
+2. **Rubric with cited evidence.** The judge must quote the specific part of the proposal and the reference that support its verdict (the RULERS "auditable evidence for every scoring decision" pattern). Verdicts without a citation are discarded.
+3. **Pairwise where ranking matters** (comparing two model configs in the ablation): present both outputs, **alternate slot order** across runs, and aggregate — the standard position-bias mitigation.
+4. **Ensemble + independent scoring.** Two judge models (`claude-opus-5` + `claude-sonnet-5`); score each output independently against the rubric, then derive comparisons from scores rather than asking for a direct preference.
+5. **Human-validated.** A 60-item sample is labeled by a human (the builder); the judge must hit **Cohen's κ ≥ 0.6** against those labels (chance-corrected) or the metric is reported with a caveat and the rubric is revised. κ is itself reported in the scorecard.
+6. **Frozen & versioned.** The judge prompt + rubric are hashed and committed (`agent/eval/judge.v1.md`), like the investigator prompt.
+7. **Post-hoc calibration.** If the judge's pass-rate distribution drifts from the human sample, a calibration offset is applied and disclosed.
+
+`resolution_usefulness` = (proposals the validated judge rules "equivalent") / (all proposals). Borderline cases are logged with the judge's citation for manual review.
+
 ### 6.2 Confidence calibration study
 
 An asserted confidence is a liability if it's wrong. `arbiter bench --calibration`:

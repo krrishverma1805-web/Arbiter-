@@ -34,6 +34,8 @@ This folder is the product's thinking, written down. It is part of the deliverab
 | 23 | [Risk Register](23-risk-register.md) | Build & delivery risks (technical, scope, judging) with triggers and contingencies; the top 5 by exposure |
 | 24 | [Demo & Pitch](24-demo-and-pitch.md) | The 5-minute video script, the hands-on judge walkthrough, anticipated Q&A, what not to do |
 | 25 | [Testing & CI Strategy](25-testing-and-ci-strategy.md) | The test layers, the property-test invariants, testing the agent without burning money, the CI pipeline, coverage targets |
+| 26 | [Compliance & Data Protection](26-compliance-and-data-protection.md) | RBI PA-PG Directions (card-data minimisation, localisation), the DPDP Act, PCI-DSS scope, what actually leaves the machine, the compliance-relevant design decisions already made |
+| 27 | [Completeness Audit](27-completeness-audit.md) | The final honest gap-check: the full coverage matrix, the three empirically-thin items, everything deliberately excluded + why, research provenance — the verdict is "the plan is done, build" |
 
 ### Architecture Decision Records — [`adr/`](adr/)
 

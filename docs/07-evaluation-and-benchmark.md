@@ -162,6 +162,6 @@ The exact numbers come from the real run; the _shape_ (monotonic up) is the clai
 |---|---|---|
 | Synthetic data is cleaner than production | Real-world match rate will be lower | Disclosed in the README; difficulty dial (J5) shows degradation; roadmap includes a real anonymized dataset |
 | We wrote both the generator and the matcher | Risk of "teaching to the test" | Anomaly catalog is derived from documented real-world reconciliation exceptions (sources in [01](01-market-and-thesis.md)), not from what the matcher happens to handle; `--no-ai` baseline and category accuracy < 100% show it's not gamed |
-| `resolution_usefulness` needs human judgment for equivalence | Slightly subjective | Rubric documented; borderline calls logged with rationale |
+| `resolution_usefulness` needs human judgment for equivalence | Slightly subjective | Validated LLM-as-judge protocol ([doc 12 §6.1a](12-agent-design.md)): binary reference-based rubric, cited evidence, judge ensemble, human-validated to Cohen's κ ≥ 0.6, κ reported; borderline calls logged |
 | Small N (50–500) | Wide confidence intervals on rates | Report N and run multiple seeds; `bench --seeds 10` aggregates |
 | One processor (Razorpay) shape | Generality unproven at scale | `gst-2b.yaml` spec + a second processor shape as evidence of the engine's spec-driven design |
