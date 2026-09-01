@@ -8,6 +8,34 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M4b: the cockpit (`web/`, docs/05 + docs/20 §2)
+
+Next.js 15 (App Router) + React 19 + Tailwind + TypeScript strict. The design tokens
+from docs/05 §3.1 are CSS variables with full light/dark parity (`:root`, `@media
+prefers-color-scheme`, `[data-theme]`) and `prefers-reduced-motion` honoured.
+
+Three surfaces on one screen (docs/05 §2):
+1. **Scorecard** (left) — auto-tied %, precision, false-match rate, ₹ coverage, the
+   exception mix, the agent panel (task-completion, hallucination, escalation recall,
+   cost), determinism ✓, throughput.
+2. **Exception queue** (centre) — ranked by ₹ impact, keyboard-first
+   (`j`/`k` move, `e` drawer, `a` accept, `w` won't-fix), typed category chips
+   (colour + label), status pills. Empty state is a celebrated "Everything tied."
+3. **Evidence drawer** (right) — the records side by side, the identity equation with
+   the residual called out, the agent's proposal/escalation clearly badged, and the
+   resolution controls (which POST to `/v1/exceptions/.../resolve`).
+
+`/` lists runs + a "reconcile" form (spec × dataset × `--no-ai`).
+
+**Bug caught:** server-side `fetch` in a React Server Component can't use a relative
+URL, and a module-level `const BASE = typeof window ...` was resolving to the client
+branch in the Next server bundle. Fixed: `base()` is now a function evaluated per call
+(server → `ARBITER_API_URL` / `127.0.0.1:8000`, client → `/api` via the Next rewrite).
+
+`tsc --noEmit`, `next lint`, and `next build` all clean; verified end to end against a
+live API (`make up`). CI gains a `web` job (typecheck + lint + build). `make up` runs
+both; the Makefile gains `api` / `web` / `up` / `bench` targets.
+
 ## 2026-09-02 — M4a: the HTTP API (docs/20 §1)
 
 `packages/api` — a FastAPI wrapping the engine, the cockpit backend + the customer

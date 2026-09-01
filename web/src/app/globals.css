@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* docs/05 §3.1 — one accent, warm neutral ground, amber (not red) for open work */
+:root {
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --border: #e7e5e4;
+  --text: #1c1917;
+  --text-muted: #78716c;
+  --accent: #3b5bdb;
+  --positive: #2f9e44;
+  --attention: #e8a33d;
+  --critical: #e03131;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e0f11;
+    --surface: #17181b;
+    --border: #2a2c30;
+    --text: #ededed;
+    --text-muted: #9ba1a6;
+    --accent: #5c7cfa;
+    --positive: #51cf66;
+    --attention: #f0b849;
+    --critical: #ff6b6b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e0f11;
+  --surface: #17181b;
+  --border: #2a2c30;
+  --text: #ededed;
+  --text-muted: #9ba1a6;
+  --accent: #5c7cfa;
+  --positive: #51cf66;
+  --attention: #f0b849;
+  --critical: #ff6b6b;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+* { border-color: var(--border); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

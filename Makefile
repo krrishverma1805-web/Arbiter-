@@ -1,4 +1,4 @@
-.PHONY: help install demo run bench test lint typecheck clean
+.PHONY: help install demo run bench test lint typecheck web api up clean
 
 SPEC ?= specs/razorpay-settlement.yaml
 DATASET ?= datasets/seed
@@ -8,38 +8,58 @@ SEED ?= 42
 
 help:
 	@echo "Arbiter — make targets"
-	@echo "  install    uv sync (create the dev environment)"
-	@echo "  demo       generate a seed dataset, run reconciliation, print the summary"
+	@echo "  install    uv sync + pnpm install"
+	@echo "  demo       generate a seed dataset, run reconciliation, print the scorecard"
 	@echo "  run        arbiter run --spec \$$(SPEC) --dataset \$$(DATASET)"
-	@echo "  test       pytest (all packages)"
-	@echo "  lint       ruff check"
-	@echo "  typecheck  mypy the engine"
+	@echo "  bench      arbiter bench (matching + agent scorecard vs ground truth)"
+	@echo "  api        run the FastAPI backend on :8000"
+	@echo "  web        run the Next.js cockpit on :3000 (needs the api running)"
+	@echo "  up         api + web together"
+	@echo "  test       pytest (engine + datagen + api)"
+	@echo "  lint       ruff check + web lint"
+	@echo "  typecheck  mypy + tsc"
 	@echo "  clean      remove data/ and generated datasets"
 
 install:
 	uv sync --all-packages
+	cd web && pnpm install --frozen-lockfile
 
 $(DATASET)/manifest.json:
 	uv run arbiter-datagen gen --scenario $(SCENARIO) --records $(RECORDS) --seed $(SEED) --out $(DATASET)
 
 demo: install $(DATASET)/manifest.json
 	uv run arbiter run --spec $(SPEC) --dataset $(DATASET)
+	uv run arbiter bench --spec $(SPEC) --dataset $(DATASET)
 
 run:
 	uv run arbiter run --spec $(SPEC) --dataset $(DATASET)
 
+bench:
+	uv run arbiter bench --spec $(SPEC) --dataset $(DATASET)
+
 gen:
 	uv run arbiter-datagen gen --scenario $(SCENARIO) --records $(RECORDS) --seed $(SEED) --out $(DATASET)
 
+api:
+	uv run arbiter-api
+
+web:
+	cd web && pnpm dev
+
+up:
+	( uv run arbiter-api & cd web && pnpm dev ) ; wait
+
 test: install
-	uv run pytest
+	uv run pytest -m "not live"
 
 lint:
-	uv run ruff check .
+	uv run ruff check . && uv run ruff format --check .
+	cd web && pnpm lint
 
 typecheck:
-	uv run mypy packages/engine/arbiter_engine
+	uv run mypy packages/engine/arbiter_engine packages/datagen/arbiter_datagen packages/api/arbiter_api
+	cd web && pnpm typecheck
 
 clean:
-	rm -rf data/ datasets/generated/
+	rm -rf data/ datasets/generated/ web/.next
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
