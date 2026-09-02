@@ -9,11 +9,12 @@ Guarantees:
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
 from arbiter_engine.events.payloads import EventType, validate_payload
@@ -61,7 +62,20 @@ class EventStore:
 
             kwargs["poolclass"] = StaticPool
         self.engine: Engine = create_engine(url, **kwargs)
+        self._is_pg = self.engine.dialect.name == "postgresql"
         SQLModel.metadata.create_all(self.engine)
+
+    @contextmanager
+    def _session(self) -> Generator[Session]:
+        """A session whose transaction is pinned to this tenant. On Postgres a
+        `SET LOCAL arbiter.org_id` makes the row-level-security policy the last
+        line of defence even if a query forgets its `WHERE org_id =` filter."""
+        with Session(self.engine) as s:
+            if self._is_pg:
+                s.connection().execute(
+                    text("SELECT set_config('arbiter.org_id', :o, true)"), {"o": self.org_id}
+                )
+            yield s
 
     # -- append ---------------------------------------------------------------
     def append(
@@ -75,7 +89,7 @@ class EventStore:
     ) -> Event:
         model = validate_payload(event_type, _as_dict(payload))
         payload_json = canonical_json(model.model_dump(mode="json"))
-        with Session(self.engine) as session:
+        with self._session() as session:
             last = session.exec(
                 select(Event)
                 .where(Event.run_id == run_id, Event.org_id == self.org_id)
@@ -108,7 +122,7 @@ class EventStore:
 
     # -- read ---------------------------------------------------------------
     def events(self, run_id: str) -> list[Event]:
-        with Session(self.engine) as session:
+        with self._session() as session:
             return list(
                 session.exec(
                     select(Event)
@@ -118,7 +132,7 @@ class EventStore:
             )
 
     def runs(self) -> list[str]:
-        with Session(self.engine) as session:
+        with self._session() as session:
             rows = session.exec(
                 select(col(Event.run_id)).where(Event.org_id == self.org_id).distinct()
             ).all()
@@ -152,7 +166,7 @@ class EventStore:
 
     def purge(self, run_id: str, *, reason: str, by: str) -> None:
         """Hard-delete a run; record the deletion in a separate audited table."""
-        with Session(self.engine) as session:
+        with self._session() as session:
             conn = session.connection()
             conn.exec_driver_sql(self._PURGE_LOG_DDL)
             conn.exec_driver_sql(

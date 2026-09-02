@@ -8,6 +8,19 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2: Postgres row-level security
+
+Migration `28f8eb3b` (Postgres-only — a no-op on SQLite): `ENABLE` +
+`FORCE ROW LEVEL SECURITY` on `events`, `jobs`, `idempotency_keys`, with a
+policy restricting every row to `current_setting('arbiter.org_id')`. The store
+now runs each transaction through `EventStore._session()`, which on Postgres
+sets that GUC per transaction (`set_config(..., is_local=true)`) — so even a
+query that forgot its `WHERE org_id =` filter cannot cross a tenant. Defense in
+depth behind the application-level scoping.
+
+`test_migrations.py` asserts the RLS revision applies cleanly on SQLite and the
+store still works. 127 tests.
+
 ## 2026-09-02 — Phase 2: idempotency keys on the mutating routes
 
 `arbiter_api/idempotency.py` + an `idempotency_keys` table (migration

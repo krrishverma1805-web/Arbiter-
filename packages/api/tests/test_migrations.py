@@ -43,3 +43,14 @@ def test_upgrade_is_idempotent(tmp_path: Path):
     db = f"sqlite:///{tmp_path / 'x.db'}"
     upgrade(db)
     upgrade(db)  # second run is a no-op, must not raise
+
+
+def test_rls_migration_is_a_noop_on_sqlite(tmp_path):
+    """The Postgres row-level-security migration must apply cleanly (as a no-op)
+    on SQLite so the migration chain stays testable without Postgres."""
+    from arbiter_api.migrations import upgrade
+    from arbiter_engine.events.store import EventStore
+
+    db = f"sqlite:///{tmp_path / 'rls.db'}"
+    upgrade(db)  # runs through the RLS revision without error
+    assert EventStore(db, org_id="z").runs() == []
