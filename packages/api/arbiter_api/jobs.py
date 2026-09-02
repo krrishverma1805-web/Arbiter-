@@ -145,8 +145,19 @@ def run_one(job: Job) -> None:
             ),
         )
         finish(job.id or 0, run_id=proj.run_id, error=None)
+        _count_run("completed")
     except Exception:  # noqa: BLE001 - the failure is recorded on the job row
         finish(job.id or 0, run_id=None, error=traceback.format_exc())
+        _count_run("failed")
+
+
+def _count_run(outcome: str) -> None:
+    try:
+        from arbiter_api.obs import RUNS
+
+        RUNS.labels(outcome).inc()
+    except Exception:  # pragma: no cover
+        pass
 
 
 def worker_loop(poll_seconds: float = 1.0, *, once: bool = False) -> None:

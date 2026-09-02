@@ -35,11 +35,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from arbiter_api import __version__
+from arbiter_api import __version__, obs
 from arbiter_api.auth import current_principal, current_store, has_role, resolve, set_current
 from arbiter_api.deps import DATASETS_DIR, ENV, SPECS_DIR
 from arbiter_api.ratelimit import limiter
 
+obs.configure()
 app = FastAPI(title="Arbiter API", version=__version__)
 app.add_middleware(
     CORSMiddleware,
@@ -47,8 +48,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.middleware("http")(obs.middleware)
 
-_PUBLIC = ("/healthz", "/readyz", "/docs", "/openapi.json", "/redoc")
+
+@app.get("/metrics")
+def metrics():  # type: ignore[no-untyped-def]
+    return obs.metrics_response()
+
+
+_PUBLIC = ("/healthz", "/readyz", "/metrics", "/docs", "/openapi.json", "/redoc")
 
 
 @app.middleware("http")

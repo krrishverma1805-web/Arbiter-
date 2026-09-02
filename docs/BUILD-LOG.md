@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 3: structured logs, request correlation, Prometheus metrics
+
+`arbiter_api/obs.py`: structlog JSON logging (one line per request —
+`request_id`, method, path, status, `duration_ms`), a middleware that binds a
+`request_id` (from the client's `X-Request-Id` or fresh) and echoes it on the
+response, and `GET /metrics` in Prometheus text format —
+`arbiter_http_requests_total{method,path,status}`,
+`arbiter_http_request_seconds`, `arbiter_runs_total{outcome}`,
+`arbiter_job_queue_depth` (path labels have ids collapsed to `{id}` so
+cardinality stays bounded). `/metrics` is public and never 500s.
+
+`test_api.py` asserts the `X-Request-Id` header and the metric names. 119 tests.
+Still open: OpenTelemetry span export (`--trace`), Grafana dashboards, Sentry,
+SLO alerting.
+
 ## 2026-09-02 — Phase 3: the API / worker Docker image + a CI build job
 
 `packages/api/Dockerfile` — multi-stage (uv, cache-mounted dep layer), `python:

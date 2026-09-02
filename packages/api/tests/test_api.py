@@ -245,3 +245,15 @@ def test_rate_limit_returns_429_with_retry_after(client, monkeypatch):
     r = c.get("/v1/specs")
     assert r.status_code == 429
     assert "Retry-After" in r.headers
+
+
+def test_metrics_and_request_id(client):
+    c, ds = client
+    r = c.get("/healthz")
+    assert "x-request-id" in r.headers
+    c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)})
+    m = c.get("/metrics")
+    assert m.status_code == 200
+    body = m.text
+    assert "arbiter_http_requests_total" in body
+    assert "arbiter_runs_total" in body
