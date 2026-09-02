@@ -47,7 +47,9 @@ from arbiter_api.deps import DATASETS_DIR, ENV, SPECS_DIR
 from arbiter_api.ratelimit import limiter
 
 obs.configure()
+obs.configure_sentry()
 app = FastAPI(title="Arbiter API", version=__version__)
+obs.configure_tracing(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],

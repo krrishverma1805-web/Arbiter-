@@ -259,6 +259,28 @@ def test_metrics_and_request_id(client):
     assert "arbiter_runs_total" in body
 
 
+def test_tracing_and_sentry_are_off_without_their_env(monkeypatch):
+    """The observability extra is opt-in: with no OTEL endpoint / Sentry DSN set,
+    both configure functions no-op and return False (so the default install and
+    the CI docker image never need the extra)."""
+    from arbiter_api import obs
+
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+    assert obs.configure_tracing(None) is False
+    assert obs.configure_sentry() is False
+
+
+def test_engine_span_is_a_noop_without_a_tracer():
+    """`tracing.span(...)` must be a transparent context manager when no OTel
+    provider is configured — the engine has no hard dependency on OpenTelemetry."""
+    from arbiter_engine.tracing import span
+
+    with span("unit", n=1):
+        result = 2 + 2
+    assert result == 4
+
+
 def test_upload_then_run_against_the_uploaded_files(client, tmp_path, monkeypatch):
     c, ds = client
     import arbiter_api.storage as storage

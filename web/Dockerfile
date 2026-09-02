@@ -1,20 +1,25 @@
 # Multi-stage build for the Arbiter cockpit (Next.js 15, standalone output).
 # docs/28 §3 item 9 — the `web` image.
+#
+# pnpm comes from the `packageManager` field in package.json via corepack. We
+# refresh corepack first so it knows the pinned pnpm release, and disable the
+# download prompt so the build is non-interactive.
 
 FROM node:20-slim AS deps
-RUN corepack enable
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN npm install -g corepack@latest && corepack enable
 WORKDIR /app
 COPY web/package.json web/pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+    corepack prepare --activate && pnpm install --frozen-lockfile
 
 FROM node:20-slim AS build
-RUN corepack enable
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NEXT_TELEMETRY_DISABLED=1
+RUN npm install -g corepack@latest && corepack enable
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY web/ ./
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm build
+RUN corepack prepare --activate && pnpm build
 
 FROM node:20-slim AS runtime
 WORKDIR /app

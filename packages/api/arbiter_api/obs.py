@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 import uuid
 from contextvars import ContextVar
@@ -43,6 +44,68 @@ def configure() -> None:
 
 
 log = structlog.get_logger("arbiter.api")
+
+
+def configure_sentry() -> bool:
+    """Error + performance monitoring, on only when `SENTRY_DSN` is set and the
+    optional `sentry-sdk` is installed (the `[observability]` extra)."""
+    dsn = os.environ.get("SENTRY_DSN")
+    if not dsn:
+        return False
+    try:
+        import sentry_sdk
+    except Exception:  # pragma: no cover - extra not installed
+        log.warning("sentry_dsn_set_but_sdk_missing")
+        return False
+    sentry_sdk.init(  # pragma: no cover - needs the extra + a DSN
+        dsn=dsn,
+        environment=os.environ.get("ARBITER_ENV", "dev"),
+        release=os.environ.get("ARBITER_RELEASE"),
+        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        send_default_pii=False,
+    )
+    return True
+
+
+def configure_tracing(app: Any = None) -> bool:
+    """OpenTelemetry span export, on only when `OTEL_EXPORTER_OTLP_ENDPOINT` is
+    set and the `[observability]` extra is installed. Instruments FastAPI and
+    SQLAlchemy, and wires the engine's `tracing.span(...)` calls into the same
+    provider so the trace is one tree: request → run → pass → tool → LLM call."""
+    if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        return False
+    try:  # pragma: no cover - needs the extra
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    except Exception:  # pragma: no cover
+        log.warning("otel_endpoint_set_but_sdk_missing")
+        return False
+
+    svc = os.environ.get("OTEL_SERVICE_NAME", "arbiter-api")
+    provider = TracerProvider(  # pragma: no cover - needs the extra
+        resource=Resource.create({"service.name": svc})
+    )
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+    trace.set_tracer_provider(provider)
+
+    try:  # pragma: no cover - needs the extra
+        if app is not None:
+            from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+            FastAPIInstrumentor.instrument_app(app)
+        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+        SQLAlchemyInstrumentor().instrument()
+    except Exception:  # pragma: no cover
+        pass
+
+    from arbiter_engine.tracing import configure_tracing as _engine_tracing  # pragma: no cover
+
+    _engine_tracing("arbiter-engine")  # pragma: no cover
+    return True
 
 
 def current_request_id() -> str:

@@ -49,5 +49,5 @@ strict = true
 mypy_path = ["packages/engine", "packages/datagen"]
 
 [[tool.mypy.overrides]]
-module = ["dateutil.*"]
+module = ["dateutil.*", "opentelemetry.*", "sentry_sdk.*"]
 ignore_missing_imports = true

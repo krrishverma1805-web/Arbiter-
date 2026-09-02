@@ -8,6 +8,27 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 3: OpenTelemetry span export + Sentry (opt-in)
+
+`arbiter_engine/tracing.py` — a zero-dependency shim: `span("match", …)` is a
+transparent context manager unless a tracer provider is configured, so the
+engine keeps no hard OTel dependency (`make demo`, the tests, the docker image
+stay lean). `run.py` now opens `run → ingest → match → classify → investigate`
+spans.
+
+`arbiter_api.obs` gains `configure_sentry()` (on iff `SENTRY_DSN` set) and
+`configure_tracing(app)` (on iff `OTEL_EXPORTER_OTLP_ENDPOINT` set) — the latter
+stands up a `TracerProvider` with an OTLP/HTTP exporter, instruments FastAPI +
+SQLAlchemy, and points the engine shim at the same provider so a request and its
+run are one trace tree. Deps live in a new `arbiter-api[observability]` extra;
+mypy ignores the missing modules when it isn't installed.
+
+Regression: the web `docker` job failed on `dece47f` — `corepack` in
+`node:20-slim` pulled `pnpm@11` (needs Node 22) because nothing pinned the
+version. Fixed by pinning `packageManager: pnpm@10.28.2` in `web/package.json`,
+refreshing corepack in the Dockerfile, and dropping the hard-coded `version` in
+the CI `web` job so it reads the pin. 129 tests, gate green.
+
 ## 2026-09-02 — Phase 3: web image + Helm chart
 
 `web/Dockerfile` (Next.js `output: "standalone"`, `node:20-slim`, non-root

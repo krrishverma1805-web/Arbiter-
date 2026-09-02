@@ -29,6 +29,7 @@ from arbiter_engine.ingest import ingest_source
 from arbiter_engine.match import run_matching
 from arbiter_engine.models import RunConfig
 from arbiter_engine.specs import ReconSpec, load_spec, spec_hash
+from arbiter_engine.tracing import span
 
 
 class RunInProgress(RuntimeError):
@@ -94,6 +95,20 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
     if inputs.rerun and (existing.started or existing.completed):
         store.purge(run_id, reason="rerun", by="engine")
 
+    with span("run", run_id=run_id, spec=spec.name, org_id=org_id, no_ai=inputs.no_ai):
+        return _pipeline(store, inputs, spec, sh, dh, run_id, cfg_hash)
+
+
+def _pipeline(
+    store: EventStore,
+    inputs: RunInputs,
+    spec: ReconSpec,
+    sh: str,
+    dh: str,
+    run_id: str,
+    cfg_hash: str,
+) -> RunProjection:
+    org_id = getattr(store, "org_id", "local")
     seen = {t for t, _ in store.iter_payloads(run_id)}
     started = time.monotonic()
 
@@ -115,16 +130,17 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
         )
 
     # -- INGESTING (resumable: skip sources already ingested) --
-    ingested = {
-        p["source"] for t, p in store.iter_payloads(run_id) if t == EventType.SOURCE_INGESTED
-    }
-    for source_name, source_spec in sorted(spec.sources.items()):
-        if source_name in ingested:
-            continue
-        src_path = _resolve_source_file(inputs.dataset_dir, source_name)
-        if src_path is None:
-            continue
-        ingest_source(store, run_id, source_name, source_spec, src_path)
+    with span("ingest", run_id=run_id):
+        ingested = {
+            p["source"] for t, p in store.iter_payloads(run_id) if t == EventType.SOURCE_INGESTED
+        }
+        for source_name, source_spec in sorted(spec.sources.items()):
+            if source_name in ingested:
+                continue
+            src_path = _resolve_source_file(inputs.dataset_dir, source_name)
+            if src_path is None:
+                continue
+            ingest_source(store, run_id, source_name, source_spec, src_path)
 
     proj = fold_run(store, run_id)
     records = proj.records
@@ -135,7 +151,8 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
 
     calib = load_calibration(store, sh)
     fs_model = FSModel(calibration=calib) if calib else None
-    mr = run_matching(run_id, records, spec, fs=fs_model)
+    with span("match", run_id=run_id, records=len(records)):
+        mr = run_matching(run_id, records, spec, fs=fs_model)
     if EventType.MATCH_CONFIRMED not in seen and EventType.DECOMPOSITION_COMPUTED not in seen:
         for decomp in mr.decompositions:
             store.append(
@@ -150,9 +167,10 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
 
     # -- CLASSIFYING --
     if EventType.EXCEPTION_OPENED not in seen:
-        exceptions = build_exceptions(
-            run_id, records, mr.matches, mr.decompositions, spec, candidates=mr.candidates
-        )
+        with span("classify", run_id=run_id):
+            exceptions = build_exceptions(
+                run_id, records, mr.matches, mr.decompositions, spec, candidates=mr.candidates
+            )
         for exc in exceptions:
             store.append(
                 run_id, EventType.EXCEPTION_OPENED, {"exception": exc.model_dump(mode="json")}
@@ -176,7 +194,10 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
         from arbiter_engine.agent.orchestrate import run_investigations
 
         replaying = EventType.AGENT_INTERACTION in seen
-        run_investigations(store, run_id, proj, spec, replay=replaying, model_override=inputs.model)
+        with span("investigate", run_id=run_id, exceptions=len(proj.exceptions)):
+            run_investigations(
+                store, run_id, proj, spec, replay=replaying, model_override=inputs.model
+            )
         proj = fold_run(store, run_id)
 
     if EventType.RUN_COMPLETED in seen:
