@@ -18,7 +18,12 @@
     "dollar_unexplained": 0.0066,
     "true_matches": 16,
     "predicted_matches": 18,
-    "correct_matches": 15
+    "correct_matches": 15,
+    "by_pass": {
+      "blocked": 1,
+      "exact": 15,
+      "tolerant": 2
+    }
   },
   "exceptions": {
     "total": 9,
@@ -37,8 +42,8 @@
     "unresolved_dollar": 482283
   },
   "throughput": {
-    "records_per_sec": 255.2,
-    "wallclock_ms": 6551
+    "records_per_sec": 277.1,
+    "wallclock_ms": 6033
   },
   "determinism": {
     "replay_hash_match": true

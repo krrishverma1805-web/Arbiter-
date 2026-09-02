@@ -8,6 +8,15 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Scorecard: `matching.by_pass` breakdown
+
+The scorecard now reports how many matches each pass tied
+(`{"exact": 15, "tolerant": 2, "blocked": 1, ...}`), so the robustness passes
+are visible in `arbiter bench` and the regression gate can see if the mix
+shifts. On the standard 800-record seed the new `blocked` pass already recovers
+one batch whose UTR did not cleanly key — auto-match and false-match unchanged.
+Baseline regenerated.
+
 ## 2026-09-02 — Phase 1.2: aggregated- and split-payout matching (N:1 and 1:N)
 
 Indian PGs roll several small settlements into one bank credit, and banks split

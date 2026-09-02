@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -23,6 +24,7 @@ class MatchingScore:
     true_matches: int = 0
     predicted_matches: int = 0
     correct_matches: int = 0
+    by_pass: dict[str, int] = field(default_factory=dict)  # which pass tied each match
 
 
 @dataclass
@@ -155,6 +157,7 @@ def score_run(
         true_matches=len(should_tie),
         predicted_matches=predicted,
         correct_matches=correct_on_should,
+        by_pass=dict(sorted(Counter(m.match_pass for m in proj.matches).items())),
     )
 
     # --- exceptions / classifier ---

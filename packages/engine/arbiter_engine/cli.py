@@ -273,6 +273,8 @@ def _print_scorecard(card) -> None:  # type: ignore[no-untyped-def]
     typer.echo(f"    false-match rate {m.false_match_rate:.1%}")
     typer.echo(f"    $ coverage       {m.dollar_coverage:.1%}")
     typer.echo(f"    $ unexplained    {m.dollar_unexplained:.1%}")
+    if m.by_pass:
+        typer.echo(f"    by pass          {m.by_pass}")
     typer.echo("  exceptions")
     typer.echo(f"    opened           {e.total}   {e.by_type}")
     typer.echo(
