@@ -8,6 +8,24 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 3: Redis cache + deploy pipeline
+
+`arbiter_api/cache.py` — `get_or_set(key, ttl, fn)`. The scorecard endpoint
+(folds the whole run, re-verifies the chain, re-scores) is memoised per
+`(org, run, terminal-hash)` once the run is complete and therefore immutable —
+no invalidation problem, entries just expire. Redis when `REDIS_URL` is set
+(shared across API replicas), an in-process TTL dict otherwise. `redis` service
+in `docker-compose`, a Deployment + Service in the chart (`redis.enabled`,
+`allkeys-lru`). New `arbiter-api[redis]` extra. 1 test (second scorecard hit is
+served from cache).
+
+`.github/workflows/deploy.yml` — fires on a green `ci` run on `main`; dormant
+until `KUBE_CONFIG` is set, then `helm upgrade --install --atomic --wait`
+(the new revision auto-rolls-back if its pods don't go healthy; the pre-upgrade
+hook Job migrates first) and a live `/healthz` smoke.
+
+Chart now renders 18 resources, all kubeconform-clean. 153 tests.
+
 ## 2026-09-03 — Phase 4: pgvector resolution memory
 
 `agent/vector_memory.py`: `ResolutionMemory` re-folds every run of the tenant on

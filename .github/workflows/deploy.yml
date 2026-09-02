@@ -1,0 +1,57 @@
+name: deploy
+
+# Runs after `ci` succeeds on main. Dormant until a KUBE_CONFIG secret is set —
+# then it does a rolling `helm upgrade` with `--atomic` (auto-rollback if the new
+# revision's pods don't go healthy) and `--wait`. The migration hook Job runs
+# first (pre-upgrade), so schema changes land before the new pods roll.
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: is a cluster configured?
+        id: gate
+        run: |
+          if [ -n "${{ secrets.KUBE_CONFIG }}" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::KUBE_CONFIG not set — skipping deploy (this is expected on a repo without a cluster)."
+          fi
+      - if: steps.gate.outputs.go == 'true'
+        uses: azure/setup-helm@v4
+        with: { version: "3.16.2" }
+      - if: steps.gate.outputs.go == 'true'
+        name: helm upgrade (atomic, waits, rolls back on failure)
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          printf '%s' "${{ secrets.KUBE_CONFIG }}" | base64 -d > /tmp/kubeconfig
+          helm upgrade --install arbiter deploy/helm/arbiter \
+            --namespace arbiter --create-namespace \
+            --set image.apiTag="${SHA::12}" --set image.webTag="${SHA::12}" \
+            --set secret.existingSecret="${{ secrets.ARBITER_SECRET_NAME || 'arbiter-prod' }}" \
+            --set ingress.enabled=true --set ingress.host="${{ vars.ARBITER_HOST }}" \
+            --atomic --wait --timeout 6m
+      - if: steps.gate.outputs.go == 'true'
+        name: smoke the live endpoint
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf "https://${{ vars.ARBITER_HOST }}/api/healthz" && exit 0 || sleep 5
+          done
+          exit 1

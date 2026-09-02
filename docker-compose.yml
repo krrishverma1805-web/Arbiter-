@@ -16,6 +16,17 @@ services:
       timeout: 3s
       retries: 10
 
+  # Shared read-through cache (scorecard, parsed specs) across API replicas.
+  redis:
+    profiles: ["app"]
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # Connection pooler — api + worker connect through this, not straight to db,
   # so hundreds of app connections fold onto a small Postgres pool (docs/28 §3).
   pgbouncer:
@@ -51,6 +62,7 @@ services:
       ARBITER_DB_URL: postgresql+psycopg://arbiter:arbiter@db:5432/arbiter
       ARBITER_ENV: prod
       ARBITER_SPECS_DIR: /app/specs
+      REDIS_URL: redis://redis:6379/0
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       db:

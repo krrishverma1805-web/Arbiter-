@@ -25,6 +25,7 @@ observability = [
     "sentry-sdk[fastapi]>=2.14",
 ]
 mcp = ["mcp>=1.2,<2"]
+redis = ["redis>=5.0"]
 
 [project.scripts]
 arbiter-api = "arbiter_api.__main__:main"

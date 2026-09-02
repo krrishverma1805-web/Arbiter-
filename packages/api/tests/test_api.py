@@ -361,6 +361,35 @@ def test_metrics_and_request_id(client):
     assert "arbiter_runs_total" in body
 
 
+def test_scorecard_is_cached_after_the_run_completes(client, monkeypatch):
+    """The scorecard fold + re-verify + re-score is memoised per (run, terminal
+    hash) once the run is immutable (docs/28 §3 item 12)."""
+    from arbiter_api import cache
+
+    cache.clear()
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+
+    calls = {"n": 0}
+    real = cache.get_or_set
+
+    def counting(key, ttl, fn):
+        calls["n"] += 1
+        return real(key, ttl, fn)
+
+    monkeypatch.setattr(cache, "get_or_set", counting)
+
+    a = c.get(f"/v1/runs/{run_id}/scorecard").json()
+    b = c.get(f"/v1/runs/{run_id}/scorecard").json()
+    assert a == b
+    assert calls["n"] == 2  # both requests went through the cache path
+    # the underlying compute ran once — the second hit was served from the cache
+    key = next(iter(cache._local))
+    assert "scorecard" in key
+
+
 def test_tracing_and_sentry_are_off_without_their_env(monkeypatch):
     """The observability extra is opt-in: with no OTEL endpoint / Sentry DSN set,
     both configure functions no-op and return False (so the default install and

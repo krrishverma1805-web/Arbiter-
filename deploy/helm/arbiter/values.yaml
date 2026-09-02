@@ -20,6 +20,7 @@ config:
   ARBITER_SPECS_DIR: /app/specs
   ARBITER_ASYNC: "1"
   ARBITER_UPLOADS_DIR: /data/uploads
+  REDIS_URL: "redis://arbiter-redis:6379/0"
 
 # Secrets — rendered into a Secret. Leave empty and set --set-string, or point
 # existingSecret at a Secret you manage out-of-band (e.g. external-secrets).
@@ -96,6 +97,16 @@ pgbouncer:
   resources:
     requests: { cpu: 25m, memory: 32Mi }
     limits: { cpu: 250m, memory: 128Mi }
+
+# Read-through cache shared across API replicas (scorecard, parsed specs).
+# In real clusters point config.REDIS_URL at a managed Redis and set enabled=false.
+redis:
+  enabled: true
+  image: redis:7-alpine
+  maxmemory: 128mb
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { cpu: 250m, memory: 192Mi }
 
 ingress:
   enabled: false

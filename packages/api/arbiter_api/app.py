@@ -28,7 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from arbiter_engine.bench import score_run
 from arbiter_engine.events.fold import fold_run
@@ -268,25 +268,42 @@ def run_detail(run_id: str) -> dict[str, Any]:
 
 @app.get("/v1/runs/{run_id}/scorecard")
 def run_scorecard(run_id: str) -> dict[str, Any]:
+    from arbiter_api import cache
+
     store = get_store()
     proj = _proj_or_404(run_id)
     dataset_dir = _dataset_dir_for(store, run_id)
     if dataset_dir is None:
         raise _problem(422, "no dataset", "cannot locate the dataset for this run")
-    agent_events = [(t, p) for t, p in store.iter_payloads(run_id) if str(t).startswith("AGENT_")]
-    wallclock = 0
-    for ev in store.events(run_id):
-        if ev.type == EventType.RUN_COMPLETED:
-            wallclock = int(json.loads(ev.meta).get("wallclock_ms", 0))
-    card = score_run(
-        proj,
-        dataset_dir,
-        spec_name=(proj.config_hash or "spec"),
-        wallclock_ms=wallclock,
-        replay_hash_match=store.verify(run_id)["intact"],
-        agent_events=agent_events,
+
+    def _compute() -> dict[str, Any]:
+        agent_events = [
+            (t, p) for t, p in store.iter_payloads(run_id) if str(t).startswith("AGENT_")
+        ]
+        wallclock = 0
+        for ev in store.events(run_id):
+            if ev.type == EventType.RUN_COMPLETED:
+                wallclock = int(json.loads(ev.meta).get("wallclock_ms", 0))
+        card = score_run(
+            proj,
+            dataset_dir,
+            spec_name=(proj.config_hash or "spec"),
+            wallclock_ms=wallclock,
+            replay_hash_match=store.verify(run_id)["intact"],
+            agent_events=agent_events,
+        )
+        return card.to_dict()
+
+    if not proj.completed:
+        return _compute()
+    thash = store.verify(run_id)["terminal_hash"]
+    org = current_principal().org_id
+    return cast(
+        dict[str, Any],
+        cache.get_or_set(
+            cache.scoped(org, "scorecard", run_id, thash), cache.default_ttl(), _compute
+        ),
     )
-    return card.to_dict()
 
 
 @app.get("/v1/runs/{run_id}/matches")
