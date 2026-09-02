@@ -1,0 +1,68 @@
+{
+  "run_id": "764f7fcd-877a-175c-f8a3-28c47fb5be3a",
+  "spec": "razorpay-settlement",
+  "dataset": {
+    "dir": "datasets/seed",
+    "records": 1672,
+    "true_matches": 16,
+    "anomalies": 13,
+    "difficulty": "normal"
+  },
+  "matching": {
+    "auto_match_rate": 0.9375,
+    "precision": 1.0,
+    "recall": 0.9375,
+    "false_match_rate": 0.0,
+    "low_confidence": 1,
+    "dollar_coverage": 1.0,
+    "dollar_unexplained": 0.0066,
+    "true_matches": 16,
+    "predicted_matches": 18,
+    "correct_matches": 15
+  },
+  "exceptions": {
+    "total": 9,
+    "by_type": {
+      "CHARGEBACK": 1,
+      "DUPLICATE": 1,
+      "FEE_DEDUCTION": 2,
+      "SECURITY_REVIEW": 1,
+      "TIMING": 1,
+      "UNEXPLAINED": 2,
+      "WRONG_ACCOUNT": 1
+    },
+    "category_accuracy": 0.75,
+    "detected_anomalies": 8,
+    "total_anomalies": 10,
+    "unresolved_dollar": 482283
+  },
+  "throughput": {
+    "records_per_sec": 255.2,
+    "wallclock_ms": 6551
+  },
+  "determinism": {
+    "replay_hash_match": true
+  },
+  "agent": {
+    "enabled": true,
+    "model": "none",
+    "investigations": 2,
+    "proposals": 0,
+    "escalations": 2,
+    "escalation_reasons": {
+      "budget": 2
+    },
+    "task_completion_rate": 0.0,
+    "category_accuracy": 0.0,
+    "escalation_precision": 0.0,
+    "escalation_recall": 0.0,
+    "hallucination_rate": 0.0,
+    "grounded_rate": 0.0,
+    "confidence_ece": 0.0,
+    "confidence_n": 0,
+    "tool_calls": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "est_cost_usd": 0.0
+  }
+}

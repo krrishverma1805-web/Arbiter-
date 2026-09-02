@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from arbiter_engine.bench import score_run
@@ -141,3 +142,26 @@ def test_hard_difficulty_degrades_visibly(tmp_path: Path):
     n_anom = len(json.loads((normal / "ground_truth.json").read_text())["anomalies"])
     h_anom = len(json.loads((hard / "ground_truth.json").read_text())["anomalies"])
     assert h_anom > n_anom
+
+
+def test_regression_gate_catches_a_drop():
+    from arbiter_engine.bench.gate import check_regression
+
+    base = {
+        "matching": {"auto_match_rate": 0.93, "false_match_rate": 0.0, "dollar_coverage": 1.0},
+        "exceptions": {"category_accuracy": 0.75},
+        "agent": {"hallucination_rate": 0.0, "grounded_rate": 1.0},
+    }
+    assert check_regression(base, base) == []
+
+    worse = json.loads(json.dumps(base))
+    worse["matching"]["auto_match_rate"] = 0.80  # −0.13, well past tol
+    worse["matching"]["false_match_rate"] = 0.02  # +0.02, past tol
+    fails = check_regression(base, worse)
+    assert any("auto_match_rate" in f for f in fails)
+    assert any("false_match_rate" in f for f in fails)
+
+    # within tolerance → no failure
+    ok = json.loads(json.dumps(base))
+    ok["matching"]["auto_match_rate"] = 0.92  # −0.01, inside the 0.02 tol
+    assert check_regression(base, ok) == []

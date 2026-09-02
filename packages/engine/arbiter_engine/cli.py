@@ -117,6 +117,9 @@ def bench(
     model: str | None = typer.Option(None, "--model", help="override the agent model"),
     db: str | None = typer.Option(None, "--db"),
     out: Path | None = typer.Option(None, "--out", help="write scorecard.json here"),
+    gate: Path | None = typer.Option(
+        None, "--gate", help="fail if any metric regresses vs this baseline scorecard"
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Run a reconciliation and score it against the dataset's ground truth."""
@@ -157,6 +160,18 @@ def bench(
     if out:
         out.write_text(json.dumps(payload, indent=2))
         typer.echo(f"\n→ {out}")
+
+    if gate:
+        from arbiter_engine.bench.gate import check_regression
+
+        base = json.loads(gate.read_text())
+        failures = check_regression(base, payload)
+        if failures:
+            typer.secho("\nregression gate FAILED:", fg=typer.colors.RED, bold=True)
+            for f in failures:
+                typer.secho(f"  {f}", fg=typer.colors.RED)
+            raise typer.Exit(1)
+        typer.secho("\nregression gate passed", fg=typer.colors.GREEN)
 
 
 def _run_ablation(spec: Path, dataset: Path) -> None:

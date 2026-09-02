@@ -8,6 +8,19 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.4: a CI regression gate on the scorecard
+
+CI had an *absolute floor* (false-match ≤ 1.5%, auto-match ≥ 80%) but nothing
+stopped a change from quietly trading, say, match rate for coverage while both
+stayed above their floors.
+
+`bench/gate.py` + `arbiter bench --gate <baseline.json>`: nine metrics, each with
+a direction (must-not-fall / must-not-rise) and an absolute tolerance. The gate
+fails the build if any moves the wrong way past its tolerance. `bench/baseline-
+800.json` is the committed reference (regenerated with `make bench-baseline`
+when a genuine improvement lands). The absolute floor stays as a second, blunter
+check. `test_bench.py` covers the comparison. 102 tests.
+
 ## 2026-09-02 — Phase 1.1: XLSX ingestion + a shared messy-tabular core
 
 The engine only read `.csv`, and its CSV reader assumed a clean table (header on

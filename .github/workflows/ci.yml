@@ -85,8 +85,9 @@ jobs:
           RID=$(python -c "import json;print(json.load(open('/tmp/run.json'))['run_id'])")
           uv run arbiter replay "$RID"
           uv run arbiter verify "$RID"
-          uv run arbiter bench --spec specs/razorpay-settlement.yaml --dataset /tmp/ds --out scorecard.json
-      - name: gate on the scorecard
+          uv run arbiter bench --spec specs/razorpay-settlement.yaml --dataset /tmp/ds \
+            --out scorecard.json --gate bench/baseline-800.json
+      - name: absolute floor on the scorecard
         run: |
           python - <<'EOF'
           import json, sys
@@ -95,7 +96,7 @@ jobs:
           assert m["false_match_rate"] <= 0.015, f"false-match rate {m['false_match_rate']} > 1.5%"
           assert m["auto_match_rate"] >= 0.80, f"auto-match rate {m['auto_match_rate']} < 80%"
           assert s["determinism"]["replay_hash_match"], "non-deterministic run"
-          print("scorecard gate passed:", m)
+          print("absolute floor passed:", m)
           EOF
       - uses: actions/upload-artifact@v4
         with:

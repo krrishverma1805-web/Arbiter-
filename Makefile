@@ -1,4 +1,4 @@
-.PHONY: help install demo cycle run bench test lint typecheck web api up clean
+.PHONY: help install demo cycle run bench bench-baseline test lint typecheck web api up clean
 
 SPEC ?= specs/razorpay-settlement.yaml
 DATASET ?= datasets/seed
@@ -40,7 +40,10 @@ run:
 	uv run arbiter run --spec $(SPEC) --dataset $(DATASET)
 
 bench:
-	uv run arbiter bench --spec $(SPEC) --dataset $(DATASET)
+	uv run arbiter bench --spec $(SPEC) --dataset $(DATASET) --gate bench/baseline-800.json
+
+bench-baseline:
+	uv run arbiter bench --spec $(SPEC) --dataset $(DATASET) --out bench/baseline-800.json
 
 gen:
 	uv run arbiter-datagen gen --scenario $(SCENARIO) --records $(RECORDS) --seed $(SEED) --out $(DATASET)
