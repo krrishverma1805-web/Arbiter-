@@ -10,6 +10,7 @@ import {
   type RunSummary,
   type Scorecard,
 } from "@/lib/api";
+import { usePresence } from "@/lib/presence";
 
 const CAT_COLOR: Record<string, string> = {
   TIMING: "text-accent",
@@ -54,6 +55,16 @@ export function Cockpit({
     setExceptions(r.exceptions);
   }, [runId]);
 
+  const { viewers } = usePresence(
+    runId,
+    useCallback(
+      (m: Record<string, unknown>) => {
+        if (m.type === "exception_resolved") refresh();
+      },
+      [refresh],
+    ),
+  );
+
   useEffect(() => {
     if (!current) {
       setDrawer(null);
@@ -77,7 +88,11 @@ export function Cockpit({
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLSelectElement
+      )
+        return;
       if (e.key === "j") setSel((s) => Math.min(s + 1, exceptions.length - 1));
       else if (e.key === "k") setSel((s) => Math.max(s - 1, 0));
       else if (e.key === "e" || e.key === "Enter") setOpen((o) => !o);
@@ -95,17 +110,23 @@ export function Cockpit({
           <Link href="/" className="text-sm text-muted hover:text-text">
             ← runs
           </Link>
-          <span className="font-mono text-xs text-muted">{runId.slice(0, 8)}</span>
+          <span className="font-mono text-xs text-muted">
+            {runId.slice(0, 8)}
+          </span>
         </div>
-        <div className="text-sm">
+        <div className="flex items-center gap-4 text-sm">
+          <Presence viewers={viewers} />
           {scorecard && (
-            <>
+            <span>
               <span className="font-semibold">
-                {(scorecard.matching.auto_match_rate * 100).toFixed(1)}% auto-tied
+                {(scorecard.matching.auto_match_rate * 100).toFixed(1)}%
+                auto-tied
               </span>
               {" · "}
-              <span className="text-attention">{run.exceptions} exceptions</span>
-            </>
+              <span className="text-attention">
+                {run.exceptions} exceptions
+              </span>
+            </span>
           )}
         </div>
       </header>
@@ -113,18 +134,26 @@ export function Cockpit({
       <div className="grid grid-cols-[340px_1fr_minmax(0,440px)]">
         {/* ① scorecard */}
         <aside className="border-r border-border p-5">
-          {scorecard ? <ScorecardPanel s={scorecard} /> : <p className="text-sm text-muted">no scorecard</p>}
+          {scorecard ? (
+            <ScorecardPanel s={scorecard} />
+          ) : (
+            <p className="text-sm text-muted">no scorecard</p>
+          )}
         </aside>
 
         {/* ② queue */}
         <section className="min-w-0">
           <div className="border-b border-border px-4 py-2 text-xs text-muted">
-            {exceptions.length} exceptions · <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> move ·{" "}
-            <kbd className="font-mono">e</kbd> drawer · <kbd className="font-mono">a</kbd> accept ·{" "}
+            {exceptions.length} exceptions · <kbd className="font-mono">j</kbd>/
+            <kbd className="font-mono">k</kbd> move ·{" "}
+            <kbd className="font-mono">e</kbd> drawer ·{" "}
+            <kbd className="font-mono">a</kbd> accept ·{" "}
             <kbd className="font-mono">w</kbd> won&apos;t-fix
           </div>
           {exceptions.length === 0 ? (
-            <p className="p-8 text-center text-sm text-positive">Everything tied. Nothing to review.</p>
+            <p className="p-8 text-center text-sm text-positive">
+              Everything tied. Nothing to review.
+            </p>
           ) : (
             <table className="w-full text-sm">
               <tbody>
@@ -137,14 +166,18 @@ export function Cockpit({
                     }`}
                   >
                     <td className="w-40 px-4 py-2">
-                      <span className={`font-medium ${CAT_COLOR[e.category ?? ""] ?? ""}`}>
+                      <span
+                        className={`font-medium ${CAT_COLOR[e.category ?? ""] ?? ""}`}
+                      >
                         {e.category ?? "—"}
                       </span>
                     </td>
                     <td className="px-2 py-2 text-right font-mono">
                       {e.impact_display ?? rupees(e.amount_impact_minor)}
                     </td>
-                    <td className="px-2 py-2 text-xs text-muted">{e.classified_by}</td>
+                    <td className="px-2 py-2 text-xs text-muted">
+                      {e.classified_by}
+                    </td>
                     <td className="px-4 py-2 text-right text-xs">
                       <StatusPill status={e.status} />
                     </td>
@@ -172,6 +205,33 @@ export function Cockpit({
   );
 }
 
+function Presence({
+  viewers,
+}: {
+  viewers: { viewer_id: string; name: string }[];
+}) {
+  if (viewers.length <= 1) return null;
+  const initials = (n: string) => n.slice(0, 2).toUpperCase();
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      title={viewers.map((v) => v.name).join(", ")}
+    >
+      <div className="flex -space-x-1.5">
+        {viewers.slice(0, 4).map((v) => (
+          <span
+            key={v.viewer_id}
+            className="grid h-6 w-6 place-items-center rounded-full border border-surface bg-accent/15 text-[10px] font-medium text-accent"
+          >
+            {initials(v.name)}
+          </span>
+        ))}
+      </div>
+      <span className="text-xs text-muted">{viewers.length} viewing</span>
+    </div>
+  );
+}
+
 function StatusPill({ status }: { status: string }) {
   const c =
     status === "resolved"
@@ -189,11 +249,19 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
   return (
     <div className="space-y-5">
       <div>
-        <div className="text-3xl font-semibold">{(m.auto_match_rate * 100).toFixed(1)}%</div>
-        <div className="text-xs text-muted">auto-tied ({m.correct_matches}/{m.true_matches})</div>
+        <div className="text-3xl font-semibold">
+          {(m.auto_match_rate * 100).toFixed(1)}%
+        </div>
+        <div className="text-xs text-muted">
+          auto-tied ({m.correct_matches}/{m.true_matches})
+        </div>
       </div>
       <Row label="precision" v={pct(m.precision)} />
-      <Row label="false-match rate" v={pct(m.false_match_rate)} bad={m.false_match_rate > 0.015} />
+      <Row
+        label="false-match rate"
+        v={pct(m.false_match_rate)}
+        bad={m.false_match_rate > 0.015}
+      />
       <Row label="₹ coverage" v={pct(m.dollar_coverage)} />
       <Row label="₹ unexplained" v={pct(m.dollar_unexplained)} />
       {m.by_pass && (
@@ -205,7 +273,9 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
         />
       )}
       <hr className="border-border" />
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">exceptions</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+        exceptions
+      </div>
       {Object.entries(s.exceptions.by_type).map(([k, v]) => (
         <Row key={k} label={k} v={String(v)} />
       ))}
@@ -221,11 +291,16 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
       {s.agent.enabled && (
         <>
           <Row label="task-completion" v={pct(s.agent.task_completion_rate)} />
-          <Row label="hallucination" v={pct(s.agent.hallucination_rate)} bad={s.agent.hallucination_rate > 0.02} />
+          <Row
+            label="hallucination"
+            v={pct(s.agent.hallucination_rate)}
+            bad={s.agent.hallucination_rate > 0.02}
+          />
           {typeof s.agent.grounded_rate === "number" && (
             <Row label="grounded" v={pct(s.agent.grounded_rate)} />
           )}
-          {typeof s.agent.confidence_ece === "number" && s.agent.confidence_n ? (
+          {typeof s.agent.confidence_ece === "number" &&
+          s.agent.confidence_n ? (
             <Row label="confidence ECE" v={s.agent.confidence_ece.toFixed(3)} />
           ) : null}
           <Row label="escalation recall" v={pct(s.agent.escalation_recall)} />
@@ -254,17 +329,23 @@ function DrawerPanel({
   return (
     <div className="space-y-4">
       <div>
-        <div className={`text-lg font-semibold ${CAT_COLOR[e.category ?? ""] ?? ""}`}>
+        <div
+          className={`text-lg font-semibold ${CAT_COLOR[e.category ?? ""] ?? ""}`}
+        >
           {e.category ?? "UNCLASSIFIED"}
         </div>
         <div className="text-xs text-muted">
-          {e.impact_display ?? rupees(e.amount_impact_minor)} · {e.classified_by} · {e.status}
+          {e.impact_display ?? rupees(e.amount_impact_minor)} ·{" "}
+          {e.classified_by} · {e.status}
         </div>
       </div>
 
       <div className="space-y-2">
         {d.records.map((r) => (
-          <div key={r.id} className="rounded border border-border bg-surface p-2 text-xs">
+          <div
+            key={r.id}
+            className="rounded border border-border bg-surface p-2 text-xs"
+          >
             <div className="flex justify-between">
               <span className="font-medium">
                 {r.source} · {r.kind}
@@ -277,9 +358,17 @@ function DrawerPanel({
       </div>
 
       {d.decompositions.map((dc) => (
-        <div key={dc.settlement_utr} className="rounded border border-border bg-surface p-2 font-mono text-xs">
-          expected {rupees(dc.expected_minor)} · actual {rupees(dc.actual_minor)} ·{" "}
-          <span className={dc.residual_minor === 0 ? "text-positive" : "text-attention"}>
+        <div
+          key={dc.settlement_utr}
+          className="rounded border border-border bg-surface p-2 font-mono text-xs"
+        >
+          expected {rupees(dc.expected_minor)} · actual{" "}
+          {rupees(dc.actual_minor)} ·{" "}
+          <span
+            className={
+              dc.residual_minor === 0 ? "text-positive" : "text-attention"
+            }
+          >
             residual {rupees(dc.residual_minor)}
           </span>
         </div>
@@ -295,7 +384,9 @@ function DrawerPanel({
               <li key={i} className="border-l-2 border-accent/40 pl-2">
                 {t.text && <p>{t.text}</p>}
                 {t.tool_calls.length > 0 && (
-                  <p className="font-mono text-muted">→ {t.tool_calls.join(", ")}</p>
+                  <p className="font-mono text-muted">
+                    → {t.tool_calls.join(", ")}
+                  </p>
                 )}
               </li>
             ))}
@@ -310,9 +401,12 @@ function DrawerPanel({
             <strong>knows:</strong> {String(d.agent_escalation.what_i_know)}
           </p>
           <p>
-            <strong>missing:</strong> {String(d.agent_escalation.what_is_missing)}
+            <strong>missing:</strong>{" "}
+            {String(d.agent_escalation.what_is_missing)}
           </p>
-          <p className="mt-1 font-medium">{String(d.agent_escalation.question)}</p>
+          <p className="mt-1 font-medium">
+            {String(d.agent_escalation.question)}
+          </p>
         </div>
       )}
 
@@ -340,10 +434,18 @@ function DrawerPanel({
 function ProposalPanel({ p }: { p: Record<string, unknown> }) {
   const g = (p.grounding ?? null) as Record<string, unknown> | null;
   const raw = typeof p.confidence === "number" ? p.confidence : null;
-  const grounded = g && typeof g.grounded_confidence === "number" ? g.grounded_confidence : null;
+  const grounded =
+    g && typeof g.grounded_confidence === "number"
+      ? g.grounded_confidence
+      : null;
   const fabricated = (g?.fabricated as unknown[] | undefined)?.length ?? 0;
   const catOk = g ? g.category_consistent !== false : true;
-  const refs = (p.evidence_refs as { claim: string; record_id: string; field: string }[]) ?? [];
+  const refs =
+    (p.evidence_refs as {
+      claim: string;
+      record_id: string;
+      field: string;
+    }[]) ?? [];
   return (
     <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
       <div className="flex items-center justify-between">
@@ -363,19 +465,25 @@ function ProposalPanel({ p }: { p: Record<string, unknown> }) {
         <ul className="mt-2 space-y-0.5 text-muted">
           {refs.map((r, i) => (
             <li key={i}>
-              ↳ {r.claim} <span className="font-mono">[{r.record_id}·{r.field}]</span>
+              ↳ {r.claim}{" "}
+              <span className="font-mono">
+                [{r.record_id}·{r.field}]
+              </span>
             </li>
           ))}
         </ul>
       )}
       {fabricated > 0 && (
         <div className="mt-2 font-medium text-critical">
-          ⚠ {fabricated} citation(s) did not resolve to a real record — escalated
+          ⚠ {fabricated} citation(s) did not resolve to a real record —
+          escalated
         </div>
       )}
-      {!catOk && typeof g?.category_note === "string" && g.category_note.length > 0 && (
-        <div className="mt-2 text-attention">⚠ {g.category_note}</div>
-      )}
+      {!catOk &&
+        typeof g?.category_note === "string" &&
+        g.category_note.length > 0 && (
+          <div className="mt-2 text-attention">⚠ {g.category_note}</div>
+        )}
     </div>
   );
 }

@@ -22,7 +22,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 
 FROM python:3.12-slim AS runtime
-RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin arbiter
+RUN apt-get update && apt-get -y upgrade && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin arbiter
 WORKDIR /app
 COPY --from=build --chown=arbiter:arbiter /app /app
 ENV PATH="/app/.venv/bin:$PATH" \

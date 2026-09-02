@@ -8,6 +8,28 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 5: realtime presence over WebSocket
+
+`WS /v1/runs/{id}/ws` + `arbiter_api/presence.py` — an in-process room hub keyed
+`(org_id, run_id)`. On join/leave the whole room gets a `{type:"presence",
+viewers:[…]}` roster; a resolve on the run fans out `{type:"exception_resolved",
+…}` (from the sync handler via `hub.broadcast_soon`, which hops to the event
+loop with `call_soon_threadsafe`). The cockpit header shows viewer initials +
+"N viewing"; `usePresence` degrades to solo if the socket won't open. Multi-
+replica note in the module: swap `_Hub` for Redis pub/sub.
+
+Snags: (1) `resolve("Bearer ")` — an empty query `key` still matched the
+`bearer ` prefix, looked up an empty hash and closed 1008; pass `None` when no
+key. (2) the SSE stream only stopped when RUN_COMPLETED was the *last* event —
+a resolve on the same run left it spinning 120s; now it stops as soon as
+RUN_COMPLETED is anywhere on the log. 1 WS test (roster of two + resolve
+fan-out). 140 tests.
+
+Trivy (now working) flagged two fixable CRITICALs: Next.js
+CVE-2025-29927 (middleware auth bypass) → bumped `next` 15.1.6 → 15.5.25;
+`libgnutls30` on the web base → `node:20-slim` → `node:22-slim` (trixie) plus
+`apt-get upgrade` in both runtime stages.
+
 ## 2026-09-02 — Phase 5: ⌘K command palette + Apple-minimal pass
 
 `CommandPalette.tsx` (`cmdk`) mounted in the root layout — ⌘K / Ctrl-K opens it

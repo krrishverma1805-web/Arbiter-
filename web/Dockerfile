@@ -5,7 +5,7 @@
 # refresh corepack first so it knows the pinned pnpm release, and disable the
 # download prompt so the build is non-interactive.
 
-FROM node:20-slim AS deps
+FROM node:22-slim AS deps
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN npm install -g corepack@latest && corepack enable
 WORKDIR /app
@@ -13,7 +13,7 @@ COPY web/package.json web/pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     corepack prepare --activate && pnpm install --frozen-lockfile
 
-FROM node:20-slim AS build
+FROM node:22-slim AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NEXT_TELEMETRY_DISABLED=1
 RUN npm install -g corepack@latest && corepack enable
 WORKDIR /app
@@ -21,9 +21,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY web/ ./
 RUN corepack prepare --activate && pnpm build
 
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 WORKDIR /app
-RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin nextjs
+# pick up base-image security patches, then drop apt state
+RUN apt-get update && apt-get -y upgrade && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin nextjs
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \

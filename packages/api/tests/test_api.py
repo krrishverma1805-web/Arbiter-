@@ -75,6 +75,45 @@ def test_run_lifecycle(client):
     assert rp["ok"] is True
 
 
+def test_ws_presence_roster_and_resolve_broadcast(client):
+    """The cockpit WebSocket (docs/28 §5): two viewers see each other in the
+    presence roster, and a resolve on the run reaches both as an event."""
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+    exc_id = c.get(f"/v1/runs/{run_id}/exceptions").json()["exceptions"][0]["id"]
+
+    with (
+        c.websocket_connect(f"/v1/runs/{run_id}/ws?name=ana") as a,
+        c.websocket_connect(f"/v1/runs/{run_id}/ws?name=ben") as b,
+    ):
+        assert a.receive_json()["type"] == "hello"
+        # a sees itself, then a+ben once ben joins
+        assert a.receive_json()["type"] == "presence"
+        assert b.receive_json()["type"] == "hello"
+        roster = b.receive_json()
+        assert roster["type"] == "presence"
+        assert {v["name"] for v in roster["viewers"]} == {"ana", "ben"}
+
+        # a resolve is fanned out to both sockets
+        c.post(
+            f"/v1/exceptions/{run_id}/{exc_id}/resolve",
+            json={"action": "accept_variance", "detail": ""},
+        )
+        for sock in (a, b):
+            msg = _wait_for(sock, "exception_resolved")
+            assert msg["exception_id"] == exc_id and msg["action"] == "accept_variance"
+
+
+def _wait_for(sock, kind, tries=5):
+    for _ in range(tries):
+        m = sock.receive_json()
+        if m.get("type") == kind:
+            return m
+    raise AssertionError(f"no {kind} message")
+
+
 def test_stream_replays_enriched_frames_for_a_finished_run(client):
     """The streaming investigation view (docs/28 §5) needs more than {seq,type}:
     exception + agent frames carry a compact payload, and a finished run's

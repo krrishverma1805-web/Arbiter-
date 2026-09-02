@@ -36,7 +36,7 @@ from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import ChainBroken, EventStore
 from arbiter_engine.money import format_minor
 from arbiter_engine.replay import replay as do_replay
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -404,7 +404,9 @@ async def run_stream(run_id: str, request: Request) -> StreamingResponse:
                 frame = _stream_frame(ev)
                 yield f"id: {ev.seq}\nevent: {ev.type}\ndata: {json.dumps(frame)}\n\n"
             seen = len(events)
-            if events and events[-1].type == EventType.RUN_COMPLETED:
+            # the pipeline is done once RUN_COMPLETED is on the log; later events
+            # (resolutions on the same run) don't reopen it.
+            if any(e.type == EventType.RUN_COMPLETED for e in events):
                 yield "event: done\ndata: {}\n\n"
                 return
             if tick % 100 == 0:  # heartbeat so proxies keep the connection open
@@ -416,6 +418,40 @@ async def run_stream(run_id: str, request: Request) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.websocket("/v1/runs/{run_id}/ws")
+async def run_ws(ws: WebSocket, run_id: str) -> None:
+    """Live presence + fan-out for the cockpit (docs/28 §5). Query params:
+    `key` (API key in prod), `name` (display name). Messages out:
+    `{type:"presence",viewers:[…]}` and `{type:"exception_resolved",…}`."""
+    import uuid as _uuid
+
+    from arbiter_api.auth import resolve
+    from arbiter_api.presence import _Member, hub
+
+    key = ws.query_params.get("key")
+    principal = resolve(f"Bearer {key}" if key else None)
+    if principal is None:
+        await ws.close(code=1008)
+        return
+    await ws.accept()
+    viewer_id = _uuid.uuid4().hex[:8]
+    name = (ws.query_params.get("name") or principal.subject)[:40]
+
+    async def send(msg: dict[str, Any]) -> None:
+        await ws.send_json(msg)
+
+    member = _Member(viewer_id=viewer_id, name=name, send=send)
+    await ws.send_json({"type": "hello", "viewer_id": viewer_id})
+    await hub.join(principal.org_id, run_id, member)
+    try:
+        while True:
+            await ws.receive_text()  # client keepalives; we don't act on them
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await hub.leave(principal.org_id, run_id, viewer_id)
 
 
 # --------------------------------------------------------------------- exceptions
@@ -517,6 +553,19 @@ def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest, reque
         "drafted_rule": draft,
     }
     idempotency.store(org, idem, key_payload, 200, body)
+
+    from arbiter_api.presence import hub
+
+    hub.broadcast_soon(
+        org,
+        run_id,
+        {
+            "type": "exception_resolved",
+            "exception_id": exception_id,
+            "action": req.action,
+            "by": req.actor,
+        },
+    )
     return body
 
 
