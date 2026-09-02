@@ -119,6 +119,7 @@ class AgentProposalCreated(BaseModel):
     turns: int
     tokens_in: int
     tokens_out: int
+    grounding: dict[str, Any] | None = None  # evidence-ref resolution + category check
 
 
 class AgentEscalated(BaseModel):

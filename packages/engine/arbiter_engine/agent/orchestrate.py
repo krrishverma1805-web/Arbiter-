@@ -173,6 +173,7 @@ def run_investigations(
                     "turns": inv.turns,
                     "tokens_in": inv.tokens_in,
                     "tokens_out": inv.tokens_out,
+                    "grounding": inv.grounding.as_dict() if inv.grounding else None,
                 },
                 actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
             )

@@ -66,21 +66,18 @@ def test_agent_investigates_then_proposes(adversarial_dataset: Path, spec_path: 
                 text="",
                 structured={
                     "kind": "proposal",
-                    "category": "UNEXPLAINED",
-                    "confidence": 0.4,
-                    "explanation": "No settlement batch nets to this credit within tolerance.",
+                    "category": "TIMING",
+                    "confidence": 0.86,
+                    "explanation": "The settlement lands one day after the period end.",
                     "evidence_refs": [
                         {
-                            "claim": "no batch ties",
+                            "claim": "settled_at is after the period close",
                             "record_id": exc.record_ids[0],
-                            "field": "amount_minor",
+                            "field": "settled_at",
                         }
                     ],
                     "hypotheses_tested": ["delayed settlement", "second processor"],
-                    "suggested_action": {
-                        "action": "request_data",
-                        "detail": "ask for other bank accounts",
-                    },
+                    "suggested_action": {"action": "carry_forward", "detail": "clears next cycle"},
                 },
                 stop_reason="end_turn",
                 tokens_in=300,
@@ -91,12 +88,85 @@ def test_agent_investigates_then_proposes(adversarial_dataset: Path, spec_path: 
     inv = investigate(exc, Tools(snap), client, spec, turn_budget=6)
     assert inv.outcome == "proposal"
     assert isinstance(inv.proposal, Proposal)
-    assert inv.proposal.category == "UNEXPLAINED"
+    assert inv.proposal.category == "TIMING"
     assert inv.tool_calls == 1
     assert inv.turns == 2
     assert inv.tokens_in + inv.tokens_out > 0
+    # grounding ran and the citation resolved to a real record
+    assert inv.grounding is not None
+    assert inv.grounding.grounded and not inv.grounding.fabricated
+    assert inv.grounding.grounded_confidence > 0.55
     # the frozen system prompt was used verbatim
     assert "You are Arbiter's exception investigator." in client.seen_system[0]
+
+
+def _proposal_turn(exc: ReconException, **over: object) -> Turn:
+    body: dict[str, object] = {
+        "kind": "proposal",
+        "category": "TIMING",
+        "confidence": 0.9,
+        "explanation": "x",
+        "evidence_refs": [{"claim": "c", "record_id": exc.record_ids[0], "field": "settled_at"}],
+        "hypotheses_tested": ["h"],
+        "suggested_action": {"action": "carry_forward", "detail": "d"},
+    }
+    body.update(over)
+    return Turn(structured=body, stop_reason="end_turn", tokens_in=100, tokens_out=80)
+
+
+def test_fabricated_evidence_ref_escalates(adversarial_dataset: Path, spec_path: Path):
+    """A proposal that cites a record id which isn't in the run is a hallucination
+    — it must not reach the human as a proposal (docs/28 §1.3)."""
+    _store, proj, spec = _snapshot(adversarial_dataset, spec_path)
+    exc = _first_unexplained(proj)
+    snap = RunSnapshot.from_projection(proj)
+    client = _Client(
+        [
+            _proposal_turn(
+                exc,
+                evidence_refs=[
+                    {
+                        "claim": "fake",
+                        "record_id": "razorpay_recon:9999:deadbeef",
+                        "field": "amount",
+                    }
+                ],
+            )
+        ]
+    )
+    inv = investigate(exc, Tools(snap), client, spec)
+    assert inv.outcome == "escalate"
+    assert inv.escalation is not None and inv.escalation.reason == "contradictory"
+    assert inv.grounding is not None and inv.grounding.fabricated
+
+
+def test_weak_grounded_confidence_escalates(adversarial_dataset: Path, spec_path: Path):
+    """A grounded but low-confidence proposal falls back to the human."""
+    _store, proj, spec = _snapshot(adversarial_dataset, spec_path)
+    exc = _first_unexplained(proj)
+    snap = RunSnapshot.from_projection(proj)
+    inv = investigate(exc, Tools(snap), _Client([_proposal_turn(exc, confidence=0.3)]), spec)
+    assert inv.outcome == "escalate"
+    assert inv.grounding is not None and inv.grounding.grounded_confidence < 0.55
+
+
+def test_category_inconsistent_with_evidence_is_penalised(
+    adversarial_dataset: Path, spec_path: Path
+):
+    """DUPLICATE proposed with no repeated payment_id → category check fails,
+    confidence is capped, and the exception escalates."""
+    _store, proj, spec = _snapshot(adversarial_dataset, spec_path)
+    exc = _first_unexplained(proj)
+    snap = RunSnapshot.from_projection(proj)
+    inv = investigate(
+        exc,
+        Tools(snap),
+        _Client([_proposal_turn(exc, category="DUPLICATE", confidence=0.95)]),
+        spec,
+    )
+    assert inv.grounding is not None
+    assert not inv.grounding.category_consistent
+    assert inv.outcome == "escalate"
 
 
 def test_agent_escalates_when_told(adversarial_dataset: Path, spec_path: Path):

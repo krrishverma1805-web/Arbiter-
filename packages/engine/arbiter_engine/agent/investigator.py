@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from arbiter_engine.agent.client import LLMClient, Turn
+from arbiter_engine.agent.grounding import GroundingReport, check_grounding
 from arbiter_engine.agent.prompts import INVESTIGATOR_V1, INVESTIGATOR_V1_HASH
 from arbiter_engine.agent.schemas import Escalate, Proposal
 from arbiter_engine.agent.tools import Tools, build_task_message
@@ -93,6 +94,7 @@ class Investigation:
     outcome: str  # "proposal" | "escalate"
     proposal: Proposal | None = None
     escalation: Escalate | None = None
+    grounding: GroundingReport | None = None
     interactions: list[dict[str, Any]] = field(default_factory=list)
     tool_calls: int = 0
     turns: int = 0
@@ -140,9 +142,8 @@ def investigate(
         parsed = _try_parse(t, exc.id)
         if parsed is not None:
             if isinstance(parsed, Proposal):
-                inv.outcome, inv.proposal = "proposal", parsed
-            else:
-                inv.outcome, inv.escalation = "escalate", parsed
+                return _finalize_proposal(inv, parsed, tools, thresholds)
+            inv.outcome, inv.escalation = "escalate", parsed
             return inv
 
         if not t.tool_calls:
@@ -167,6 +168,33 @@ def investigate(
         messages.append({"role": "user", "content": results})
 
     return _escalate(inv, "budget", "turn budget exhausted before a conclusion")
+
+
+def _finalize_proposal(
+    inv: Investigation, proposal: Proposal, tools: Tools, thresholds: dict[str, float]
+) -> Investigation:
+    """Ground the proposal against the run before trusting it. A fabricated
+    citation, or a grounded confidence below the escalation floor, converts the
+    proposal to an escalation (docs/28 §1.3)."""
+    rep = check_grounding(proposal, tools.snap)
+    inv.grounding = rep
+
+    if rep.fabricated:
+        return _escalate(
+            inv,
+            "contradictory",
+            f"the proposal cited record(s) that do not exist in this run: "
+            f"{', '.join(rep.fabricated[:3])}",
+        )
+    if rep.grounded_confidence < thresholds.get("theta_escalate", 0.55):
+        why = (
+            rep.category_note
+            or "the cited evidence does not support the conclusion strongly enough"
+        )
+        return _escalate(inv, "evidence_exhausted", why)
+
+    inv.outcome, inv.proposal = "proposal", proposal
+    return inv
 
 
 def _record(turn_no: int, t: Turn) -> dict[str, Any]:

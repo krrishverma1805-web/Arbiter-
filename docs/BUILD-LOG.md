@@ -8,6 +8,29 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.3: agent grounding + category verification (docs/28)
+
+The agent's `evidence_refs` were self-reported and trusted. Now, before any
+proposal reaches a human (`agent/grounding.py`):
+
+- **Grounding.** Every cited `record_id` must resolve to a real record /
+  decomposition / match in the run. A citation that points at nothing is a
+  fabrication — the proposal is voided and the exception escalates
+  (`reason: contradictory`). This is the authoritative `hallucination_rate` now.
+- **Category check.** A deterministic test that the proposed category fits the
+  evidence shape (DUPLICATE needs a repeated `payment_id`, ROUNDING needs a small
+  residual, CHARGEBACK needs a `dispute_id`, …). Zero LLM cost. A mismatch caps
+  confidence at 0.4.
+- **`grounded_confidence`.** The model's raw self-assessment is never used for
+  the escalation decision or shown to the human — it's re-derived from how many
+  citations resolved and how well the fields check out. Below `theta_escalate`
+  → escalate instead of propose.
+
+The frozen prompt (V1) gained a line telling the model its citations are verified
+and its confidence re-derived. `test_agent.py` gains three cases: fabricated ref
+→ escalate, weak grounded confidence → escalate, category inconsistent with
+evidence → escalate. 95 tests.
+
 ## 2026-09-02 — M5 stretch: `arbiter cash-position`
 
 The reconciled ledger answers "is the money right?"; this answers "where is it?" —

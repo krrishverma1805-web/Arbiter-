@@ -76,7 +76,10 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
                     payload.get("confidence"),
                 )
             case EventType.AGENT_PROPOSAL_CREATED:
-                agent_outcomes[payload["exception_id"]] = ("proposal", payload["proposal"])
+                _prop = dict(payload["proposal"])
+                if payload.get("grounding"):
+                    _prop["grounding"] = payload["grounding"]
+                agent_outcomes[payload["exception_id"]] = ("proposal", _prop)
             case EventType.AGENT_ESCALATED:
                 agent_outcomes[payload["exception_id"]] = ("escalate", payload["escalation"])
             case EventType.RESOLUTION_APPLIED:

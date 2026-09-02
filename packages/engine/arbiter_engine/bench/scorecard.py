@@ -240,7 +240,6 @@ def _score_agent(
     rec_id_by_entity = {r.external_ids.get("entity_id", r.id): r.id for r in proj.records}
     true_cat_by_exc: dict[str, str] = {}
     needs_human: set[str] = set()
-    exc_by_id = {e.id: e for e in proj.exceptions}
     for a in anomalies:
         rids = {rec_id_by_entity.get(x) for x in a.get("record_ids", [])}
         for exc in proj.exceptions:
@@ -261,13 +260,19 @@ def _score_agent(
     esc_precision = esc_correct / len(esc_ids) if esc_ids else 0.0
     esc_recall = esc_correct / len(needs_human) if needs_human else 0.0
 
-    # hallucination: an evidence_ref record_id not among the exception's records
+    # hallucination: a proposal that cited a record which does not exist in the
+    # run. The grounding check (docs/28 §1.3) resolves this authoritatively; fall
+    # back to the "not among the exception's own records" heuristic if absent.
+    all_record_ids = {r.id for r in proj.records}
     halluc = 0
     for p in props:
-        matched_exc = exc_by_id.get(p["exception_id"])
-        allowed = set(matched_exc.record_ids) if matched_exc else set()
+        g = p.get("grounding")
+        if g is not None:
+            if g.get("fabricated"):
+                halluc += 1
+            continue
         for ref in (p.get("proposal") or {}).get("evidence_refs", []):
-            if allowed and ref.get("record_id") not in allowed:
+            if ref.get("record_id") not in all_record_ids:
                 halluc += 1
                 break
 
