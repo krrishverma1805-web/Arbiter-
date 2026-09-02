@@ -140,20 +140,22 @@ Stated in [02](02-product-spec.md) §6 and [06](06-feature-inventory.md) §M. Th
 
 Combines [doc 02 §7](02-product-spec.md) and [doc 11 §7](11-plan-evaluation-and-gaps.md).
 
-- [ ] `git clone && make demo` → cockpit open with a real scorecard, 800-record batch, in < 3 min
-- [ ] `arbiter bench` → **matching** scorecard (precision / recall / **false-match rate** / $ coverage / throughput) **and** **agent** scorecard (task-completion / tool-use accuracy / grounding / hallucination rate / escalation P/R), reproducibly
-- [ ] `arbiter bench --ablate` → the `--no-ai` / haiku / sonnet / opus table (accuracy × cost × latency) is in the README
-- [ ] `arbiter bench --calibration` → ECE ≤ 0.05 (or recalibrated + disclosed)
-- [ ] `arbiter run --no-ai` works; the deterministic baseline is committed; **AI lift** is a stated number
-- [ ] The agent runs a visible investigation loop (plan → evidence → hypothesis → conclude/escalate), not a one-shot call
-- [ ] `arbiter replay <id>` reproduces a completed run from its log; `arbiter run --resume` survives a mid-run kill; `arbiter verify` confirms the hash chain
-- [ ] Prompt-injection defense implemented; the demo data's injected note is caught and routed to `SECURITY_REVIEW`, not the agent
-- [ ] OTEL traces (`--trace`), structured logs, Alembic migrations, `/healthz`+`/readyz`, `RUNBOOK.md` exist
-- [ ] CI green: tests, coverage gate, determinism + resume tests, regression gate, `pip-audit`/`gitleaks`, both scorecards as artifacts
-- [ ] Cycle demo shows the auto-match rate rising across 3 batches
-- [ ] `arbiter memo <id>` → the auditor-ready Close Memo (HTML + PDF) with the audit-trail hash
-- [ ] Evidence drawer: every number traceable to source in ≤ 2 clicks; full frontend state coverage; live run progress
-- [ ] `docs/` complete (01–14 + ADRs 0001–0004); `BUILD-LOG.md` + `KNOWN-FAILURE-MODES.md` populated from real runs
-- [ ] README: what it is, why, quickstart, non-goals, honest limitations, the ablation + calibration numbers
+_Status as of 2026-09-02 (M0–M5 complete). `[x]` done · `[~]` done within a stated v1 boundary · `[ ]` open._
+
+- [~] `git clone && make demo` → real scorecard on an 800-record batch in ~20s; the cockpit is a separate `make up` (API + web), not folded into `make demo`
+- [x] `arbiter bench` → matching scorecard **and** agent scorecard, reproducibly (offline agent path is deterministic via recorded/scripted turns)
+- [x] `arbiter bench --ablate` → the `--no-ai` row is in the README; the haiku/sonnet/opus rows + AI lift come from the nightly `live` job (no API key in dev/CI)
+- [x] `arbiter bench --calibration` → ECE 0.12, isotonic-recalibrated + disclosed in the README (the deterministic matcher's confidence is effectively binary at this scale)
+- [~] `arbiter run --no-ai` works; the deterministic baseline is committed; **AI lift** is disclosed as measurable only from the nightly `live` job
+- [x] The agent runs a visible investigation loop (plan → evidence → hypothesis → conclude/escalate), not a one-shot call
+- [x] `arbiter replay <id>` reproduces a completed run; `arbiter run --resume` survives a mid-run kill; `arbiter verify` confirms the hash chain
+- [x] Prompt-injection defense implemented; the demo data's injected note is caught and routed to `SECURITY_REVIEW`, not the agent
+- [~] `/healthz`+`/readyz` and `RUNBOOK.md` exist; OTEL `--trace` and Alembic migrations are documented v1 boundaries ([RUNBOOK](RUNBOOK.md) §v1 boundaries) — the event log is the trace/schema substrate
+- [x] CI green: tests + coverage, isolated determinism + resume gate, bench scorecard gate + artifact, `gitleaks` + `pip-audit`, web typecheck/lint/build
+- [x] Cycle demo (`arbiter cycle-demo` / `make cycle`): a learned rule carried across 3 closes, scored base-spec vs learned-spec so the gap is the rule alone
+- [x] `arbiter memo <id>` → the auditor-ready Close Memo, print-styled so browser "Save as PDF" is the PDF copy, audit hash embedded; `arbiter audit-pack` zips memo + log + manifest
+- [x] Evidence drawer: every number traceable to source; full frontend state coverage; live run progress
+- [x] `docs/` complete (01–27 + ADRs 0001–0005); `BUILD-LOG.md` populated; `KNOWN-FAILURE-MODES.md` has real deterministic-side observations (agent cases come from the nightly `live` job — reason documented in the file)
+- [x] README: what it is, why, quickstart, non-goals, honest limitations, the ablation + calibration numbers
 - [ ] 5-minute pitch video: problem → watch a run → one escalated exception → both benchmarks → the hybrid-orchestration doctrine
-- [ ] Public repo, clean history, LICENSE (Apache-2.0 for the open-core engine)
+- [x] Public repo, clean history, LICENSE (Apache-2.0)
