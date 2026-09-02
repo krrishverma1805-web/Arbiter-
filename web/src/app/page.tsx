@@ -21,30 +21,48 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
-      <h1 className="text-2xl font-semibold">Arbiter</h1>
-      <p className="mt-1 text-muted">A verification layer for money movement.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Arbiter</h1>
+          <p className="mt-1 text-muted">
+            A verification layer for money movement.
+          </p>
+        </div>
+        <kbd className="mt-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted">
+          ⌘K
+        </kbd>
+      </div>
 
       {!apiUp && (
         <div className="mt-6 rounded border border-attention/40 bg-attention/10 p-3 text-sm">
-          The API isn&apos;t reachable. Start it with <code className="font-mono">uv run arbiter-api</code>.
+          The API isn&apos;t reachable. Start it with{" "}
+          <code className="font-mono">uv run arbiter-api</code>.
         </div>
       )}
 
       {apiUp && <NewRun specs={specs} datasets={datasets} />}
 
-      <h2 className="mt-10 text-sm font-semibold uppercase tracking-wide text-muted">Runs</h2>
+      <h2 className="mt-10 text-sm font-semibold uppercase tracking-wide text-muted">
+        Runs
+      </h2>
       <ul className="mt-3 divide-y divide-border rounded border border-border bg-surface">
-        {runs.length === 0 && <li className="p-4 text-sm text-muted">No runs yet.</li>}
+        {runs.length === 0 && (
+          <li className="p-4 text-sm text-muted">No runs yet.</li>
+        )}
         {runs.map((r) => (
           <li key={r.run_id}>
             <Link
               href={`/runs/${r.run_id}`}
               className="flex items-center justify-between p-4 hover:bg-accent/5"
             >
-              <span className="font-mono text-xs text-muted">{r.run_id.slice(0, 8)}</span>
+              <span className="font-mono text-xs text-muted">
+                {r.run_id.slice(0, 8)}
+              </span>
               <span className="text-sm">
                 {r.records} records · {r.matches} matches ·{" "}
-                <span className="text-attention">{r.exceptions} exceptions</span>
+                <span className="text-attention">
+                  {r.exceptions} exceptions
+                </span>
               </span>
               <span className="text-xs text-muted">{r.status}</span>
             </Link>

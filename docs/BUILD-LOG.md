@@ -8,6 +8,15 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 5: ⌘K command palette + Apple-minimal pass
+
+`CommandPalette.tsx` (`cmdk`) mounted in the root layout — ⌘K / Ctrl-K opens it
+anywhere; navigate, jump to a recent run, or switch theme (light / dark /
+system, persisted to `localStorage`, restored by a tiny pre-paint script so
+there's no flash). `globals.css`: tighter letter-spacing on headings,
+antialiasing, `color-mix` selection colour, thin scrollbars, and
+`prefers-reduced-motion` hardened to ~0ms on every element/pseudo-element.
+
 ## 2026-09-02 — Phase 5: streaming investigation view + motion system
 
 `GET /v1/runs/{id}/stream` now emits UI-shaped frames (`_stream_frame`): agent
