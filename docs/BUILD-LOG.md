@@ -8,6 +8,25 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 4: MCP server (read-only reconciliation as a capability)
+
+`arbiter_api/mcp_server.py` — a FastMCP stdio server (`arbiter-api mcp`, behind
+the `arbiter-api[mcp]` extra) exposing 7 read-only tools: `list_runs`,
+`run_summary`, `verify_run`, `cash_position_for`, `query_evidence`,
+`decomposition_detail`, `list_exceptions`. Each is a projection read reusing the
+engine's own `agent.tools` — no tool can mutate a match, a record, money, or the
+event log, and a test asserts no registered tool name contains a mutating verb.
+Tenant scope from `ARBITER_MCP_ORG`. So a CFO copilot or a controller's
+assistant can call reconciliation as a capability.
+
+Snag: `mcp>=1.2` resolved to `mcp 2.x`, which renamed `FastMCP` → `MCPServer`
+and moved the module. Pinned `mcp>=1.2,<2` to keep the widely-supported v1
+API. The CI `test` job now `uv sync --extra mcp` so the suite really exercises
+it. 134 tests.
+
+Also fixed `4834930`'s successor: `aquasecurity/trivy-action@0.28.0` doesn't
+exist — the tags are `v`-prefixed. Pinned `@v0.29.0`.
+
 ## 2026-09-02 — Phase 3: pgbouncer + Grafana/Prometheus alerting
 
 `deploy/monitoring/` — a Prometheus scrape config, SLO alert rules

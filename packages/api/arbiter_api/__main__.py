@@ -59,6 +59,10 @@ def main() -> None:
         _worker()
     elif cmd == "db":
         _db(sys.argv[2:])
+    elif cmd == "mcp":
+        from arbiter_api.mcp_server import main as _mcp_main
+
+        _mcp_main()
     else:
         _serve()
 

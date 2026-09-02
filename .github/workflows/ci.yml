@@ -34,7 +34,7 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
-      - run: uv sync --all-packages
+      - run: uv sync --all-packages --extra mcp
       - name: pytest
         run: uv run pytest -q -m "not live" --cov=arbiter_engine --cov=arbiter_datagen --cov=arbiter_api --cov-report=term-missing
 
@@ -167,7 +167,7 @@ jobs:
           curl -sf localhost:3000/ | grep -qi arbiter
           docker rm -f web
       - name: scan both images (fail on CRITICAL/HIGH)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.29.0
         with:
           scan-type: image
           image-ref: arbiter-api:ci
@@ -176,7 +176,7 @@ jobs:
           ignore-unfixed: true
           severity: CRITICAL
       - name: scan the web image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.29.0
         with:
           scan-type: image
           image-ref: arbiter-web:ci
@@ -185,7 +185,7 @@ jobs:
           ignore-unfixed: true
           severity: CRITICAL
       - name: SBOM for the api image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.29.0
         with:
           scan-type: image
           image-ref: arbiter-api:ci

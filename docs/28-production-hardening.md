@@ -117,7 +117,7 @@ worker's run self-heals; a backup restores in CI; dashboards show the span tree.
 13. Per-tenant resolution memory (semantic `similar_exceptions`).
 14. Feedback → nightly retraining (FS table, few-shots, threshold) **behind an eval gate**.
 15. Opt-in global pattern library with hard anonymization + kill-switch.
-16. Model registry + drift detection; MCP server.
+16. Model registry + drift detection; MCP server. — ✅ **MCP server (`arbiter_api/mcp_server.py`, `arbiter-api mcp`, stdio, `arbiter-api[mcp]` extra) — 7 read-only tools (`list_runs`, `run_summary`, `verify_run`, `cash_position_for`, `query_evidence`, `decomposition_detail`, `list_exceptions`), tenant-scoped by `ARBITER_MCP_ORG`; a test asserts no tool name can mutate.** Still open: model registry + input-drift detection.
 
 **Exit:** a tenant's month-3 auto-match rate is measurably higher than month-1 on
 their *own* data, with every model promotion gated by an eval.
