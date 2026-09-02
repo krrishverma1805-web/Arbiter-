@@ -53,7 +53,9 @@ class Record(BaseModel):
         return h.hexdigest()[:16]
 
 
-MatchPass = Literal["exact", "tolerant", "blocked", "subset", "subset_heuristic", "transitive"]
+MatchPass = Literal[
+    "exact", "tolerant", "blocked", "aggregate", "subset", "subset_heuristic", "transitive"
+]
 MatchStatus = Literal["auto", "low_confidence", "human_confirmed"]
 ExceptionStatus = Literal[
     "open", "proposed", "escalated", "resolved", "wont_fix", "budget_exceeded", "security_review"

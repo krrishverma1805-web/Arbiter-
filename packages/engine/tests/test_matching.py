@@ -91,3 +91,46 @@ def test_expected_net_matches_ground_truth(clean_dataset: Path, spec_path: Path)
     for utr, items in group_by_utr(proj.records).items():
         d = next(d for d in proj.decompositions if d.settlement_utr == utr)
         assert d.expected_minor == expected_net_minor(items)
+
+
+def test_aggregated_payout_ties_a_credit_to_a_sum_of_batches(clean_dataset: Path, spec_path: Path):
+    """One bank credit that equals the sum of two settlement batches' nets (a
+    common PG rolled payout) — pass 2c should tie it as an 'aggregate' match."""
+    store = EventStore("sqlite://")
+    proj = execute(store, RunInputs(spec_path=spec_path, dataset_dir=clean_dataset))
+    spec = load_spec(spec_path)
+
+    banks = [r for r in proj.records if r.source == "bank"]
+    if len(banks) < 3:
+        return
+    b0, b1 = banks[0], banks[1]
+
+    rebuilt = []
+    for r in proj.records:
+        if r.source == "bank" and r.external_ids.get("utr"):
+            ext = {k: v for k, v in r.external_ids.items() if k != "utr"}
+            rebuilt.append(r.model_copy(update={"external_ids": ext}))
+        else:
+            rebuilt.append(r)
+    # merge b1's amount into b0, drop b1 → one credit for two batches
+    merged = []
+    for r in rebuilt:
+        if r.id == b0.id:
+            merged.append(
+                r.model_copy(
+                    update={
+                        "amount_minor": b0.amount_minor + b1.amount_minor,
+                        "external_ids": {k: v for k, v in r.external_ids.items() if k != "utr"},
+                    }
+                )
+            )
+        elif r.id == b1.id:
+            continue
+        else:
+            merged.append(r)
+
+    res = run_matching("x", merged, spec)
+    agg = [m for m in res.matches if m.match_pass == "aggregate"]
+    assert agg, "pass 2c tied no aggregated payout"
+    # the aggregate match covers both batches' records
+    assert len(agg[0].left_ids) >= 2

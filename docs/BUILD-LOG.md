@@ -8,6 +8,20 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.2: aggregated-payout matching (N:1)
+
+Indian PGs roll several small settlements into one bank credit. New **pass 2c**:
+after pass 2b, a free bank credit is tested against the *sum* of 2–4 still-
+unresolved settlement blocks (`_blocks_summing_to` — bounded subset over ≤ 14
+blocks). A unique subset within tolerance emits one `aggregate` match covering
+every batch's records; more than one candidate subset → skip (never guess).
+Confidence 0.85 (or 0.78 if the residual exceeds the rounding band).
+
+Only fires on blocks the UTR key failed and pass 2b did not claim, so it is a
+no-op on the clean CI dataset — bench gate unchanged. `test_matching.py`: merge
+two bank credits into one, strip the UTRs → pass 2c ties both batches.
+103 tests.
+
 ## 2026-09-02 — Phase 1.4: a CI regression gate on the scorecard
 
 CI had an *absolute floor* (false-match ≤ 1.5%, auto-match ≥ 80%) but nothing
