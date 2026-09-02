@@ -9,6 +9,8 @@ Passes over the not-yet-matched remainder, in fixed order:
                  window, greedy stable assignment, confidence from closeness alone
   2c. aggregate — one bank credit that ties the *sum* of 2–4 still-unresolved
                  settlement batches (a rolled PG payout); unique subset only
+  2d. aggregate — the mirror: 2–3 bank credits summing to one settlement batch
+                 (a payout the bank split into tranches)
   3. subset    — an orphan bank credit vs a subset of unmatched processor items
                  (subset-sum matching, docs/16 §6)
   4. fuzzy     — FS-ranked candidates attached to the remaining unmatched records;
@@ -291,6 +293,37 @@ def run_matching(
             taken_block.update(combo)
             open_idx = [bi for bi in open_idx if bi not in taken_block]
 
+        # ---- pass 2d: split payout — a sum of credits ties one block ----
+        # The mirror of 2c: a bank splits one large payout into 2–3 tranches.
+        for bi in [j for j in range(len(unresolved)) if j not in taken_block]:
+            utr, items, expected, gs, ledger_matches = unresolved[bi]
+            avail = [bb for bb in free_bank if bb.id not in taken_bank]
+            credits = _credits_summing_to(avail, expected, tol)
+            if credits is None:
+                continue
+            ledger_total = sum(m.amount_minor for m in ledger_matches) or None
+            got = sum(c.amount_minor for c in credits)
+            decomp = decompose_group(
+                run_id, utr, items, bank_amount_minor=got, ledger_total_minor=ledger_total
+            )
+            result.decompositions.append(decomp)
+            _emit(
+                result,
+                run_id,
+                utr,
+                items,
+                credits,
+                ledger_matches,
+                match_pass="aggregate",
+                confidence=0.85 if abs(got - expected) <= tol.rounding_minor else 0.78,
+                weight=None,
+                per_field={},
+                residual=decomp.residual_minor,
+                tol=tol,
+            )
+            taken_block.add(bi)
+            taken_bank.update(c.id for c in credits)
+
     # ---- pass 3: subset — orphan bank credits vs unmatched processor items ----
     unmatched_proc = [r for r in processor if r.id not in result.matched_ids]
     matched_bank = result.matched_ids
@@ -379,6 +412,22 @@ def _blocks_summing_to(
         for combo in combinations(pool, size):
             s = sum(blocks[bi][2] for bi in combo)
             if abs(s - target) <= tol.amount_minor:
+                found.append(list(combo))
+        if len(found) > 1:
+            return None
+    return found[0] if len(found) == 1 else None
+
+
+def _credits_summing_to(credits: list[Record], target: int, tol: _Tol) -> list[Record] | None:
+    """The unique subset (size 2–3) of bank credits summing to `target` within
+    tolerance. `None` if absent or ambiguous."""
+    from itertools import combinations
+
+    pool = sorted(credits, key=lambda c: c.id)[:10]
+    found: list[list[Record]] = []
+    for size in (2, 3):
+        for combo in combinations(pool, size):
+            if abs(sum(c.amount_minor for c in combo) - target) <= tol.amount_minor:
                 found.append(list(combo))
         if len(found) > 1:
             return None

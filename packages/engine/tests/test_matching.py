@@ -134,3 +134,41 @@ def test_aggregated_payout_ties_a_credit_to_a_sum_of_batches(clean_dataset: Path
     assert agg, "pass 2c tied no aggregated payout"
     # the aggregate match covers both batches' records
     assert len(agg[0].left_ids) >= 2
+
+
+def test_split_payout_ties_multiple_credits_to_one_batch(clean_dataset: Path, spec_path: Path):
+    """A batch paid out as two bank credits (a split tranche) — pass 2d ties both
+    credits to the one settlement batch."""
+    store = EventStore("sqlite://")
+    proj = execute(store, RunInputs(spec_path=spec_path, dataset_dir=clean_dataset))
+    spec = load_spec(spec_path)
+
+    banks = sorted((r for r in proj.records if r.source == "bank"), key=lambda r: r.id)
+    if len(banks) < 2:
+        return
+    victim = banks[0]
+    half = victim.amount_minor // 2
+    rebuilt = []
+    for r in proj.records:
+        ext = (
+            {k: v for k, v in r.external_ids.items() if k != "utr"}
+            if r.source == "bank"
+            else r.external_ids
+        )
+        if r.id == victim.id:
+            rebuilt.append(r.model_copy(update={"amount_minor": half, "external_ids": ext}))
+            rebuilt.append(
+                r.model_copy(
+                    update={
+                        "id": victim.id + "_b",
+                        "amount_minor": victim.amount_minor - half,
+                        "external_ids": ext,
+                    }
+                )
+            )
+        else:
+            rebuilt.append(r.model_copy(update={"external_ids": ext}))
+
+    res = run_matching("x", rebuilt, spec)
+    agg = [m for m in res.matches if m.match_pass == "aggregate" and len(m.right_ids) >= 2]
+    assert agg, "pass 2d tied no split payout"
