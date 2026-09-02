@@ -620,6 +620,41 @@ def retrain(
 
 
 @app.command()
+def models(
+    spec: Path = typer.Option(..., "--spec", help="path to the recon spec YAML"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """The learned-artifact registry for this spec (docs/28 §3 item 16): every
+    promoted / rejected Fellegi–Sunter model, every fitted calibration map, and
+    the input-drift timeline — all folded from the append-only event log."""
+    from arbiter_engine.specs import load_spec, spec_hash
+
+    store = _store(db)
+    sh = spec_hash(load_spec(spec))
+    rows: list[tuple[str, str]] = []
+    for rid in store.runs(include_internal=True):
+        for t, p in store.iter_payloads(rid):
+            if p.get("spec_hash") != sh:
+                continue
+            ab, aa = p.get("auc_before"), p.get("auc_after")
+            if t == "FS_MODEL_PROMOTED":
+                rows.append((t, f"AUC {ab:.3f}->{aa:.3f}  n={p['n_pairs']}"))
+            elif t == "FS_MODEL_REJECTED":
+                rows.append((t, f"AUC {ab:.3f}->{aa:.3f}  ({p['reason']})"))
+            elif t == "FS_CALIBRATION_FITTED":
+                rows.append((t, f"{len(p['points'])} points from {p['n_samples']} samples"))
+            elif t == "INPUT_DRIFT_DETECTED" and p.get("baseline_runs", 0) >= 3:
+                mark = "! " if p.get("drifted") else "  "
+                feats = ", ".join(p.get("drifted", [])) or "ok"
+                rows.append((t, f"{mark}PSI {p['psi']:.3f}  {feats}"))
+    if not rows:
+        typer.echo("no learned artifacts for this spec yet")
+        return
+    for kind, detail in rows:
+        typer.echo(f"  {kind:<24} {detail}")
+
+
+@app.command()
 def memo(
     run_id: str = typer.Argument(...),
     out: Path | None = typer.Option(None, "--out", help="write the HTML here (default: stdout)"),

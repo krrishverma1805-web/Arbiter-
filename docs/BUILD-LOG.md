@@ -8,6 +8,25 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 4: input-drift detection + model registry
+
+`arbiter_engine/learn/drift.py`: after ingest, each run gets a numeric profile
+(source/kind mix, reference/counterparty/value-date coverage, amount log-median
++ CV, counterparty cardinality). It's compared by population-stability index
+against the mean of the tenant's recent runs for the same spec; past
+`_PSI_ALERT` we record which features moved. The `INPUT_DRIFT_DETECTED` event
+lives on `__learn__<org>` — **not** the reconciliation chain — because the
+baseline depends on other runs, so putting it inline would make a replay in a
+fresh store diverge. `run.py` calls it in a `try/except` that can never fail a
+run.
+
+`arbiter models --spec` folds the learned-artifact registry from the log:
+promoted/rejected FS models, fitted calibration maps, the drift timeline. (The
+agent prompt is already hashed onto every interaction event.)
+
+4 drift tests incl. "stays off the reconciliation chain / run still verifies".
+144 tests, gate green.
+
 ## 2026-09-03 — Phase 5: realtime presence over WebSocket
 
 `WS /v1/runs/{id}/ws` + `arbiter_api/presence.py` — an in-process room hub keyed

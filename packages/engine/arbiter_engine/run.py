@@ -145,6 +145,15 @@ def _pipeline(
     proj = fold_run(store, run_id)
     records = proj.records
 
+    # -- DRIFT WATCH (sidecar on the learn pseudo-run — never the run's chain) --
+    with span("drift", run_id=run_id):
+        try:
+            from arbiter_engine.learn.drift import check_drift
+
+            check_drift(store, run_id, sh, records)
+        except Exception:  # noqa: BLE001 - drift telemetry must never fail a run
+            pass
+
     # -- MATCHING + DECOMPOSING (deterministic; re-run in memory, emit once) --
     from arbiter_engine.match.fellegi_sunter import FSModel
     from arbiter_engine.match.fs_store import load_calibration, load_fs_model

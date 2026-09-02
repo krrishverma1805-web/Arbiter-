@@ -35,6 +35,7 @@ class EventType(StrEnum):
     FS_CALIBRATION_FITTED = "FS_CALIBRATION_FITTED"
     FS_MODEL_PROMOTED = "FS_MODEL_PROMOTED"
     FS_MODEL_REJECTED = "FS_MODEL_REJECTED"
+    INPUT_DRIFT_DETECTED = "INPUT_DRIFT_DETECTED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_PURGED = "RUN_PURGED"
 
@@ -194,6 +195,20 @@ class FSModelRejected(BaseModel):
     trained_by: str
 
 
+class InputDriftDetected(BaseModel):
+    """The shape of this run's input moved away from the tenant's recent runs for
+    the same spec (docs/28 §3 item 16) — a new bank format, a counterparty-mix
+    shift, a drop in reference coverage. Informational; the run still completes.
+    A signal to re-check the matcher / re-run `arbiter retrain`."""
+
+    run_id: str  # the reconciliation run this profile is for
+    spec_hash: str
+    psi: float  # population-stability index, summed across features
+    drifted: list[str]  # feature names past the per-feature threshold
+    baseline_runs: int
+    profile: dict[str, float]
+
+
 class RunCompleted(BaseModel):
     status: str  # "completed" | "failed"
     counts: dict[str, int]
@@ -226,6 +241,7 @@ EVENT_PAYLOADS: dict[EventType, type[BaseModel]] = {
     EventType.FS_CALIBRATION_FITTED: FSCalibrationFitted,
     EventType.FS_MODEL_PROMOTED: FSModelPromoted,
     EventType.FS_MODEL_REJECTED: FSModelRejected,
+    EventType.INPUT_DRIFT_DETECTED: InputDriftDetected,
     EventType.RUN_COMPLETED: RunCompleted,
     EventType.RUN_PURGED: RunPurged,
 }
