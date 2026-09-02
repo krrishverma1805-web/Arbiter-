@@ -49,49 +49,62 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
 
 ## Status
 
-**Milestone M0 is built** (see [`docs/10`](docs/10-implementation-plan.md)): the uv workspace, the
-hash-chained event store with `verify`, deterministic CSV ingestion, the synthetic data
-generator with ground truth, and the `arbiter` CLI — with 27 tests, strict `mypy`/`ruff`, and CI
-including an isolated determinism gate. Matching, decomposition, the agent, `bench`, and the
-cockpit land in M1–M5.
+**Milestones M0–M5 are built** (see [`docs/10`](docs/10-implementation-plan.md)):
+
+- **M0** — uv workspace, hash-chained event store with `verify`, deterministic CSV ingestion,
+  synthetic data generator with ground truth, the `arbiter` CLI.
+- **M1–M2** — the 4-pass deterministic matcher (exact → tolerant → subset-sum → fuzzy),
+  Fellegi–Sunter scoring with calibrated `P(match)`, the settlement decomposition, the
+  safe-AST rule engine, typed exception classification, and `arbiter bench` scoring matching
+  **and** agent metrics against ground truth (gated in CI: false-match ≤ 1.5%, auto-match ≥ 80%
+  at 800 records).
+- **M3** — the hybrid-orchestration investigation agent ([ADR-0004](docs/adr/0004-hybrid-orchestration.md)):
+  a deterministic skeleton FSM + one bounded agentic loop (plan → investigate with read-only
+  tools → hypothesize → conclude or escalate), frozen+hashed prompt, untrusted-record fencing,
+  strict `Proposal`/`Escalate` output. Runs offline deterministically when no API key is set.
+- **M4** — the FastAPI backend and the Next.js cockpit (scorecard · keyboard-first exception
+  queue · evidence drawer), verified end to end.
+- **M5** — the learning loop (resolution → drafted safe rule → reviewed spec merge → the rule
+  classifies the next run, no model in the loop) and the auditor-ready **Close Memo**.
+
+86 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
+gate, and a web typecheck/lint/build job.
 
 ## Quickstart
 
 ```bash
 git clone https://github.com/krrishverma1805-web/Arbiter- && cd Arbiter-
-make demo          # M0: generates a seed batch, ingests it, prints the run summary + audit hash
+make demo          # generate a batch, reconcile it, score it against ground truth
+make up            # the API + the cockpit on localhost
 ```
-
-Working today (M0):
 
 ```bash
 uv sync --all-packages
-uv run arbiter-datagen gen --scenario d2c --records 200 --seed 42 --out datasets/seed
-uv run arbiter run --spec specs/razorpay-settlement.yaml --dataset datasets/seed
-uv run arbiter run --spec specs/razorpay-settlement.yaml --dataset datasets/seed --json
-uv run arbiter replay <run-id>     # reproduce a completed run from its event log
-uv run arbiter verify <run-id>     # recompute the audit hash chain
-uv run arbiter events <run-id>     # dump the raw event log
+uv run arbiter gen --scenario d2c --records 200 --seed 42 --out datasets/seed
+uv run arbiter run   --spec specs/razorpay-settlement.yaml --dataset datasets/seed [--no-ai]
+uv run arbiter bench --spec specs/razorpay-settlement.yaml --dataset datasets/seed --json
+uv run arbiter explain <run-id>            # the evidence for each exception, as text
+uv run arbiter resolve <run-id> <exc-id> --action <action>   # → drafts a learned rule
+uv run arbiter rules pending <run-id> --spec specs/razorpay-settlement.yaml
+uv run arbiter rules merge   <run-id> --spec specs/razorpay-settlement.yaml   # bumps version:
+uv run arbiter memo    <run-id> --out close-memo.html        # the auditor-ready Close Memo
+uv run arbiter replay  <run-id>            # reproduce a completed run from its event log
+uv run arbiter verify  <run-id>            # recompute the audit hash chain
+uv run arbiter events  <run-id>            # dump the raw event log
 ```
 
-Coming in M1–M5 (specified in [`docs/`](docs/), not yet implemented):
-
-```bash
-arbiter run --spec … --dataset … --no-ai   # deterministic core only, zero LLM calls
-arbiter bench --spec … [--ablate] [--calibration]   # matching + agent scorecards vs ground truth
-arbiter explain <exception-id>              # the evidence drawer, as text
-arbiter memo <run-id>                       # the auditor-ready Close Memo (HTML/PDF)
-```
+The investigation agent needs `ANTHROPIC_API_KEY`; without it, runs still complete —
+ambiguous exceptions escalate deterministically and the run stays reproducible.
 
 ## What's in here
 
 | Path | |
 |---|---|
 | [`docs/`](docs/) | The full research, spec, architecture, design doctrine, competitive analysis, and honest red-team (27 docs + 5 ADRs) |
-| `packages/engine/` | The reconciliation engine — M0: money, hashing, event store, spec loader, ingestion, CLI. M1+: matching, decomposition, the agent, bench |
-| `packages/datagen/` | Synthetic batch generator — M0: clean batches + ground truth. M1: the labeled adversarial anomaly catalog |
-| `packages/api/` | FastAPI backend (M4) |
-| `web/` | Next.js cockpit — scorecard · exception queue · evidence drawer (M4) |
+| `packages/engine/` | The reconciliation engine — money, hashing, event store, spec loader, ingestion, the 4-pass matcher, Fellegi–Sunter scoring, decomposition, the safe-AST rule engine, the investigation agent, the learning loop, `bench`, `memo`, the CLI |
+| `packages/datagen/` | Synthetic batch generator — clean batches + ground truth + the labeled adversarial anomaly catalog |
+| `packages/api/` | FastAPI backend — runs, scorecard, exceptions, resolve, learned-rule review |
+| `web/` | Next.js cockpit — scorecard · keyboard-first exception queue · evidence drawer |
 | `specs/` | `razorpay-settlement.yaml` (flagship) · `gst-2b.yaml` (proof the engine is loop-agnostic) |
 
 ## Documentation
@@ -117,6 +130,7 @@ Read in order:
 
 - [`adr/`](docs/adr/) — architecture decision records (0001–0005)
 - [`KNOWN-FAILURE-MODES.md`](docs/KNOWN-FAILURE-MODES.md) — where the agent is weak, and the containment
+- [`RUNBOOK.md`](docs/RUNBOOK.md) — deploy, rollback, resume a stuck run, rotate the key, restore the event store
 
 ## Non-goals for this version (stated deliberately)
 
