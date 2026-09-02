@@ -43,11 +43,17 @@ and the `arbiter verify` command that reproduces it.
   `ValidationError` and a CLI `KeyError`; unified on `rule_id` for the draft/pending
   dicts, `id` stays the YAML rule key.
 
+`arbiter audit-pack <run>` zips the three things an auditor needs — the full
+hash-chained `event-log.jsonl`, the `close-memo.html`, and a `manifest.json` with
+the terminal hash and the `verify` command — so the whole run travels as one file
+and the chain can be recomputed offline.
+
 Prevention: `test_learn.py` (draft safety, judgement categories don't generalise,
-pending→merge bumps the version and re-parses, a merged rule classifies the next run)
-and `test_memo.py` (self-contained document, every exception listed) — plus an API test
-for resolve → pending. Full suite + `ruff` + `mypy` green; the merge writes to a spec
-copy in tests, never the repo's.
+pending→merge bumps the version and re-parses, a merged rule classifies the next run),
+`test_memo.py` (self-contained document, every exception listed), `test_audit_pack.py`
+(the zip's manifest matches `verify`, the log line count matches, the chain head is
+genesis) — plus an API test for resolve → pending. Full suite + `ruff` + `mypy` green;
+the merge writes to a spec copy in tests, never the repo's.
 
 ## 2026-09-02 — M4b: the cockpit (`web/`, docs/05 + docs/20 §2)
 

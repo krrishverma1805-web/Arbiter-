@@ -45,7 +45,7 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
 | **Investigates** | The ambiguous residue → a bounded agent loop gathers evidence, tests a hypothesis, and either proposes a category + explanation + fix + rule, or escalates with one sharpened question. Proposals only — never auto-applied |
 | **Learns** | You accept a resolution → Arbiter drafts a durable rule → next cycle's auto-match rate rises |
 | **Reports** | `arbiter bench` → matching metrics (auto-match rate, precision, recall, **false-match rate**, ₹ coverage) **and** agent metrics (task-completion, tool-use accuracy, grounding, hallucination rate, escalation precision/recall, confidence calibration) — reproducibly, in CI |
-| **Attests** | `arbiter memo` → an auditor-ready Close Memo: totals tied, coverage, every exception + its resolution, and the audit-trail hash |
+| **Attests** | `arbiter memo` → an auditor-ready Close Memo (totals tied, coverage, every exception + its resolution, the audit-trail hash); `arbiter audit-pack` → the memo + the full hash-chained event log + a re-check manifest, as one zip |
 
 ## Status
 
@@ -67,7 +67,7 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
 - **M5** — the learning loop (resolution → drafted safe rule → reviewed spec merge → the rule
   classifies the next run, no model in the loop) and the auditor-ready **Close Memo**.
 
-86 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
+87 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
 gate, and a web typecheck/lint/build job.
 
 ## Quickstart
@@ -87,7 +87,8 @@ uv run arbiter explain <run-id>            # the evidence for each exception, as
 uv run arbiter resolve <run-id> <exc-id> --action <action>   # → drafts a learned rule
 uv run arbiter rules pending <run-id> --spec specs/razorpay-settlement.yaml
 uv run arbiter rules merge   <run-id> --spec specs/razorpay-settlement.yaml   # bumps version:
-uv run arbiter memo    <run-id> --out close-memo.html        # the auditor-ready Close Memo
+uv run arbiter memo       <run-id> --out close-memo.html     # the auditor-ready Close Memo
+uv run arbiter audit-pack <run-id> --out pack.zip            # event log + memo + verify manifest
 uv run arbiter replay  <run-id>            # reproduce a completed run from its event log
 uv run arbiter verify  <run-id>            # recompute the audit hash chain
 uv run arbiter events  <run-id>            # dump the raw event log

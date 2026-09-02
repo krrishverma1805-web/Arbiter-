@@ -505,6 +505,76 @@ def memo(
         typer.echo(doc)
 
 
+@app.command("audit-pack")
+def audit_pack(
+    run_id: str = typer.Argument(...),
+    out: Path = typer.Option(..., "--out", help="write the .zip here"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """Bundle everything an auditor needs for one run into a single zip:
+    the full hash-chained event log, the Close Memo, and a manifest with the
+    verify result so the log can be re-checked offline."""
+    import zipfile
+
+    from arbiter_engine.events.fold import fold_run
+    from arbiter_engine.memo import render_memo
+
+    store = _store(db)
+    proj = fold_run(store, run_id)
+    if not proj.completed:
+        typer.secho("run is not complete", fg=typer.colors.YELLOW)
+        raise typer.Exit(1)
+
+    v = store.verify(run_id)
+    spec_name = "razorpay-settlement"
+    for t, p in store.iter_payloads(run_id):
+        if t == EventType.RUN_STARTED:
+            spec_name = p.get("spec_name", spec_name)
+
+    log_lines = [
+        json.dumps(
+            {
+                "seq": e.seq,
+                "ts": e.ts,
+                "type": e.type,
+                "actor": e.actor,
+                "payload": json.loads(e.payload),
+                "prev_hash": e.prev_hash,
+                "hash": e.hash,
+            },
+            sort_keys=True,
+        )
+        for e in store.events(run_id)
+    ]
+    scpayload = proj.scorecard if isinstance(proj.scorecard, dict) else None
+    memo_html = render_memo(
+        proj,
+        spec_name=spec_name,
+        period=None,
+        terminal_hash=v["terminal_hash"],
+        scorecard=scpayload,
+    )
+    manifest = {
+        "run_id": run_id,
+        "spec_name": spec_name,
+        "events": v["events"],
+        "terminal_hash": v["terminal_hash"],
+        "chain_intact": v["intact"],
+        "verify_command": f"arbiter verify {run_id}",
+        "contents": ["event-log.jsonl", "close-memo.html", "manifest.json"],
+    }
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("event-log.jsonl", "\n".join(log_lines) + "\n")
+        z.writestr("close-memo.html", memo_html)
+        z.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    typer.secho(
+        f"→ {out}  ({v['events']} events · terminal {v['terminal_hash'][:12]})",
+        fg=typer.colors.GREEN,
+    )
+
+
 @app.command()
 def gen(
     scenario: str = typer.Option("d2c", "--scenario"),
