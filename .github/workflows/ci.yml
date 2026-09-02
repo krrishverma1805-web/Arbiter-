@@ -121,6 +121,12 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE: ghcr.io/${{ github.repository_owner }}/arbiter
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -160,6 +166,45 @@ jobs:
           done
           curl -sf localhost:3000/ | grep -qi arbiter
           docker rm -f web
+      - name: scan both images (fail on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: arbiter-api:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL
+      - name: scan the web image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: arbiter-web:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL
+      - name: SBOM for the api image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: arbiter-api:ci
+          format: cyclonedx
+          output: sbom-api.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom-api.cdx.json
+      - name: push to GHCR (main only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
+          for svc in api web; do
+            docker tag "arbiter-$svc:ci" "$IMAGE-$svc:${GITHUB_SHA::12}"
+            docker tag "arbiter-$svc:ci" "$IMAGE-$svc:latest"
+            docker push "$IMAGE-$svc:${GITHUB_SHA::12}"
+            docker push "$IMAGE-$svc:latest"
+          done
 
   helm:
     runs-on: ubuntu-latest

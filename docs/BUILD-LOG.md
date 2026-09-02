@@ -8,6 +8,15 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 3: image scan + SBOM + GHCR push
+
+The `docker` CI job now, after the smoke tests: Trivy-scans both images
+(`ignore-unfixed`, fails only on a fixable CRITICAL so base-image noise can't
+red main), uploads a CycloneDX SBOM as an artifact, and — only on a push to
+`main` — logs in to GHCR with the workflow token and pushes
+`ghcr.io/<owner>/arbiter-{api,web}` at `:<sha>` and `:latest`. The job gained
+`permissions: packages: write`.
+
 ## 2026-09-02 — Phase 3: restore drill + worker chaos recovery
 
 **Restore drill.** New CI `recovery` job: a real `postgres:16` service,
