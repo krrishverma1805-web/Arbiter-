@@ -211,6 +211,9 @@ def _print_agent(a: dict) -> None:  # type: ignore[type-arg]
         f"    escalation P/R   {a['escalation_precision']:.1%} / {a['escalation_recall']:.1%}"
     )
     typer.echo(f"    hallucination    {a['hallucination_rate']:.1%}")
+    typer.echo(f"    grounded         {a.get('grounded_rate', 0):.1%}")
+    if a.get("confidence_n"):
+        typer.echo(f"    confidence ECE   {a['confidence_ece']:.3f}  (n={a['confidence_n']})")
     typer.echo(
         f"    cost             ${a['est_cost_usd']:.3f}  "
         f"({a['tool_calls']} tool calls, {a['tokens_in']}+{a['tokens_out']} tok)"

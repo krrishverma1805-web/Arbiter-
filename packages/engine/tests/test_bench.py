@@ -52,6 +52,65 @@ def test_scorecard_is_serializable(adversarial_dataset: Path, spec_path: Path):
     json.dumps(card.to_dict())  # must not raise
 
 
+def test_agent_scorecard_reads_grounding(adversarial_dataset: Path, spec_path: Path):
+    """A proposal event carrying a grounding block feeds grounded_rate + the
+    confidence-calibration ECE (docs/28 §1.3)."""
+    store = EventStore("sqlite://")
+    proj = execute(store, RunInputs(spec_path=spec_path, dataset_dir=adversarial_dataset))
+    exc = proj.exceptions[0]
+    agent_events: list[tuple[str, dict]] = [
+        (
+            "AGENT_INVESTIGATION_STARTED",
+            {"exception_id": exc.id, "category_in": "UNEXPLAINED", "model": "claude-opus-5"},
+        ),
+        (
+            "AGENT_PROPOSAL_CREATED",
+            {
+                "exception_id": exc.id,
+                "proposal": {
+                    "category": exc.category or "UNEXPLAINED",
+                    "confidence": 0.9,
+                    "evidence_refs": [{"record_id": exc.record_ids[0], "field": "amount"}],
+                },
+                "tool_calls": 2,
+                "turns": 3,
+                "tokens_in": 1000,
+                "tokens_out": 400,
+                "grounding": {
+                    "grounded": True,
+                    "fabricated": [],
+                    "grounded_confidence": 0.82,
+                },
+            },
+        ),
+    ]
+    card = score_run(
+        proj,
+        adversarial_dataset,
+        spec_name="razorpay-settlement",
+        wallclock_ms=100,
+        replay_hash_match=True,
+        agent_events=agent_events,
+    )
+    a = card.agent
+    assert a.enabled and a.proposals == 1
+    assert a.grounded_rate == 1.0  # the grounding block said grounded=True
+    assert a.hallucination_rate == 0.0  # no fabricated citation
+
+    # a fabricated citation flips hallucination_rate
+    agent_events[1][1]["grounding"] = {"grounded": False, "fabricated": ["ghost:1"]}
+    card2 = score_run(
+        proj,
+        adversarial_dataset,
+        spec_name="razorpay-settlement",
+        wallclock_ms=100,
+        replay_hash_match=True,
+        agent_events=agent_events,
+    )
+    assert card2.agent.hallucination_rate == 1.0
+    assert card2.agent.grounded_rate == 0.0
+
+
 def test_scorecard_holds_at_scale(tmp_path: Path, spec_path: Path):
     """The CI gate runs on 800 records; the false-match rate must stay low there
     and the anomaly density must stay realistic (a minority of batches)."""

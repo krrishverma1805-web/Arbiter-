@@ -178,7 +178,13 @@ which need live runs and more data ([`docs/12 §6`](docs/12-agent-design.md)).
   rates will be lower. The generator injects realistic messiness and the difficulty dial shows
   where accuracy degrades — but the asterisk is real and stays visible.
 - Small batch sizes (50–500) mean wide confidence intervals on the rates. `bench --seeds N` aggregates.
-- The investigation agent's own scorecard (task-completion, hallucination, escalation P/R) and
+- Every agent proposal is **grounded** before a human sees it — each cited `record_id` must
+  resolve to a real record in the run, and a deterministic check confirms the category fits
+  the evidence shape. A fabricated citation voids the proposal and escalates it. The
+  confidence shown is re-derived from how the citations hold up, never the model's raw
+  self-assessment ([docs/28 §1.3](docs/28-production-hardening.md)).
+- The investigation agent's own scorecard (task-completion, hallucination, grounded rate,
+  confidence ECE, escalation P/R) and
   the model ablation only have real numbers from the nightly `live` job — there is no API key
   in the dev/CI environment. Offline, the agent path is exercised with recorded/scripted turns.
 - See [`docs/07 §6`](docs/07-evaluation-and-benchmark.md) for the full list.

@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from arbiter_engine.bench.calibration import calibrate
 from arbiter_engine.events.fold import RunProjection
 
 
@@ -46,7 +47,10 @@ class AgentScore:
     category_accuracy: float = 0.0  # of proposals, how many match the true category
     escalation_precision: float = 0.0
     escalation_recall: float = 0.0
-    hallucination_rate: float = 0.0  # evidence_refs pointing at records not in the exception
+    hallucination_rate: float = 0.0  # proposals citing a record not in the run
+    grounded_rate: float = 0.0  # proposals whose every citation resolved
+    confidence_ece: float = 0.0  # calibration of grounded_confidence vs category-correct
+    confidence_n: int = 0
     tool_calls: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
@@ -276,6 +280,20 @@ def _score_agent(
                 halluc += 1
                 break
 
+    # grounded rate + confidence calibration (docs/28 §1.3)
+    grounded = sum(1 for p in props if (p.get("grounding") or {}).get("grounded", True))
+    cal_preds: list[tuple[float, bool]] = []
+    for p in props:
+        g = p.get("grounding") or {}
+        conf = g.get("grounded_confidence")
+        if conf is None:
+            conf = (p.get("proposal") or {}).get("confidence")
+        want = true_cat_by_exc.get(p["exception_id"])
+        got = (p.get("proposal") or {}).get("category")
+        if conf is not None and want:
+            cal_preds.append((float(conf), got == want))
+    cal = calibrate(cal_preds) if cal_preds else None
+
     completed = correct_props + esc_correct
     tin = sum(i.get("tokens_in", 0) for i in interactions)
     tout = sum(i.get("tokens_out", 0) for i in interactions)
@@ -292,6 +310,9 @@ def _score_agent(
         escalation_precision=round(esc_precision, 4),
         escalation_recall=round(esc_recall, 4),
         hallucination_rate=round(halluc / len(props), 4) if props else 0.0,
+        grounded_rate=round(grounded / len(props), 4) if props else 0.0,
+        confidence_ece=round(cal.ece, 4) if cal else 0.0,
+        confidence_n=cal.n if cal else 0,
         tool_calls=sum(len(i.get("tool_calls", [])) for i in interactions),
         tokens_in=tin,
         tokens_out=tout,
