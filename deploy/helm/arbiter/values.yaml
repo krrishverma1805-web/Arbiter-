@@ -28,6 +28,8 @@ secret:
   data:
     ARBITER_DB_URL: "postgresql+psycopg://arbiter:arbiter@arbiter-pgbouncer:6432/arbiter"
     ANTHROPIC_API_KEY: ""
+    # only read by the pgbouncer Deployment (the password for its upstream Postgres)
+    PGBOUNCER_DB_PASSWORD: "arbiter"
 
 # One-shot `arbiter-api db upgrade` as a pre-install/pre-upgrade Helm hook so
 # the schema is migrated before any pod that reads it rolls out.
@@ -74,6 +76,26 @@ web:
     minReplicas: 2
     maxReplicas: 6
     targetCPUUtilizationPercentage: 75
+
+# Connection pooler. api + worker point ARBITER_DB_URL at this Service; the
+# migration hook Job talks to Postgres directly. Disable and point
+# secret.data.ARBITER_DB_URL at Postgres if your managed DB has its own pooler.
+pgbouncer:
+  enabled: true
+  image: edoburu/pgbouncer:v1.23.1-p2
+  replicaCount: 2
+  poolMode: transaction
+  maxClientConn: 1000
+  defaultPoolSize: 25
+  # Upstream Postgres the pooler fronts (a managed instance, or an in-cluster chart).
+  upstream:
+    host: arbiter-postgresql
+    port: 5432
+    user: arbiter
+    dbname: arbiter
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { cpu: 250m, memory: 128Mi }
 
 ingress:
   enabled: false

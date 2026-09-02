@@ -1,0 +1,46 @@
+# SLO / health alert rules for Arbiter (docs/28 §3 item 11).
+# Targets: API availability 99.5%, API p95 < 750ms, run failure rate < 5%.
+groups:
+  - name: arbiter-api-availability
+    rules:
+      - alert: ArbiterApiHighErrorRate
+        expr: |
+          sum(rate(arbiter_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(arbiter_http_requests_total[5m])) > 0.02
+        for: 10m
+        labels: { severity: page }
+        annotations:
+          summary: "Arbiter API 5xx rate above 2% (SLO 99.5% availability at risk)"
+
+      - alert: ArbiterApiLatencySLOBurn
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(arbiter_http_request_seconds_bucket[5m]))) > 0.75
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Arbiter API p95 latency above the 750ms SLO"
+
+      - alert: ArbiterApiDown
+        expr: up{job="arbiter-api"} == 0
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "Arbiter API target is not being scraped (process down?)"
+
+  - name: arbiter-runs
+    rules:
+      - alert: ArbiterRunFailureRateHigh
+        expr: |
+          sum(rate(arbiter_runs_total{outcome="failed"}[30m]))
+            / clamp_min(sum(rate(arbiter_runs_total[30m])), 0.001) > 0.05
+        for: 20m
+        labels: { severity: ticket }
+        annotations:
+          summary: "More than 5% of reconciliation runs are failing"
+
+      - alert: ArbiterJobQueueBacklog
+        expr: arbiter_job_queue_depth > 50
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Job queue depth > 50 for 15m — workers not keeping up (scale the worker Deployment)"

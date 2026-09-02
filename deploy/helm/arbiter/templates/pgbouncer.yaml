@@ -1,0 +1,82 @@
+{{- if .Values.pgbouncer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "arbiter.fullname" . }}-pgbouncer
+  labels:
+    {{- include "arbiter.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  replicas: {{ .Values.pgbouncer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "arbiter.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: pgbouncer
+  template:
+    metadata:
+      labels:
+        {{- include "arbiter.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: pgbouncer
+    spec:
+      serviceAccountName: {{ include "arbiter.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: pgbouncer
+          image: {{ .Values.pgbouncer.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: pgbouncer
+              containerPort: 6432
+          env:
+            - name: DB_HOST
+              value: {{ .Values.pgbouncer.upstream.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.pgbouncer.upstream.port | quote }}
+            - name: DB_USER
+              value: {{ .Values.pgbouncer.upstream.user | quote }}
+            - name: DB_NAME
+              value: {{ .Values.pgbouncer.upstream.dbname | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "arbiter.secretName" . }}
+                  key: PGBOUNCER_DB_PASSWORD
+            - name: POOL_MODE
+              value: {{ .Values.pgbouncer.poolMode | quote }}
+            - name: MAX_CLIENT_CONN
+              value: {{ .Values.pgbouncer.maxClientConn | quote }}
+            - name: DEFAULT_POOL_SIZE
+              value: {{ .Values.pgbouncer.defaultPoolSize | quote }}
+            - name: AUTH_TYPE
+              value: scram-sha-256
+          readinessProbe:
+            tcpSocket: { port: pgbouncer }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: pgbouncer }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.pgbouncer.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "arbiter.fullname" . }}-pgbouncer
+  labels:
+    {{- include "arbiter.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "arbiter.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+  ports:
+    - name: pgbouncer
+      port: 6432
+      targetPort: pgbouncer
+{{- end }}

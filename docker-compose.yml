@@ -16,12 +16,37 @@ services:
       timeout: 3s
       retries: 10
 
+  # Connection pooler — api + worker connect through this, not straight to db,
+  # so hundreds of app connections fold onto a small Postgres pool (docs/28 §3).
+  pgbouncer:
+    profiles: ["app"]
+    image: edoburu/pgbouncer:v1.23.1-p2
+    environment:
+      DB_HOST: db
+      DB_USER: arbiter
+      DB_PASSWORD: arbiter
+      DB_NAME: arbiter
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "1000"
+      DEFAULT_POOL_SIZE: "25"
+      AUTH_TYPE: scram-sha-256
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U arbiter"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   migrate:
     profiles: ["app"]
     build:
       context: .
       dockerfile: packages/api/Dockerfile
     command: ["db", "upgrade"]
+    # migrations run straight against Postgres (DDL wants a session, not a
+    # transaction-pooled connection).
     environment: &app_env
       ARBITER_DB_URL: postgresql+psycopg://arbiter:arbiter@db:5432/arbiter
       ARBITER_ENV: prod
@@ -36,9 +61,11 @@ services:
     build:
       context: .
       dockerfile: packages/api/Dockerfile
-    environment: *app_env
+    environment:
+      <<: *app_env
+      ARBITER_DB_URL: postgresql+psycopg://arbiter:arbiter@pgbouncer:6432/arbiter
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
@@ -57,14 +84,35 @@ services:
     command: ["worker"]
     environment:
       <<: *app_env
+      ARBITER_DB_URL: postgresql+psycopg://arbiter:arbiter@pgbouncer:6432/arbiter
       ARBITER_ASYNC: "1"
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
     deploy:
       replicas: 2
+
+  # Metrics + dashboards. Separate profile: `docker compose --profile monitoring up`.
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["9090:9090"]
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ./deploy/monitoring/grafana-dashboard.json:/var/lib/grafana/dashboards/arbiter.json:ro
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
 
   web:
     profiles: ["app"]

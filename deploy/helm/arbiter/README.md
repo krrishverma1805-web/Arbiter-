@@ -12,7 +12,7 @@ Schema migrations run as a **`pre-install,pre-upgrade` hook Job** (`arbiter-api 
 
 ## Prerequisites
 
-- A Postgres reachable at `secret.data.ARBITER_DB_URL` (this chart does **not** run Postgres — use a managed instance or the `bitnami/postgresql` chart, ideally behind pgbouncer).
+- A Postgres for `pgbouncer.upstream.*` (this chart does **not** run Postgres — use a managed instance or the `bitnami/postgresql` chart). The chart ships a **pgbouncer** Deployment in front of it (transaction pooling); `api` + `worker` point `ARBITER_DB_URL` at the pooler Service and the migration hook Job talks to Postgres directly. Disable with `pgbouncer.enabled=false` if your managed DB has its own pooler.
 - Images pushed to `{{ image.registry }}/{{ image.repository }}-api` and `-web`.
 
 ## Install

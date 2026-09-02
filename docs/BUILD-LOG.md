@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 3: pgbouncer + Grafana/Prometheus alerting
+
+`deploy/monitoring/` — a Prometheus scrape config, SLO alert rules
+(`alerts.yml`: 5xx-rate > 2%, API p95 > 750ms, API-down, run-failure-rate > 5%,
+queue-depth > 50), and a Grafana dashboard JSON (request rate, latency
+quantiles, run outcomes, queue depth, error-ratio stat). `docker compose
+--profile monitoring up` brings up Prometheus + Grafana against the compose API.
+
+pgbouncer (transaction pooling): a `pgbouncer` service in `docker-compose`
+(`edoburu/pgbouncer`) that `api` + `worker` now connect through
+(`ARBITER_DB_URL` → `pgbouncer:6432`); `migrate` still talks to Postgres
+directly because DDL wants a session. Mirrored in the Helm chart as a
+Deployment + Service (`pgbouncer.enabled`, default on). Chart now renders 16
+resources, all kubeconform-clean.
+
 ## 2026-09-02 — Phase 3: image scan + SBOM + GHCR push
 
 The `docker` CI job now, after the smoke tests: Trivy-scans both images
