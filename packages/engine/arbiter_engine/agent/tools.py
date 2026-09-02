@@ -26,6 +26,7 @@ class RunSnapshot:
     candidates: dict[str, list[MatchCandidate]] = field(default_factory=dict)
     prior_counterparties: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     prior_resolutions: list[dict[str, Any]] = field(default_factory=list)
+    resolution_memory: Any = None  # ResolutionMemory | None (avoid an import cycle)
 
     @classmethod
     def from_projection(cls, proj: Any) -> RunSnapshot:
@@ -61,8 +62,9 @@ def _record_view(r: Record, *, redact_account: bool = True) -> dict[str, Any]:
 class Tools:
     """Bound to one RunSnapshot; the investigator exposes these to the model."""
 
-    def __init__(self, snap: RunSnapshot) -> None:
+    def __init__(self, snap: RunSnapshot, exc: ReconException | None = None) -> None:
         self.snap = snap
+        self.exc = exc
 
     # -- read-only ----------------------------------------------------------
     def query_evidence(
@@ -99,12 +101,30 @@ class Tools:
     def similar_exceptions(
         self, category_hint: str | None = None, pattern: str | None = None
     ) -> dict[str, Any]:
-        hits = [
+        mem = self.snap.resolution_memory
+        if mem is not None and self.exc is not None:
+            recs = [self.snap.records[i] for i in self.exc.record_ids if i in self.snap.records]
+            hits = mem.recall(self.exc, recs, k=6)
+            if category_hint:
+                hits = [h for h in hits if h.category == category_hint] or hits
+            return {
+                "resolved_before": [
+                    {
+                        "category": h.category,
+                        "resolution": h.resolution,
+                        "similarity": h.similarity,
+                        "from_run": h.run_id,
+                    }
+                    for h in hits
+                ],
+                "method": "semantic",
+            }
+        hits2 = [
             r
             for r in self.snap.prior_resolutions
             if (not category_hint or r.get("category") == category_hint)
         ]
-        return {"resolved_before": hits[:10]}
+        return {"resolved_before": hits2[:10], "method": "category_filter"}
 
     def candidate_matches(self, record_id: str) -> dict[str, Any]:
         cands = self.snap.candidates.get(record_id, [])

@@ -16,6 +16,7 @@ from typing import Any
 
 from arbiter_engine.agent.client import AnthropicClient, LLMClient, RecordedClient, Turn
 from arbiter_engine.agent.investigator import investigate
+from arbiter_engine.agent.memory import ResolutionMemory
 from arbiter_engine.agent.prompts import INVESTIGATOR_V1_HASH
 from arbiter_engine.agent.tools import RunSnapshot, Tools
 from arbiter_engine.events.payloads import EventType
@@ -82,6 +83,8 @@ def run_investigations(
     }
     snap = RunSnapshot.from_projection(proj)
     snap.candidates = {e.id: e.candidates for e in proj.exceptions if e.candidates}
+    org = next((r.org_id for r in proj.records if getattr(r, "org_id", None)), None)
+    snap.resolution_memory = ResolutionMemory.from_store(store, exclude_run_id=run_id, org_id=org)
     spent = 0.0
 
     targets = sorted(
@@ -144,7 +147,7 @@ def run_investigations(
         )
         inv = investigate(
             exc,
-            Tools(snap),
+            Tools(snap, exc),
             active,
             spec,
             turn_budget=turn_budget,

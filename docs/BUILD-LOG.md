@@ -8,6 +8,22 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.3: resolution memory (semantic `similar_exceptions`)
+
+The `similar_exceptions` tool was an exact-category filter over a
+`prior_resolutions` list **that nothing ever populated** — so it always returned
+`[]`. Now `agent/memory.py` builds a `ResolutionMemory` from the store's own
+`RESOLUTION_APPLIED` history (every prior run's resolved exceptions), turns each
+exception into a bag of shape features (category, residual band, record-count
+band, source/kind mix, reference + counterparty tokens), and ranks by
+IDF-weighted cosine similarity. `Tools` now also carries the exception under
+investigation so the tool can query by *its* shape, not just a hint.
+
+Deterministic, dependency-free — the pgvector, cross-tenant version is Phase 4
+and the tool interface doesn't change when it lands. `test_agent_memory.py`:
+recall across two runs, the tool switches to `method: "semantic"`, features are
+stable and shape-aware. 99 tests.
+
 ## 2026-09-02 — Phase 1.3: agent grounding + category verification (docs/28)
 
 The agent's `evidence_refs` were self-reported and trusted. Now, before any
