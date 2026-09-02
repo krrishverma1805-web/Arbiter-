@@ -47,7 +47,9 @@ fan-out). 140 tests.
 Trivy (now working) flagged two fixable CRITICALs: Next.js
 CVE-2025-29927 (middleware auth bypass) → bumped `next` 15.1.6 → 15.5.25;
 `libgnutls30` on the web base → `node:20-slim` → `node:22-slim` (trixie) plus
-`apt-get upgrade` in both runtime stages.
+`apt-get upgrade` in both runtime stages. One residual — CVE-2026-59873 in the
+`tar` vendored inside `next/dist/compiled` (unbumpable without Next; no runtime
+path extracts a tarball) — is in a documented `.trivyignore`.
 
 ## 2026-09-02 — Phase 5: ⌘K command palette + Apple-minimal pass
 

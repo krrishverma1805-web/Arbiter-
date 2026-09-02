@@ -1,0 +1,8 @@
+# Accepted vulnerabilities — reviewed, not in an exploit path. Revisit each time
+# the pinned dependency moves. (docs/28 §3 item 10)
+
+# node-tar gzip-bomb DoS, vendored inside `next/dist/compiled/tar` (7.5.11).
+# We cannot bump it without Next bumping its own bundle, and the cockpit never
+# extracts a tar archive at runtime — there is no path that calls tar.extract on
+# attacker-controlled input.
+CVE-2026-59873

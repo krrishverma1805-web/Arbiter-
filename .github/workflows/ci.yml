@@ -178,7 +178,7 @@ jobs:
           }
           for svc in api web; do
             TRIVY image --scanners vuln --ignore-unfixed --severity CRITICAL \
-              --exit-code 1 --no-progress "arbiter-$svc:ci"
+              --exit-code 1 --no-progress --ignorefile /work/.trivyignore "arbiter-$svc:ci"
           done
           TRIVY image --format cyclonedx --output sbom-api.cdx.json --no-progress arbiter-api:ci
       - uses: actions/upload-artifact@v4
