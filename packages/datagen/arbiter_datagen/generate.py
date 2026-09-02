@@ -193,6 +193,15 @@ def generate_dataset(
     true_matches: list[dict[str, Any]] = []
     anomaly_utrs = {a.settlement_utr for a in anomalies if a.settlement_utr}
 
+    # robustness stressor (hard only): garble the UTR in a deterministic ~15% of
+    # otherwise-clean narrations. These batches must still auto-tie (via the
+    # matcher's amount+date blocking pass) — they stay in true_matches.
+    clean_utrs = [u for u in sorted(batches) if u not in anomaly_utrs and u not in dropped_batches]
+    mangled_utrs: set[str] = set()
+    if difficulty == "hard" and clean_utrs:
+        k = max(1, round(len(clean_utrs) * 0.15))
+        mangled_utrs = set(rng.sample(clean_utrs, min(k, len(clean_utrs))))
+
     for utr in sorted(batches):
         b = batches[utr]
         if utr in dropped_batches:
@@ -200,11 +209,12 @@ def generate_dataset(
         # FEE_DRIFT/GST_ROUND/DUP_EXPORT: the bank paid the pre-anomaly amount
         net = b.get("bank_override", _net_minor(b["items"]))
         vd: date = b["settled"]
-        narration = (
-            f"NEFT CR RAZORPAY SOFTWARE PVT LTD UTR {utr}"
-            if utr not in masked_utrs
-            else "NEFT CR RAZORPAY SOFTWARE PVT LTD"
-        )
+        if utr in masked_utrs:
+            narration = "NEFT CR RAZORPAY SOFTWARE PVT LTD"
+        elif utr in mangled_utrs:
+            narration = f"NEFT CR RAZORPAY SOFTWARE PVT LTD REF {utr[:-4]}{utr[-4:][::-1]}"
+        else:
+            narration = f"NEFT CR RAZORPAY SOFTWARE PVT LTD UTR {utr}"
         bank_rows.append(
             {
                 "amount": f"{net / 100:.2f}",

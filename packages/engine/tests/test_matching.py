@@ -172,3 +172,22 @@ def test_split_payout_ties_multiple_credits_to_one_batch(clean_dataset: Path, sp
     res = run_matching("x", rebuilt, spec)
     agg = [m for m in res.matches if m.match_pass == "aggregate" and len(m.right_ids) >= 2]
     assert agg, "pass 2d tied no split payout"
+
+
+def test_hard_difficulty_mangled_utrs_are_recovered_by_blocking(tmp_path: Path, spec_path: Path):
+    """The generator garbles the UTR in ~15% of clean narrations on `hard`. Those
+    batches must still auto-tie — via the amount+date blocking pass — so the
+    scorecard's recall does not collapse."""
+    from arbiter_datagen.generate import generate_dataset
+    from arbiter_engine.bench import score_run
+
+    ds = tmp_path / "hard"
+    generate_dataset(scenario="d2c", records=300, seed=3, out_dir=ds, difficulty="hard")
+    store = EventStore("sqlite://")
+    proj = execute(store, RunInputs(spec_path=spec_path, dataset_dir=ds))
+    card = score_run(
+        proj, ds, spec_name="razorpay-settlement", wallclock_ms=0, replay_hash_match=True
+    )
+    assert card.matching.by_pass.get("blocked", 0) >= 1, card.matching.by_pass
+    assert card.matching.recall >= 0.85, card.matching.recall
+    assert card.matching.false_match_rate <= 0.02

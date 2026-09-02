@@ -8,6 +8,17 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.4: mangled-UTR robustness stressor in the generator
+
+The new matcher passes (2b–2d) were only exercised by hand-built fixtures. On
+`hard` difficulty the generator now garbles the settlement UTR in a deterministic
+~15% of otherwise-clean bank narrations (`... REF <utr with the last 4 chars
+reversed>`). Those batches stay in `true_matches` — the correct outcome is still
+a clean auto-tie — so if the amount+date blocking pass fails to recover them the
+scorecard's recall drops and the gate fires. `test_matching.py` asserts
+`by_pass["blocked"] ≥ 1` and recall ≥ 0.85 on a hard batch. `normal` (the CI
+gate's difficulty) is untouched. 105 tests.
+
 ## 2026-09-02 — Scorecard: `matching.by_pass` breakdown
 
 The scorecard now reports how many matches each pass tied
