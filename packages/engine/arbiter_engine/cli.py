@@ -386,6 +386,126 @@ def explain(
 
 
 @app.command()
+def resolve(
+    run_id: str = typer.Argument(...),
+    exception_id: str = typer.Argument(...),
+    action: str = typer.Option(..., "--action"),
+    detail: str = typer.Option("", "--detail"),
+    actor: str = typer.Option("human:cli", "--actor"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """Apply a resolution to an exception; drafts a learned rule if the shape allows."""
+    from arbiter_engine.events.fold import fold_run
+    from arbiter_engine.learn import draft_rule_from_resolution
+
+    store = _store(db)
+    proj = fold_run(store, run_id)
+    exc = next((e for e in proj.exceptions if e.id == exception_id), None)
+    if exc is None:
+        typer.secho("exception not found", fg=typer.colors.RED)
+        raise typer.Exit(1)
+    store.append(
+        run_id,
+        EventType.RESOLUTION_APPLIED,
+        {
+            "exception_id": exception_id,
+            "action": action,
+            "detail": detail,
+            "actor": actor,
+            "prior_status": exc.status,
+        },
+    )
+    draft = draft_rule_from_resolution(exc, action)
+    if draft is not None:
+        store.append(run_id, EventType.RULE_DRAFTED, draft)
+        typer.secho(f"resolved · drafted rule {draft['rule_id']}", fg=typer.colors.GREEN)
+        typer.echo(f"  when: {draft['when']}")
+    else:
+        typer.secho("resolved", fg=typer.colors.GREEN)
+
+
+rules_app = typer.Typer(help="Review and merge learned classification rules.")
+app.add_typer(rules_app, name="rules")
+
+
+@rules_app.command("pending")
+def rules_pending(
+    run_id: str = typer.Argument(...),
+    spec: Path = typer.Option(..., "--spec"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """Show learned rules drafted during this run, not yet merged into the spec."""
+    from arbiter_engine.learn import pending_rules
+
+    pend = pending_rules(_store(db), run_id, spec)
+    if not pend:
+        typer.echo("no pending rules")
+        return
+    for r in pend:
+        typer.secho(f"{r['rule_id']}", bold=True)
+        typer.echo(f"  when:     {r['when']}")
+        typer.echo(f"  classify: {r['classify']}   resolve: {r['resolve']}")
+        typer.echo(f"  from:     {r['provenance_exception_id']}")
+
+
+@rules_app.command("merge")
+def rules_merge(
+    run_id: str = typer.Argument(...),
+    spec: Path = typer.Option(..., "--spec"),
+    rule_id: list[str] = typer.Option(None, "--rule", help="specific rule id(s); omit for all"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """Append the approved learned rules to the spec YAML and bump its version."""
+    from arbiter_engine.learn import merge_rules
+
+    res = merge_rules(_store(db), run_id, spec, rule_id or None, approved_by="human:cli")
+    if not res["merged"]:
+        typer.echo("nothing to merge")
+        return
+    typer.secho(
+        f"merged {res['merged']} → {spec} "
+        f"(version {res['version_before']} → {res['version_after']})",
+        fg=typer.colors.GREEN,
+    )
+
+
+@app.command()
+def memo(
+    run_id: str = typer.Argument(...),
+    out: Path | None = typer.Option(None, "--out", help="write the HTML here (default: stdout)"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """Render the auditor-ready Close Memo for a run (docs/20 §2.6)."""
+    from arbiter_engine.events.fold import fold_run
+    from arbiter_engine.memo import render_memo
+
+    store = _store(db)
+    proj = fold_run(store, run_id)
+    if not proj.completed:
+        typer.secho("run is not complete", fg=typer.colors.YELLOW)
+        raise typer.Exit(1)
+    spec_name = "razorpay-settlement"
+    period = None
+    for t, p in store.iter_payloads(run_id):
+        if t == EventType.RUN_STARTED:
+            spec_name = p.get("spec_name", spec_name)
+    v = store.verify(run_id)
+    scpayload = proj.scorecard if isinstance(proj.scorecard, dict) else None
+    doc = render_memo(
+        proj,
+        spec_name=spec_name,
+        period=period,
+        terminal_hash=v["terminal_hash"],
+        scorecard=scpayload,
+    )
+    if out:
+        out.write_text(doc)
+        typer.echo(f"→ {out}")
+    else:
+        typer.echo(doc)
+
+
+@app.command()
 def gen(
     scenario: str = typer.Option("d2c", "--scenario"),
     records: int = typer.Option(120, "--records"),

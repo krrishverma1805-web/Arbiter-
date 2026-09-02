@@ -275,7 +275,8 @@ class ResolveRequest(BaseModel):
 def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest) -> dict[str, Any]:
     store = get_store()
     proj = _proj_or_404(run_id)
-    if not any(e.id == exception_id for e in proj.exceptions):
+    exc = next((e for e in proj.exceptions if e.id == exception_id), None)
+    if exc is None:
         raise _problem(404, "exception not found", exception_id)
     store.append(
         run_id,
@@ -285,10 +286,42 @@ def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest) -> di
             "action": req.action,
             "detail": req.detail,
             "actor": req.actor,
-            "prior_status": next(e.status for e in proj.exceptions if e.id == exception_id),
+            "prior_status": exc.status,
         },
     )
-    return {"ok": True, "exception_id": exception_id, "action": req.action}
+    from arbiter_engine.learn import draft_rule_from_resolution
+
+    draft = draft_rule_from_resolution(exc, req.action)
+    if draft is not None:
+        store.append(run_id, EventType.RULE_DRAFTED, draft)
+    return {"ok": True, "exception_id": exception_id, "action": req.action, "drafted_rule": draft}
+
+
+@app.get("/v1/runs/{run_id}/rules/pending")
+def pending_rules_route(run_id: str) -> dict[str, Any]:
+    from arbiter_engine.learn import pending_rules
+
+    _proj_or_404(run_id)
+    spec_path = _spec_path_for(get_store(), run_id)
+    if spec_path is None:
+        raise _problem(422, "no spec", "cannot locate the spec for this run")
+    return {"pending": pending_rules(get_store(), run_id, spec_path)}
+
+
+class MergeRequest(BaseModel):
+    rule_ids: list[str] | None = None
+    approved_by: str = "human:api"
+
+
+@app.post("/v1/runs/{run_id}/rules/merge")
+def merge_rules_route(run_id: str, req: MergeRequest) -> dict[str, Any]:
+    from arbiter_engine.learn import merge_rules
+
+    _proj_or_404(run_id)
+    spec_path = _spec_path_for(get_store(), run_id)
+    if spec_path is None:
+        raise _problem(422, "no spec", "cannot locate the spec for this run")
+    return merge_rules(get_store(), run_id, spec_path, req.rule_ids, approved_by=req.approved_by)
 
 
 # --------------------------------------------------------------------- helpers
@@ -316,6 +349,18 @@ def _run_summary(run_id: str) -> dict[str, Any]:
         "events": v["events"],
         "terminal_hash": v["terminal_hash"],
     }
+
+
+def _spec_path_for(store: Any, run_id: str) -> Path | None:
+    name = None
+    for t, p in store.iter_payloads(run_id):
+        if t == EventType.RUN_STARTED:
+            name = p["spec_name"]
+            break
+    if name is None:
+        return None
+    cand = SPECS_DIR / f"{name}.yaml"
+    return cand if cand.exists() else None
 
 
 def _dataset_dir_for(store: Any, run_id: str) -> Path | None:

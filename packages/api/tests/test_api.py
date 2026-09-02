@@ -89,6 +89,30 @@ def test_exception_detail_and_resolve(client):
     assert resolved["resolution"]["action"] == "carry_forward"
 
 
+def test_resolving_a_generalisable_exception_drafts_a_pending_rule(client):
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+    excs = c.get(f"/v1/runs/{run_id}/exceptions").json()["exceptions"]
+    target = next(
+        (e for e in excs if e["category"] in ("ROUNDING", "TIMING", "MISSING_UTR", "DUPLICATE")),
+        None,
+    )
+    if target is None:
+        pytest.skip("this dataset produced no generalisable exception")
+
+    res = c.post(
+        f"/v1/exceptions/{run_id}/{target['id']}/resolve",
+        json={"action": "route_to_human"},
+    ).json()
+    assert res["drafted_rule"] is not None
+    rid = res["drafted_rule"]["rule_id"]
+
+    pending = c.get(f"/v1/runs/{run_id}/rules/pending").json()["pending"]
+    assert any(p["rule_id"] == rid for p in pending)
+
+
 def test_missing_run_is_404(client):
     c, _ = client
     assert c.get("/v1/runs/does-not-exist").status_code == 404

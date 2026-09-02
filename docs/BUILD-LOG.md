@@ -8,6 +8,47 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M5: the learning loop + the Close Memo (docs/02 §5.3, docs/20 §2.6)
+
+When a human resolves an exception, Arbiter drafts a **candidate classification rule**
+in the same safe-AST language the spec already uses (`arbiter_engine/learn/synthesize.py`).
+The draft is deliberately narrow — it fires only for exceptions that look like the one
+just resolved (same category, residual within a widened band, same source) — and only
+for mechanical categories. Judgement categories (`UNEXPLAINED`, `AMBIGUOUS`,
+`SECURITY_REVIEW`, `WRONG_ACCOUNT`) never generalise: a `draft_rule_from_resolution`
+returns `None` and the resolution stays a one-off.
+
+`RULE_DRAFTED` is an event. `arbiter rules pending <run>` diffs a run's drafts against
+the live spec; `arbiter rules merge <run>` splices the approved rules into the `rules:`
+block as reviewable YAML (provenance comment + `# learned <id>`), bumps `version:`, and
+emits `RULE_MERGED`. A merged rule drives classification on the next run — the loop
+closes without any model in it. Same three commands on the API
+(`/v1/exceptions/.../resolve` now returns `drafted_rule`, `/v1/runs/{id}/rules/pending`,
+`/v1/runs/{id}/rules/merge`).
+
+`arbiter memo <run>` renders the **Reconciliation Close Memo** — one self-contained HTML
+file, no external resources, opens offline: the result, the settlement decomposition
+(gross → MDR → GST → refunds → net), every exception with its category / ₹ impact /
+who classified it / status / resolution, and the audit trail with the terminal hash
+and the `arbiter verify` command that reproduces it.
+
+**Bugs caught:**
+- `merge_rules` first appended rules at EOF, landing a `- id:` list item after the
+  `adjudication:` mapping → invalid YAML. Fixed to splice after the last indented line
+  of the `rules:` block (a column-0 line or section comment ends the block).
+- The spliced `when:` used `yaml.safe_dump(value).strip()`, which emits a trailing
+  `...` document-end marker on a scalar — a stray `...` line broke the parse. Switched
+  to `json.dumps(value)` (valid YAML double-quoted scalar, handles the `'…'` literals).
+- Draft dict / payload key mismatch (`id` vs `rule_id`) surfaced as a pydantic
+  `ValidationError` and a CLI `KeyError`; unified on `rule_id` for the draft/pending
+  dicts, `id` stays the YAML rule key.
+
+Prevention: `test_learn.py` (draft safety, judgement categories don't generalise,
+pending→merge bumps the version and re-parses, a merged rule classifies the next run)
+and `test_memo.py` (self-contained document, every exception listed) — plus an API test
+for resolve → pending. Full suite + `ruff` + `mypy` green; the merge writes to a spec
+copy in tests, never the repo's.
+
 ## 2026-09-02 — M4b: the cockpit (`web/`, docs/05 + docs/20 §2)
 
 Next.js 15 (App Router) + React 19 + Tailwind + TypeScript strict. The design tokens
