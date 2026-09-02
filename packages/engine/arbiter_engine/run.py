@@ -126,7 +126,12 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
     records = proj.records
 
     # -- MATCHING + DECOMPOSING (deterministic; re-run in memory, emit once) --
-    mr = run_matching(run_id, records, spec)
+    from arbiter_engine.match.fellegi_sunter import FSModel
+    from arbiter_engine.match.fs_store import load_calibration
+
+    calib = load_calibration(store, sh)
+    fs_model = FSModel(calibration=calib) if calib else None
+    mr = run_matching(run_id, records, spec, fs=fs_model)
     if EventType.MATCH_CONFIRMED not in seen and EventType.DECOMPOSITION_COMPUTED not in seen:
         for decomp in mr.decompositions:
             store.append(

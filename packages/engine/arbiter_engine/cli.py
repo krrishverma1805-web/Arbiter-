@@ -147,6 +147,25 @@ def bench(
             preds.append((m.confidence, correct))
         report = calibrate(preds)
         payload["calibration"] = report.to_dict()
+        if db and report.recalibration:
+            from arbiter_engine.match.fs_store import persist_calibration
+            from arbiter_engine.specs import load_spec as _ls
+            from arbiter_engine.specs import spec_hash
+
+            saved = persist_calibration(
+                _store(db),
+                proj.run_id,
+                spec_hash(_ls(spec)),
+                list(report.recalibration),
+                n_samples=report.n,
+                ece_before=report.ece,
+            )
+            if saved:
+                typer.secho(
+                    f"\nfitted calibration persisted ({report.n} samples) — "
+                    "the next run over this spec loads it",
+                    fg=typer.colors.CYAN,
+                )
 
     store.append(proj.run_id, EventType.SCORECARD_COMPUTED, {"scorecard": payload})
 

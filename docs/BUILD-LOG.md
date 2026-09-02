@@ -8,6 +8,23 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.2: the matcher's calibration persists per spec
+
+`arbiter bench --calibration --db <store>` now emits an `FS_CALIBRATION_FITTED`
+event (`match/fs_store.py`), keyed to the spec hash, carrying the isotonic
+recalibration map. `run.py` loads the latest map for the spec before matching, so
+the next run's `P(match)` is already calibrated to that customer's data — the
+matcher improves with use, deterministically (it folds from the event log;
+`replay` never re-runs matching so it's untouched, and a fresh store has no map
+so CI is unaffected).
+
+Only adopted from ≥ 12 predictions and ≥ 2 map points. **For the flagship
+`razorpay-settlement` spec the FS confidence is effectively single-valued (1.0
+for a clean settlement tie), so the map is degenerate and nothing is persisted —
+the calibration study already flagged this.** The mechanism matters for
+fuzzy-heavy specs where confidence has a real spread. `test_calibration.py`
+covers the persist → load → `FSModel` round-trip. 106 tests, gate unchanged.
+
 ## 2026-09-02 — Cockpit: surface grounding + the matcher's pass mix
 
 The Phase 1.2 / 1.3 accuracy work was invisible in the UI. The evidence drawer's

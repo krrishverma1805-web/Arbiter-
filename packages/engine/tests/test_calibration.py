@@ -29,3 +29,48 @@ def test_empty_predictions():
     r = calibrate([])
     assert r.n == 0
     assert r.ece == 0.0
+
+
+def test_calibration_persists_and_reloads_and_shapes_matching(tmp_path):
+    """A fitted recalibration map, persisted per spec hash, is loaded by the next
+    run and pulls the matcher's P(match) toward observed accuracy (docs/28 §1.2)."""
+    from arbiter_engine.events.store import EventStore
+    from arbiter_engine.match.fellegi_sunter import FSModel
+    from arbiter_engine.match.fs_store import load_calibration, persist_calibration
+
+    store = EventStore("sqlite://")
+    # a spread of over-confident predictions across several buckets
+    preds = (
+        [(0.95, True)] * 6
+        + [(0.95, False)] * 4
+        + [(0.75, True)] * 5
+        + [(0.75, False)] * 5
+        + [(0.55, True)] * 3
+        + [(0.55, False)] * 7
+    )
+    report = calibrate(preds)
+    assert report.recalibration and len(report.recalibration) >= 2
+
+    ok = persist_calibration(
+        store,
+        "r1",
+        "spec_abc",
+        list(report.recalibration),
+        n_samples=report.n,
+        ece_before=report.ece,
+    )
+    assert ok is True
+    assert persist_calibration(store, "r1", "spec_abc", [], n_samples=1, ece_before=0.0) is False
+
+    loaded = load_calibration(store, "spec_abc")
+    assert len(loaded) == len(report.recalibration)
+    for (lx, ly), (rx, ry) in zip(loaded, report.recalibration, strict=True):
+        assert abs(lx - rx) < 1e-5 and abs(ly - ry) < 1e-5
+    assert load_calibration(store, "other_spec") == []
+
+    # the loaded map, applied by FSModel, drags a high raw P(match) toward accuracy
+    plain = FSModel()
+    calibrated = FSModel(calibration=loaded)
+    raw = plain.probability(6.0, prior=0.1)
+    adj = calibrated.probability(6.0, prior=0.1)
+    assert adj <= raw + 1e-9

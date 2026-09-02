@@ -32,6 +32,7 @@ class EventType(StrEnum):
     RULE_DRAFTED = "RULE_DRAFTED"
     RULE_MERGED = "RULE_MERGED"
     SCORECARD_COMPUTED = "SCORECARD_COMPUTED"
+    FS_CALIBRATION_FITTED = "FS_CALIBRATION_FITTED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_PURGED = "RUN_PURGED"
 
@@ -158,6 +159,13 @@ class ScorecardComputed(BaseModel):
     scorecard: dict[str, Any]
 
 
+class FSCalibrationFitted(BaseModel):
+    spec_hash: str
+    points: list[list[float]]  # isotonic recalibration map [[x, y], ...]
+    n_samples: int
+    ece_before: float
+
+
 class RunCompleted(BaseModel):
     status: str  # "completed" | "failed"
     counts: dict[str, int]
@@ -187,6 +195,7 @@ EVENT_PAYLOADS: dict[EventType, type[BaseModel]] = {
     EventType.RULE_DRAFTED: RuleDrafted,
     EventType.RULE_MERGED: RuleMerged,
     EventType.SCORECARD_COMPUTED: ScorecardComputed,
+    EventType.FS_CALIBRATION_FITTED: FSCalibrationFitted,
     EventType.RUN_COMPLETED: RunCompleted,
     EventType.RUN_PURGED: RunPurged,
 }
