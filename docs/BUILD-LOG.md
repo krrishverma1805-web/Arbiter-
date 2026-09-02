@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 4: pgvector resolution memory
+
+`agent/vector_memory.py`: `ResolutionMemory` re-folds every run of the tenant on
+every construction. `VectorResolutionMemory` signed-feature-hashes each resolved
+exception's shape into a 256-dim unit vector (deterministic — no embedding
+model, the core stays LLM-free), persists it to a `resolution_vectors` table on
+the store's DB (tenant-scoped, raw DDL so it's out of Alembic), and only embeds
+resolutions it hasn't seen. `recall` is a `pgvector <=>` ANN query when the
+extension loads, an in-Python cosine scan otherwise — same
+`recall(exc, records, k, floor)` signature so `similar_exceptions` can't tell.
+`orchestrate` prefers it (`ARBITER_VECTOR_MEMORY`, default on) and falls back to
+the old memory on any error.
+
+3 tests. 152 total, gate green.
+
 ## 2026-09-03 — Phase 4: opt-in global pattern library
 
 `arbiter_engine/learn/global_patterns.py` — the network effect, done carefully.

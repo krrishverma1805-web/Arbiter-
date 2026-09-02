@@ -22,6 +22,20 @@ from arbiter_engine.agent.tools import RunSnapshot, Tools
 from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import EventStore
 
+
+def _build_memory(store: EventStore, run_id: str, org: str | None) -> Any:
+    """Prefer the persisted vector index (docs/28 §3 item 13); fall back to the
+    in-process IDF-cosine memory if it can't be built (e.g. a read-only store)."""
+    if os.environ.get("ARBITER_VECTOR_MEMORY", "1") not in ("", "0", "false"):
+        try:
+            from arbiter_engine.agent.vector_memory import VectorResolutionMemory
+
+            return VectorResolutionMemory.from_store(store, exclude_run_id=run_id, org_id=org)
+        except Exception:  # noqa: BLE001 - never fail the run over memory
+            pass
+    return ResolutionMemory.from_store(store, exclude_run_id=run_id, org_id=org)
+
+
 # very rough per-model output pricing ($/Mtok) for the cost ceiling
 _PRICE = {
     "claude-opus-5": (5.0, 25.0),
@@ -84,7 +98,7 @@ def run_investigations(
     snap = RunSnapshot.from_projection(proj)
     snap.candidates = {e.id: e.candidates for e in proj.exceptions if e.candidates}
     org = next((r.org_id for r in proj.records if getattr(r, "org_id", None)), None)
-    snap.resolution_memory = ResolutionMemory.from_store(store, exclude_run_id=run_id, org_id=org)
+    snap.resolution_memory = _build_memory(store, run_id, org)
     spent = 0.0
 
     targets = sorted(
