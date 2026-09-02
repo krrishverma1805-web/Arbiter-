@@ -89,7 +89,7 @@ uv run arbiter resolve <run-id> <exc-id> --action <a> [--category <C>]   # → d
 uv run arbiter rules pending <run-id> --spec specs/razorpay-settlement.yaml
 uv run arbiter rules merge   <run-id> --spec specs/razorpay-settlement.yaml   # bumps version:
 uv run arbiter cycle-demo --out data/cycle   # 3 closes: resolve once, learn, carry forward
-uv run arbiter memo       <run-id> --out close-memo.html     # the auditor-ready Close Memo
+uv run arbiter memo       <run-id> --out close-memo.html     # Close Memo (print-styled → PDF)
 uv run arbiter audit-pack <run-id> --out pack.zip            # event log + memo + verify manifest
 uv run arbiter replay  <run-id>            # reproduce a completed run from its event log
 uv run arbiter verify  <run-id>            # recompute the audit hash chain

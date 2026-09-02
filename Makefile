@@ -3,7 +3,7 @@
 SPEC ?= specs/razorpay-settlement.yaml
 DATASET ?= datasets/seed
 SCENARIO ?= d2c
-RECORDS ?= 120
+RECORDS ?= 800
 SEED ?= 42
 
 help:
@@ -31,6 +31,7 @@ $(DATASET)/manifest.json:
 demo: install $(DATASET)/manifest.json
 	uv run arbiter run --spec $(SPEC) --dataset $(DATASET)
 	uv run arbiter bench --spec $(SPEC) --dataset $(DATASET)
+	@echo "\n→ cockpit: run 'make up' (API :8000 + cockpit :3000)"
 
 cycle:
 	uv run arbiter cycle-demo --out data/cycle

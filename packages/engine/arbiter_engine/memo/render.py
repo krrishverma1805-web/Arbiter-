@@ -30,7 +30,9 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospa
 .signoff{margin-top:40px;display:flex;gap:48px}
 .signoff div{flex:1;border-top:1px solid var(--ink);padding-top:6px;
              font-size:12px;color:var(--muted)}
-@media print{body{margin:0}}
+@page{margin:18mm}
+@media print{body{margin:0;max-width:none}h2{page-break-after:avoid}
+  tr{page-break-inside:avoid}.signoff{page-break-inside:avoid}}
 """.splitlines()
     if line.strip()
 )

@@ -479,7 +479,11 @@ def memo(
     out: Path | None = typer.Option(None, "--out", help="write the HTML here (default: stdout)"),
     db: str | None = typer.Option(None, "--db"),
 ) -> None:
-    """Render the auditor-ready Close Memo for a run (docs/20 §2.6)."""
+    """Render the auditor-ready Close Memo for a run (docs/20 §2.6).
+
+    One self-contained HTML file — it opens offline and is print-styled (`@page`
+    margins, no row splits), so a browser's "Save as PDF" produces the PDF copy.
+    """
     from arbiter_engine.events.fold import fold_run
     from arbiter_engine.memo import render_memo
 
