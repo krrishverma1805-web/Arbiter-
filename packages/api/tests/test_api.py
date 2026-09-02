@@ -257,3 +257,49 @@ def test_metrics_and_request_id(client):
     body = m.text
     assert "arbiter_http_requests_total" in body
     assert "arbiter_runs_total" in body
+
+
+def test_upload_then_run_against_the_uploaded_files(client, tmp_path, monkeypatch):
+    c, ds = client
+    import arbiter_api.storage as storage
+
+    monkeypatch.setattr(storage.storage, "root", tmp_path / "uploads")
+
+    files = [
+        ("files", (f.name, f.read_bytes(), "text/csv")) for f in sorted(Path(ds).glob("*.csv"))
+    ]
+    r = c.post("/v1/uploads", files=files)
+    assert r.status_code == 201
+    up = r.json()
+    assert up["dataset"].startswith("upload:") and up["files"] == 3
+
+    run = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": up["dataset"]})
+    assert run.status_code == 202
+    detail = c.get(f"/v1/runs/{run.json()['run_id']}").json()
+    assert detail["status"] == "completed" and detail["records"] > 0
+
+    assert up["upload_id"] in c.get("/v1/uploads").json()["uploads"]
+
+
+def test_upload_rejects_a_non_tabular_file(client, tmp_path, monkeypatch):
+    c, _ = client
+    import arbiter_api.storage as storage
+
+    monkeypatch.setattr(storage.storage, "root", tmp_path / "u2")
+    r = c.post("/v1/uploads", files=[("files", ("notes.txt", b"hello", "text/plain"))])
+    assert r.status_code == 422
+
+
+def test_uploads_are_tenant_scoped(client, tmp_path, monkeypatch):
+    c, ds = client
+    import arbiter_api.auth as auth
+    import arbiter_api.storage as storage
+
+    monkeypatch.setattr(auth, "ENV", "prod")
+    monkeypatch.setattr(storage.storage, "root", tmp_path / "u3")
+    a = {"authorization": f"Bearer {auth.issue_key('ua', 'x', 'analyst')}"}
+    b = {"authorization": f"Bearer {auth.issue_key('ub', 'y', 'analyst')}"}
+    one = sorted(Path(ds).glob("*.csv"))[0]
+    c.post("/v1/uploads", files=[("files", (one.name, one.read_bytes(), "text/csv"))], headers=a)
+    assert len(c.get("/v1/uploads", headers=a).json()["uploads"]) == 1
+    assert c.get("/v1/uploads", headers=b).json()["uploads"] == []

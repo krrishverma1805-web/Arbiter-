@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2: tenant-scoped upload storage
+
+`POST /v1/uploads` (multipart) writes a customer's CSV/XLSX under
+`{ARBITER_UPLOADS_DIR}/{org_id}/{upload_id}/`; `POST /v1/runs` then takes
+`dataset: "upload:<id>"`. `arbiter_api/storage.py` — a `Storage` class
+(filesystem-backed; an S3/R2 impl slots behind `save` / `path` / `list_ids`),
+filename sanitised, `.csv/.xlsx/.xlsm` only, 50 MB / 12-files caps.
+`arbiter_api/resolve.py` centralises spec + dataset resolution (path · name ·
+`upload:` ) for both the route and the worker.
+
+`test_api.py`: upload the three source files → run against `upload:<id>` →
+completed run; a `.txt` is rejected 422; uploads are tenant-scoped. 124 tests.
+`python-multipart` added. Still open: S3/R2 backend, a virus scan, a retention
+policy.
+
 ## 2026-09-02 — Phase 2/3: Alembic migrations + `arbiter-api db upgrade`
 
 `packages/api/arbiter_api/migrations/` — Alembic configured in Python (no

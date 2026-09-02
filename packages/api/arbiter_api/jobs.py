@@ -120,20 +120,17 @@ def finish(job_id: int, *, run_id: str | None, error: str | None) -> None:
 
 def run_one(job: Job) -> None:
     """Execute a claimed job. Used by the worker and by the inline path."""
-    from pathlib import Path
-
     from arbiter_engine.run import RunInputs, execute
 
-    from arbiter_api.deps import DATASETS_DIR, SPECS_DIR, get_store
+    from arbiter_api.deps import get_store
+    from arbiter_api.resolve import resolve_dataset, resolve_spec
 
     try:
         p = json.loads(job.payload)
-        spec_path = SPECS_DIR / f"{p['spec']}.yaml"
-        if not spec_path.exists():
-            spec_path = Path(p["spec"])
-        ds = Path(p["dataset"])
-        if not ds.exists():
-            ds = DATASETS_DIR / p["dataset"]
+        spec_path = resolve_spec(p["spec"])
+        ds = resolve_dataset(job.org_id, p["dataset"])
+        if spec_path is None or ds is None:
+            raise FileNotFoundError(f"spec or dataset not found: {p['spec']} / {p['dataset']}")
         proj = execute(
             get_store(job.org_id),
             RunInputs(

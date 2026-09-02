@@ -12,6 +12,7 @@ dependencies = [
     "structlog>=24.4",
     "prometheus-client>=0.21",
     "alembic>=1.13",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

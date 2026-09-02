@@ -15,6 +15,12 @@ Routes:
   GET  /v1/runs/{id}/stream              SSE progress (tail of the event log)
   GET  /v1/exceptions/{run_id}/{id}      the evidence-drawer payload
   POST /v1/exceptions/{run_id}/{id}/resolve   {action, detail} -> RESOLUTION_APPLIED
+  POST /v1/uploads                       multipart CSV/XLSX -> {upload_id}
+  GET  /v1/jobs  GET /v1/jobs/{id}       async job status
+  GET  /v1/me    GET /metrics            principal · Prometheus metrics
+
+Every request is authenticated (API key; dev allows no key), tenant-scoped,
+rate-limited, and logged with an X-Request-Id (arbiter_api.auth / ratelimit / obs).
 """
 
 from __future__ import annotations
@@ -143,18 +149,44 @@ def whoami() -> dict[str, Any]:
     return {"org_id": p.org_id, "subject": p.subject, "role": p.role}
 
 
+@app.post("/v1/uploads", status_code=201)
+async def create_upload(request: Request) -> dict[str, Any]:
+    _require("analyst")
+    from starlette.datastructures import UploadFile
+
+    from arbiter_api.storage import UploadError, storage
+
+    form = await request.form()
+    files: list[tuple[str, bytes]] = []
+    for value in form.getlist("files"):
+        if isinstance(value, UploadFile):
+            files.append((value.filename or "file", await value.read()))
+    try:
+        upload_id = storage.save(current_principal().org_id, files)
+    except UploadError as e:
+        raise _problem(422, "bad upload", str(e)) from e
+    return {"upload_id": upload_id, "dataset": f"upload:{upload_id}", "files": len(files)}
+
+
+@app.get("/v1/uploads")
+def list_uploads() -> dict[str, Any]:
+    from arbiter_api.storage import storage
+
+    return {"uploads": storage.list_ids(current_principal().org_id)}
+
+
 @app.post("/v1/runs", status_code=202)
 def start_run(req: RunRequest) -> dict[str, Any]:
     _require("analyst")
     from arbiter_api import jobs
-
-    spec_path = SPECS_DIR / f"{req.spec}.yaml"
-    if not spec_path.exists() and not Path(req.spec).exists():
-        raise _problem(404, "spec not found", req.spec)
-    if not Path(req.dataset).exists() and not (DATASETS_DIR / req.dataset).exists():
-        raise _problem(404, "dataset not found", req.dataset)
+    from arbiter_api.resolve import resolve_dataset, resolve_spec
 
     org = current_principal().org_id
+    if resolve_spec(req.spec) is None:
+        raise _problem(404, "spec not found", req.spec)
+    if resolve_dataset(org, req.dataset) is None:
+        raise _problem(404, "dataset not found", req.dataset)
+
     job_id = jobs.enqueue(org, "run", req.model_dump())
     if jobs.ASYNC:
         return {"job_id": job_id, "status": "queued"}
