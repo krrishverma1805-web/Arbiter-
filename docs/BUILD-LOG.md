@@ -8,6 +8,26 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2: API auth — principal, API keys, RBAC
+
+`arbiter_api/auth.py`: every request carries `Authorization: Bearer <key>`; the
+key is sha256-hashed and looked up in an `api_keys` table (org, subject, role).
+A middleware resolves the `Principal` into a `ContextVar` so handlers reach a
+**tenant-scoped store** (`current_store()` → `get_store(principal.org_id)`)
+without threading it through every signature — `get_store()` is shadowed in
+`app.py` to return it.
+
+- `ARBITER_ENV=dev` + no key → the `local` org, `admin` role (demo + tests need
+  no setup). `prod` + no/invalid key → **401**.
+- RBAC: `analyst` to start a run or resolve; `admin` to merge learned rules.
+  Wrong role → **403**.
+- `GET /v1/me` returns the principal. `arbiter-api issue-key --org --subject
+  --role` mints a key.
+
+`test_api.py`: dev principal, prod 401, viewer 403 on run/merge, and **two API
+tenants do not see each other's runs**. 114 tests. Still open: an access audit
+log, and the cockpit sending its key in prod.
+
 ## 2026-09-02 — Phase 2: tenant isolation in the event store
 
 `EventStore(url, org_id=...)` — one instance is scoped to one tenant. Every

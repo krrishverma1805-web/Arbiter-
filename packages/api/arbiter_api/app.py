@@ -27,17 +27,18 @@ from typing import Any
 from arbiter_engine.bench import score_run
 from arbiter_engine.events.fold import fold_run
 from arbiter_engine.events.payloads import EventType
-from arbiter_engine.events.store import ChainBroken
+from arbiter_engine.events.store import ChainBroken, EventStore
 from arbiter_engine.money import format_minor
 from arbiter_engine.replay import replay as do_replay
 from arbiter_engine.run import RunInputs, execute
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from arbiter_api import __version__
-from arbiter_api.deps import DATASETS_DIR, ENV, SPECS_DIR, get_store
+from arbiter_api.auth import current_principal, current_store, has_role, resolve, set_current
+from arbiter_api.deps import DATASETS_DIR, ENV, SPECS_DIR
 
 app = FastAPI(title="Arbiter API", version=__version__)
 app.add_middleware(
@@ -46,6 +47,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_PUBLIC = ("/healthz", "/readyz", "/docs", "/openapi.json", "/redoc")
+
+
+@app.middleware("http")
+async def _authenticate(request: Request, call_next):  # type: ignore[no-untyped-def]
+    if request.url.path in _PUBLIC:
+        return await call_next(request)
+    principal = resolve(request.headers.get("authorization"))
+    if principal is None:
+        return JSONResponse(
+            status_code=401,
+            content={"title": "unauthorized", "detail": "a valid API key is required"},
+        )
+    set_current(principal)
+    return await call_next(request)
+
+
+def get_store() -> EventStore:
+    """The store scoped to the current request's tenant."""
+    return current_store()
+
+
+def _require(role: str) -> None:
+    if not has_role(role):
+        raise _problem(403, "forbidden", f"this action requires the '{role}' role")
 
 
 def _problem(status: int, title: str, detail: str) -> HTTPException:
@@ -93,8 +120,15 @@ class RunRequest(BaseModel):
     rerun: bool = False
 
 
+@app.get("/v1/me")
+def whoami() -> dict[str, Any]:
+    p = current_principal()
+    return {"org_id": p.org_id, "subject": p.subject, "role": p.role}
+
+
 @app.post("/v1/runs", status_code=202)
 def start_run(req: RunRequest) -> dict[str, Any]:
+    _require("analyst")
     spec_path = SPECS_DIR / f"{req.spec}.yaml"
     if not spec_path.exists():
         spec_path = Path(req.spec)
@@ -290,6 +324,7 @@ class ResolveRequest(BaseModel):
 
 @app.post("/v1/exceptions/{run_id}/{exception_id}/resolve")
 def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest) -> dict[str, Any]:
+    _require("analyst")
     store = get_store()
     proj = _proj_or_404(run_id)
     exc = next((e for e in proj.exceptions if e.id == exception_id), None)
@@ -333,6 +368,7 @@ class MergeRequest(BaseModel):
 
 @app.post("/v1/runs/{run_id}/rules/merge")
 def merge_rules_route(run_id: str, req: MergeRequest) -> dict[str, Any]:
+    _require("admin")
     from arbiter_engine.learn import merge_rules
 
     _proj_or_404(run_id)

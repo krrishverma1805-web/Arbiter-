@@ -126,3 +126,53 @@ def test_exception_detail_includes_agent_trace_field(client):
     exc_id = c.get(f"/v1/runs/{run_id}/exceptions").json()["exceptions"][0]["id"]
     d = c.get(f"/v1/exceptions/{run_id}/{exc_id}").json()
     assert "agent_trace" in d and isinstance(d["agent_trace"], list)
+
+
+def test_whoami_returns_the_dev_principal(client):
+    c, _ = client
+    me = c.get("/v1/me").json()
+    assert me == {"org_id": "local", "subject": "local-dev", "role": "admin"}
+
+
+def test_prod_env_rejects_a_request_with_no_key(client, monkeypatch):
+    c, _ = client
+    import arbiter_api.auth as auth
+
+    monkeypatch.setattr(auth, "ENV", "prod")
+    r = c.get("/v1/runs")
+    assert r.status_code == 401
+    assert r.json()["title"] == "unauthorized"
+    # a valid minted key is accepted and carries its org + role
+    key = auth.issue_key("acme", "ci", "viewer")
+    ok = c.get("/v1/me", headers={"authorization": f"Bearer {key}"})
+    assert ok.status_code == 200
+    assert ok.json() == {"org_id": "acme", "subject": "ci", "role": "viewer"}
+
+
+def test_viewer_cannot_start_a_run_or_merge_rules(client, monkeypatch):
+    c, ds = client
+    import arbiter_api.auth as auth
+
+    monkeypatch.setattr(auth, "ENV", "prod")
+    viewer = {"authorization": f"Bearer {auth.issue_key('acme', 'v', 'viewer')}"}
+    r = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}, headers=viewer)
+    assert r.status_code == 403
+    analyst = {"authorization": f"Bearer {auth.issue_key('acme', 'a', 'analyst')}"}
+    r2 = c.post(
+        "/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}, headers=analyst
+    )
+    assert r2.status_code == 202
+
+
+def test_two_api_tenants_do_not_see_each_others_runs(client, monkeypatch):
+    c, ds = client
+    import arbiter_api.auth as auth
+
+    monkeypatch.setattr(auth, "ENV", "prod")
+    a = {"authorization": f"Bearer {auth.issue_key('org_a', 'x', 'analyst')}"}
+    b = {"authorization": f"Bearer {auth.issue_key('org_b', 'y', 'analyst')}"}
+    c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}, headers=a)
+    a_runs = c.get("/v1/runs", headers=a).json()["runs"]
+    b_runs = c.get("/v1/runs", headers=b).json()["runs"]
+    assert len(a_runs) >= 1
+    assert b_runs == []
