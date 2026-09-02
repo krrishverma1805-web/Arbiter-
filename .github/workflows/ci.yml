@@ -188,11 +188,70 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - uses: pnpm/action-setup@v4
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm build
+
+  recovery:
+    # docs/28 §3 item 12 — the backup + restore drill: prove the event chain and
+    # the projection survive a full pg_dump / drop / pg_restore round trip, on a
+    # real Postgres (this also exercises the RLS migration for real).
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: arbiter
+          POSTGRES_PASSWORD: arbiter
+          POSTGRES_DB: arbiter
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U arbiter" --health-interval 5s
+          --health-timeout 3s --health-retries 20
+    env:
+      ARBITER_DB_URL: postgresql+psycopg://arbiter:arbiter@localhost:5432/arbiter
+      PGPASSWORD: arbiter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --all-packages --extra postgres
+      - name: postgres client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+      - name: migrate + a deterministic run against Postgres
+        run: |
+          uv run arbiter-api db upgrade
+          uv run arbiter-datagen gen --scenario d2c --records 200 --seed 42 --out /tmp/ds
+          uv run arbiter run --spec specs/razorpay-settlement.yaml --dataset /tmp/ds --no-ai --json | tee /tmp/run.json
+          echo "RID=$(python -c "import json;print(json.load(open('/tmp/run.json'))['run_id'])")" >> "$GITHUB_ENV"
+      - name: capture the terminal hash, then back up
+        run: |
+          uv run arbiter verify "$RID" --json | tee /tmp/before.json
+          pg_dump -h localhost -U arbiter -Fc arbiter > /tmp/arbiter.dump
+      - name: destroy and restore
+        run: |
+          psql -h localhost -U arbiter -d arbiter -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+          pg_restore -h localhost -U arbiter -d arbiter --no-owner --clean --if-exists /tmp/arbiter.dump
+      - name: the chain and projection are byte-identical after restore
+        run: |
+          uv run arbiter verify "$RID" --json | tee /tmp/after.json
+          uv run arbiter replay "$RID"
+          python - <<'EOF'
+          import json
+          b, a = json.load(open("/tmp/before.json")), json.load(open("/tmp/after.json"))
+          assert a["intact"] is True, a
+          assert a["terminal_hash"] == b["terminal_hash"], (b, a)
+          assert a["events"] == b["events"], (b, a)
+          print("restore drill passed:", a)
+          EOF

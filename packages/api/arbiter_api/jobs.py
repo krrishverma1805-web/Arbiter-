@@ -6,7 +6,10 @@ executed inline (the default, so the demo and the tests need no worker).
 
 The queue is a single table with an atomic claim (`UPDATE … WHERE status='queued'
 … RETURNING`), so it survives a restart and needs no Redis. Retries and a
-dead-letter status are handled by the worker.
+dead-letter status are handled by the worker. A job whose worker is killed
+mid-run (`status='running'`, no heartbeat for `LEASE`) is requeued — or
+dead-lettered if out of attempts — by `reclaim_stale()`, which every `claim()`
+runs first. That is what makes a killed worker self-heal (docs/28 §3 item 12).
 """
 
 from __future__ import annotations
@@ -14,7 +17,7 @@ from __future__ import annotations
 import json
 import os
 import traceback
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -24,6 +27,10 @@ from arbiter_api.auth import _engine
 
 MAX_ATTEMPTS = 3
 ASYNC = os.environ.get("ARBITER_ASYNC", "") not in ("", "0", "false")
+# A claimed job whose worker has not touched it in this long is presumed dead
+# (the pod was killed / OOMed) and is put back on the queue — or dead-lettered
+# if it is already out of attempts. This is what makes the queue self-healing.
+LEASE = timedelta(seconds=int(os.environ.get("ARBITER_JOB_LEASE_SECONDS", "300")))
 
 
 class Job(SQLModel, table=True):
@@ -80,9 +87,29 @@ def recent(org_id: str, limit: int = 50) -> list[Job]:
         return list(rows)
 
 
+def reclaim_stale(now: datetime | None = None) -> int:
+    """Requeue (or dead-letter) jobs whose worker lease has expired. Returns how
+    many rows were touched. Called at the top of every `claim()`."""
+    cutoff = ((now or datetime.now(UTC)) - LEASE).isoformat()
+    with Session(_engine()) as s:
+        res = s.connection().execute(
+            text(
+                "UPDATE jobs SET "
+                "status = CASE WHEN attempts >= :maxa THEN 'failed' ELSE 'queued' END, "
+                "error = CASE WHEN attempts >= :maxa THEN 'worker lease expired' ELSE error END, "
+                "updated_at = :t "
+                "WHERE status = 'running' AND updated_at < :cutoff"
+            ),
+            {"cutoff": cutoff, "t": _now(), "maxa": MAX_ATTEMPTS},
+        )
+        s.commit()
+        return res.rowcount or 0
+
+
 def claim() -> Job | None:
     """Atomically take the oldest queued job. Postgres and SQLite both honour
     the single-statement UPDATE, so two workers never claim the same row."""
+    reclaim_stale()
     with Session(_engine()) as s:
         row = (
             s.connection()

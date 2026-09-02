@@ -8,6 +8,30 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 3: restore drill + worker chaos recovery
+
+**Restore drill.** New CI `recovery` job: a real `postgres:16` service,
+`arbiter-api db upgrade` (so the RLS migration runs against real Postgres for
+the first time), a deterministic `--no-ai` run, then `pg_dump -Fc` → `DROP
+SCHEMA public CASCADE` → `pg_restore`. Afterwards `arbiter verify --json` (new
+`--json` flag on the CLI) and `replay` must show the same `terminal_hash`, the
+same event count, and `intact: true` — proving the hash chain is exactly
+recoverable from a backup.
+
+**Chaos.** Found a real gap: a job stuck in `running` because its worker was
+killed was never reclaimed. Added `jobs.reclaim_stale()` — run at the top of
+every `claim()` — which requeues any `running` job whose lease
+(`ARBITER_JOB_LEASE_SECONDS`, default 300s) has expired, or dead-letters it if
+it is out of attempts. Two tests: a dead worker's job is picked up and
+completed by the next worker; a lease-expired job out of attempts is
+dead-lettered with `"worker lease expired"`.
+
+Regression on `4834930`: the `web` CI job failed — `pnpm/action-setup@v4` reads
+`packageManager` from the *repo-root* `package.json` (the job's
+`working-directory: web` only affects `run:` steps), so it saw no version.
+Fixed with `package_json_file: web/package.json` and moved the action before
+`setup-node` so `cache: pnpm` works. 131 tests.
+
 ## 2026-09-02 — Phase 3: OpenTelemetry span export + Sentry (opt-in)
 
 `arbiter_engine/tracing.py` — a zero-dependency shim: `span("match", …)` is a

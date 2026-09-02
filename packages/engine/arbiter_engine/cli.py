@@ -343,14 +343,24 @@ def replay(
 
 
 @app.command()
-def verify(run_id: str = typer.Argument(...), db: str | None = typer.Option(None, "--db")) -> None:
+def verify(
+    run_id: str = typer.Argument(...),
+    db: str | None = typer.Option(None, "--db"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
     """Recompute the audit hash chain for a run."""
     store = _store(db)
     try:
         res = store.verify(run_id)
     except ChainBroken as exc:
-        typer.secho(f"CHAIN BROKEN: {exc}", fg=typer.colors.RED)
+        if as_json:
+            typer.echo(json.dumps({"intact": False, "error": str(exc)}))
+        else:
+            typer.secho(f"CHAIN BROKEN: {exc}", fg=typer.colors.RED)
         raise typer.Exit(2) from exc
+    if as_json:
+        typer.echo(json.dumps(res))
+        return
     typer.secho(
         f"event chain intact — {res['events']} events, terminal hash {res['terminal_hash'][:16]}…",
         fg=typer.colors.GREEN,

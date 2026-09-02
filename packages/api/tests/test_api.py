@@ -218,6 +218,53 @@ def test_job_failure_is_recorded_not_raised(client, monkeypatch):
     assert r.status_code == 404  # caught before enqueue
 
 
+def test_a_dead_worker_leaves_no_job_stuck(client, monkeypatch):
+    """Chaos (docs/28 §3 item 12): a worker claims a job and is then killed
+    without finishing it. Once its lease expires the next worker requeues and
+    completes the job — nothing is stranded in `running`."""
+    from datetime import timedelta
+
+    c, ds = client
+    import arbiter_api.jobs as jobs
+
+    monkeypatch.setattr(jobs, "ASYNC", True)
+    monkeypatch.setattr(jobs, "LEASE", timedelta(seconds=0))  # any running job is immediately stale
+
+    job_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "job_id"
+    ]
+
+    claimed = jobs.claim()  # a worker grabs it...
+    assert claimed is not None and claimed.id == job_id and claimed.status == "running"
+    # ...and that worker's pod dies here. It never calls finish().
+
+    jobs.worker_loop(once=True)  # a healthy worker comes along
+
+    j = c.get(f"/v1/jobs/{job_id}").json()
+    assert j["status"] == "done" and j["run_id"]
+    assert c.get(f"/v1/runs/{j['run_id']}").json()["status"] == "completed"
+
+
+def test_a_lease_expired_job_out_of_attempts_is_dead_lettered(client, monkeypatch):
+    from datetime import timedelta
+
+    c, ds = client
+    import arbiter_api.jobs as jobs
+
+    monkeypatch.setattr(jobs, "ASYNC", True)
+    monkeypatch.setattr(jobs, "LEASE", timedelta(seconds=0))
+    monkeypatch.setattr(jobs, "MAX_ATTEMPTS", 1)
+
+    job_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "job_id"
+    ]
+    jobs.claim()  # attempts -> 1, worker dies
+    assert jobs.reclaim_stale() == 1  # attempts >= MAX_ATTEMPTS -> failed, not requeued
+
+    j = c.get(f"/v1/jobs/{job_id}").json()
+    assert j["status"] == "failed" and "lease expired" in j["error"]
+
+
 def test_jobs_list_is_tenant_scoped(client, monkeypatch):
     c, ds = client
     import arbiter_api.auth as auth
