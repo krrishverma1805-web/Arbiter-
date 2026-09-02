@@ -39,12 +39,26 @@ def _worker() -> None:
     worker_loop()
 
 
+def _db(args: list[str]) -> None:
+    """arbiter-api db upgrade|current"""
+    from arbiter_api.migrations import current, upgrade
+
+    sub = args[0] if args else "upgrade"
+    if sub == "current":
+        current()
+    else:
+        upgrade()
+        print("database at head")
+
+
 def main() -> None:
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "issue-key":
         _issue_key(sys.argv[2:])
     elif cmd == "worker":
         _worker()
+    elif cmd == "db":
+        _db(sys.argv[2:])
     else:
         _serve()
 

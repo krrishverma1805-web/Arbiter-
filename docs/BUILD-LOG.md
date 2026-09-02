@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2/3: Alembic migrations + `arbiter-api db upgrade`
+
+`packages/api/arbiter_api/migrations/` — Alembic configured in Python (no
+`alembic.ini`), `env.py` pulls the union of every `table=True` model (`events`,
+`api_keys`, `jobs`) from `SQLModel.metadata`. One initial migration.
+`arbiter-api db upgrade` runs `alembic upgrade head`; `db current` shows the
+version. `docker-compose` gets a `migrate` one-shot service that `api` and
+`worker` wait on (`service_completed_successfully`).
+
+`test_migrations.py`: **`alembic upgrade head` on an empty DB produces exactly
+the schema `SQLModel.metadata.create_all` would** — so a migration can never
+silently drift from the models — and `upgrade` is idempotent. 121 tests. The
+engine still `create_all`s for the SQLite dev/test path (matches the initial
+migration byte-for-byte); prod runs migrations.
+
 ## 2026-09-02 — Phase 3: structured logs, request correlation, Prometheus metrics
 
 `arbiter_api/obs.py`: structlog JSON logging (one line per request —
