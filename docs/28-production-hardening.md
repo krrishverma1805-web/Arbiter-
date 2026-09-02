@@ -105,8 +105,8 @@ the regression gate is live.
 queued and executed by a worker; the API survives a load test at target RPS.
 
 ### Phase 3 — Infra, deploy, observability
-9. Dockerfiles (api/worker/web) + full compose + Helm chart.
-10. CI/CD: image build+scan+push, migration gate, preview envs, rolling deploy + auto-rollback.
+9. Dockerfiles (api/worker/web) + full compose + Helm chart. — ✅ **the `api`/`worker` image (`packages/api/Dockerfile`, multi-stage, non-root, healthcheck) + a real `docker-compose` (`db` + `api` + 2× `worker` behind the `app` profile).** Still open: a `web` image, a Helm chart.
+10. CI/CD: image build+scan+push, migration gate, preview envs, rolling deploy + auto-rollback. — ✅ **CI `docker` job: builds the image (GHA cache) and asserts a container answers `/healthz`.** Still open: image scan + push to a registry, migration gate, preview envs, deploy pipeline.
 11. OpenTelemetry + structlog + Prometheus/Grafana + Sentry + SLOs + alerting.
 12. Redis cache + CDN + autoscaling + pgbouncer; backup + **restore drill in CI**; chaos test.
 

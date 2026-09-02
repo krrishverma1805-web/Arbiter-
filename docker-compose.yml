@@ -1,5 +1,6 @@
-# Hosted-mode stack (docs/13). For the demo, `make demo` needs none of this —
-# it runs on SQLite locally. This is the Postgres-backed deployment path.
+# Hosted-mode stack (docs/13, docs/28 §3). `make demo` needs none of this — it
+# runs on SQLite locally. This is the Postgres-backed deployment path:
+#   docker compose --profile app up --build
 services:
   db:
     image: postgres:16-alpine
@@ -15,15 +16,15 @@ services:
       timeout: 3s
       retries: 10
 
-  # arrives in M4 (docs/10) — packages/api/Dockerfile does not exist yet.
   api:
-    profiles: ["api"]
+    profiles: ["app"]
     build:
       context: .
       dockerfile: packages/api/Dockerfile
-    environment:
+    environment: &app_env
       ARBITER_DB_URL: postgresql+psycopg://arbiter:arbiter@db:5432/arbiter
       ARBITER_ENV: prod
+      ARBITER_SPECS_DIR: /app/specs
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       db:
@@ -34,6 +35,21 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+  worker:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    command: ["worker"]
+    environment:
+      <<: *app_env
+      ARBITER_ASYNC: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      replicas: 2
 
 volumes:
   arbiter_pgdata:

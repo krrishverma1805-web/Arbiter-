@@ -11,6 +11,9 @@ dependencies = [
     "pydantic>=2.8",
 ]
 
+[project.optional-dependencies]
+postgres = ["arbiter-engine[postgres]"]
+
 [project.scripts]
 arbiter-api = "arbiter_api.__main__:main"
 

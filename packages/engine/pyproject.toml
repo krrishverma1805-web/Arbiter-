@@ -15,6 +15,9 @@ dependencies = [
     "openpyxl>=3.1",
 ]
 
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2"]
+
 [project.scripts]
 arbiter = "arbiter_engine.cli:app"
 

@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 3: the API / worker Docker image + a CI build job
+
+`packages/api/Dockerfile` — multi-stage (uv, cache-mounted dep layer), `python:
+3.12-slim` runtime, non-root uid 10001, `HEALTHCHECK`, `ENTRYPOINT ["arbiter-
+api"]` so `command: ["worker"]` runs the queue consumer from the same image.
+`arbiter-engine[postgres]` / `arbiter-api[postgres]` extras add `psycopg[binary]`;
+the image installs them and defaults `ARBITER_DB_URL` to Postgres.
+
+`docker-compose.yml` rewritten: `db` (postgres:16) always up; `api` + `worker`
+(×2 replicas, `ARBITER_ASYNC=1`) behind the `app` profile —
+`docker compose --profile app up --build`.
+
+New CI `docker` job: builds the image with the GHA cache and asserts a container
+starts and answers `/healthz`. 118 tests.
+
 ## 2026-09-02 — Phase 2: per-tenant rate limiting
 
 `arbiter_api/ratelimit.py` — a token-bucket limiter keyed on
