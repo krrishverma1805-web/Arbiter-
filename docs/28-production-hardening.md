@@ -123,6 +123,9 @@ worker's run self-heals; a backup restores in CI; dashboards show the span tree.
 their *own* data, with every model promotion gated by an eval.
 
 ### Phase 5 — Flagship UX
+_Started: ✅ the investigation trace renders in the evidence drawer (turn text +
+tool calls, from the `AGENT_INTERACTION` events)._
+
 17. Framer Motion system; streaming investigation view; ⌘K palette.
 18. Apple-minimal design system pass; realtime presence + live scorecard over WebSocket.
 

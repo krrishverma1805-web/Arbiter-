@@ -116,3 +116,13 @@ def test_resolving_a_generalisable_exception_drafts_a_pending_rule(client):
 def test_missing_run_is_404(client):
     c, _ = client
     assert c.get("/v1/runs/does-not-exist").status_code == 404
+
+
+def test_exception_detail_includes_agent_trace_field(client):
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+    exc_id = c.get(f"/v1/runs/{run_id}/exceptions").json()["exceptions"][0]["id"]
+    d = c.get(f"/v1/exceptions/{run_id}/{exc_id}").json()
+    assert "agent_trace" in d and isinstance(d["agent_trace"], list)

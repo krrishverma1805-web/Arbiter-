@@ -8,6 +8,16 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 5.1: the investigation trace in the cockpit
+
+`GET /v1/exceptions/{run}/{id}` now returns `agent_trace` — the agent's turn-by-
+turn steps for that exception, folded from the `AGENT_INTERACTION` events (turn
+text + which tools it called + stop reason). The evidence drawer renders it as a
+collapsible "investigation trace · N turns" list above the proposal, so a judge
+watches the agent reason: plan → each tool call → hypothesis → conclusion.
+`test_api.py` asserts the field is present; `pnpm typecheck + lint + build`
+clean. 108 tests.
+
 ## 2026-09-02 — Phase 1.3: agent verifier — action must fit the category
 
 Extends the deterministic category check: the proposal's `suggested_action` must

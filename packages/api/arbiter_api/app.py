@@ -255,6 +255,21 @@ def exception_detail(run_id: str, exception_id: str) -> dict[str, Any]:
         if rid in recs and recs[rid].external_ids.get("settlement_utr")
     }
     decomps = [d.model_dump(mode="json") for d in proj.decompositions if d.settlement_utr in utrs]
+
+    # the agent's step-by-step trace for this exception, for the cockpit's
+    # streaming investigation view (docs/28 §5)
+    trace: list[dict[str, Any]] = []
+    for t, p in get_store().iter_payloads(run_id):
+        if t == EventType.AGENT_INTERACTION and p.get("exception_id") == exception_id:
+            trace.append(
+                {
+                    "turn": p.get("turn"),
+                    "text": p.get("text", ""),
+                    "tool_calls": [tc.get("name") for tc in p.get("tool_calls", [])],
+                    "stop_reason": p.get("stop_reason"),
+                }
+            )
+
     return {
         "exception": exc.model_dump(mode="json"),
         "records": records,
@@ -262,6 +277,7 @@ def exception_detail(run_id: str, exception_id: str) -> dict[str, Any]:
         "candidates": [c.model_dump(mode="json") for c in exc.candidates],
         "agent_proposal": exc.agent_proposal,
         "agent_escalation": exc.agent_escalation,
+        "agent_trace": trace,
     }
 
 

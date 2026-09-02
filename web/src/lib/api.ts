@@ -102,6 +102,12 @@ export interface EvidenceDrawer {
   candidates: Array<{ hypothesis: string; score_bits: number; record_ids: string[] }>;
   agent_proposal: Record<string, unknown> | null;
   agent_escalation: Record<string, unknown> | null;
+  agent_trace?: Array<{
+    turn: number | null;
+    text: string;
+    tool_calls: string[];
+    stop_reason: string | null;
+  }>;
 }
 
 export const api = {

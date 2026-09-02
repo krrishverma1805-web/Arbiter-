@@ -285,6 +285,23 @@ function DrawerPanel({
         </div>
       ))}
 
+      {d.agent_trace && d.agent_trace.length > 0 && (
+        <details className="rounded border border-border bg-surface p-2 text-xs">
+          <summary className="cursor-pointer font-medium text-muted">
+            investigation trace · {d.agent_trace.length} turns
+          </summary>
+          <ol className="mt-2 space-y-1.5">
+            {d.agent_trace.map((t, i) => (
+              <li key={i} className="border-l-2 border-accent/40 pl-2">
+                {t.text && <p>{t.text}</p>}
+                {t.tool_calls.length > 0 && (
+                  <p className="font-mono text-muted">→ {t.tool_calls.join(", ")}</p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       {d.agent_proposal && <ProposalPanel p={d.agent_proposal} />}
       {d.agent_escalation && (
         <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
