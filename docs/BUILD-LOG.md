@@ -8,6 +8,15 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.3: agent verifier — action must fit the category
+
+Extends the deterministic category check: the proposal's `suggested_action` must
+be coherent with its `category` (`DUPLICATE` → `void_duplicate_of` /
+`route_to_human`; `TIMING` → `carry_forward` / `accept_variance`; …). A proposal
+with the right category but the wrong fix is internally inconsistent — it caps
+`grounded_confidence` at 0.4 and escalates. `test_agent.py`: `TIMING` +
+`void_duplicate_of` → escalate. 107 tests.
+
 ## 2026-09-02 — Phase 1.2: the matcher's calibration persists per spec
 
 `arbiter bench --calibration --db <store>` now emits an `FS_CALIBRATION_FITTED`

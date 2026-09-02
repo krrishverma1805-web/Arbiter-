@@ -135,7 +135,29 @@ def _category_check(proposal: Proposal, snap: RunSnapshot) -> tuple[bool, str]:
         return False, "MISSING_UTR proposed but every cited record has a UTR"
     if cat == "WRONG_ACCOUNT" and not ref_recs:
         return False, "WRONG_ACCOUNT proposed with no records cited"
+
+    # the suggested action must fit the category — an internally inconsistent
+    # proposal (right category, wrong fix) is not trustworthy
+    action = proposal.suggested_action.action
+    allowed = _ACTIONS_FOR.get(cat)
+    if allowed is not None and action not in allowed:
+        return False, f"{cat} proposed with action '{action}', expected one of {sorted(allowed)}"
     return True, ""
+
+
+# category -> the resolution actions that are coherent with it
+_ACTIONS_FOR: dict[str, set[str]] = {
+    "ROUNDING": {"accept_variance", "wont_fix"},
+    "SPLIT_SETTLEMENT": {"accept_variance", "carry_forward"},
+    "FEE_DEDUCTION": {"flag_overcharge", "raise_dispute", "accept_variance"},
+    "TAX_DEDUCTION": {"flag_overcharge", "raise_dispute", "accept_variance"},
+    "TIMING": {"carry_forward", "accept_variance"},
+    "DUPLICATE": {"void_duplicate_of", "route_to_human"},
+    "CHARGEBACK": {"raise_dispute", "route_to_human"},
+    "MISSING_UTR": {"request_data", "route_to_human", "attribute_to"},
+    "WRONG_ACCOUNT": {"route_to_human", "attribute_to", "request_data"},
+    "PARTIAL_PAYMENT": {"route_to_human", "carry_forward", "request_data"},
+}
 
 
 def check_grounding(proposal: Proposal, snap: RunSnapshot) -> GroundingReport:

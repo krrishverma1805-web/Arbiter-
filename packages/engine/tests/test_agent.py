@@ -248,3 +248,21 @@ def test_injection_note_is_fenced_in_the_task_message(adversarial_dataset: Path,
     if "IGNORE ALL PREVIOUS INSTRUCTIONS" in msg:
         assert "<untrusted-record-data" in msg
         assert "‹untrusted-record-data" not in msg  # only the wrapper's own '<' survives
+
+
+def test_action_inconsistent_with_category_is_penalised(adversarial_dataset: Path, spec_path: Path):
+    """TIMING proposed with 'void_duplicate_of' — right category, wrong fix — is
+    internally inconsistent and must not reach the human as a proposal."""
+    _store, proj, spec = _snapshot(adversarial_dataset, spec_path)
+    exc = _first_unexplained(proj)
+    snap = RunSnapshot.from_projection(proj)
+    turn = _proposal_turn(
+        exc,
+        category="TIMING",
+        confidence=0.95,
+        suggested_action={"action": "void_duplicate_of", "detail": "d"},
+    )
+    inv = investigate(exc, Tools(snap), _Client([turn]), spec)
+    assert inv.grounding is not None and not inv.grounding.category_consistent
+    assert "action" in inv.grounding.category_note
+    assert inv.outcome == "escalate"
