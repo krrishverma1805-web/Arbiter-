@@ -8,6 +8,26 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2: tenant isolation in the event store
+
+`EventStore(url, org_id=...)` — one instance is scoped to one tenant. Every
+read and write (`append`, `events`, `runs`, `verify`, `purge`) filters
+`Event.org_id`, so two stores over the same database with different `org_id`
+cannot see each other's runs. `Event` gets an indexed `org_id` column
+(default `"local"` — every existing path is byte-unchanged in behaviour).
+
+`run.py` folds the store's `org_id` into the config hash when it isn't
+`"local"`, so the same spec + dataset run by two tenants gets **different**
+`run_id`s (they would otherwise collide — the hash never included the tenant).
+`RUN_STARTED` records `org_id` in the tamper-evident payload. `get_store(org_id)`
+on the API is now cached per-org.
+
+`test_events.py`: two tenants over one DB file are isolated for reads, verify,
+and purge; `execute()` partitions run ids by tenant; the default path is
+unchanged. 110 tests. **Still open in Phase 2:** the API principal / auth that
+picks the org (right now it's always `"local"`), RLS policies for Postgres,
+async workers.
+
 ## 2026-09-02 — Phase 5.1: the investigation trace in the cockpit
 
 `GET /v1/exceptions/{run}/{id}` now returns `agent_trace` — the agent's turn-by-

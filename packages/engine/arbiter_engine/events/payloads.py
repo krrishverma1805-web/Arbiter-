@@ -46,6 +46,7 @@ class RunStarted(BaseModel):
     config_hash: str
     no_ai: bool
     engine_version: str
+    org_id: str = "local"
 
 
 class SourceIngested(BaseModel):

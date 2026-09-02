@@ -26,6 +26,7 @@ class Event(SQLModel, table=True):
     __tablename__ = "events"
 
     id: int | None = Field(default=None, primary_key=True)
+    org_id: str = Field(default="local", index=True)  # tenant scope (docs/28 §2)
     run_id: str = Field(index=True)
     seq: int
     ts: str  # informational only — NOT hashed
@@ -45,7 +46,12 @@ class ChainBroken(RuntimeError):
 
 
 class EventStore:
-    def __init__(self, url: str = "sqlite://") -> None:
+    """One instance is scoped to one tenant. Every read and write is filtered to
+    `org_id`; two stores over the same database with different `org_id` cannot
+    see each other's runs (docs/28 §2)."""
+
+    def __init__(self, url: str = "sqlite://", *, org_id: str = "local") -> None:
+        self.org_id = org_id
         kwargs: dict[str, Any] = {}
         if url.startswith("sqlite"):
             kwargs["connect_args"] = {"check_same_thread": False}
@@ -71,7 +77,9 @@ class EventStore:
         payload_json = canonical_json(model.model_dump(mode="json"))
         with Session(self.engine) as session:
             last = session.exec(
-                select(Event).where(Event.run_id == run_id).order_by(col(Event.seq).desc())
+                select(Event)
+                .where(Event.run_id == run_id, Event.org_id == self.org_id)
+                .order_by(col(Event.seq).desc())
             ).first()
             seq = 0 if last is None else last.seq + 1
             prev_hash = GENESIS if last is None else last.hash
@@ -82,6 +90,7 @@ class EventStore:
                 payload=json.loads(payload_json),
             )
             ev = Event(
+                org_id=self.org_id,
                 run_id=run_id,
                 seq=seq,
                 ts=datetime.now(UTC).isoformat(),
@@ -101,12 +110,18 @@ class EventStore:
     def events(self, run_id: str) -> list[Event]:
         with Session(self.engine) as session:
             return list(
-                session.exec(select(Event).where(Event.run_id == run_id).order_by(col(Event.seq)))
+                session.exec(
+                    select(Event)
+                    .where(Event.run_id == run_id, Event.org_id == self.org_id)
+                    .order_by(col(Event.seq))
+                )
             )
 
     def runs(self) -> list[str]:
         with Session(self.engine) as session:
-            rows = session.exec(select(col(Event.run_id)).distinct()).all()
+            rows = session.exec(
+                select(col(Event.run_id)).where(Event.org_id == self.org_id).distinct()
+            ).all()
             return sorted(set(rows))
 
     def iter_payloads(self, run_id: str) -> Iterator[tuple[str, dict[str, Any]]]:
@@ -144,7 +159,9 @@ class EventStore:
                 "INSERT INTO purge_log VALUES (?, ?, ?, ?)",
                 (run_id, reason, by, datetime.now(UTC).isoformat()),
             )
-            for ev in session.exec(select(Event).where(Event.run_id == run_id)):
+            for ev in session.exec(
+                select(Event).where(Event.run_id == run_id, Event.org_id == self.org_id)
+            ):
                 session.delete(ev)
             session.commit()
 

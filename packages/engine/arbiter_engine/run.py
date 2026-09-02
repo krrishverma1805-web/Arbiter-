@@ -80,6 +80,9 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
     cfg_payload = cfg.model_dump(mode="json")
     if inputs.model:
         cfg_payload["agent_model"] = inputs.model
+    org_id = getattr(store, "org_id", "local")
+    if org_id != "local":
+        cfg_payload["org_id"] = org_id  # partition run ids by tenant
     cfg_hash = sha256_hex(canonical_json(cfg_payload))[:16]
     run_id = inputs.run_id or _deterministic_run_id(cfg_hash)
 
@@ -107,6 +110,7 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
                 "config_hash": cfg_hash,
                 "no_ai": inputs.no_ai,
                 "engine_version": __version__,
+                "org_id": org_id,
             },
         )
 

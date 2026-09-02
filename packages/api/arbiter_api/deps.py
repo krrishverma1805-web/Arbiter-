@@ -14,8 +14,10 @@ DATASETS_DIR = Path(os.environ.get("ARBITER_DATASETS_DIR", "datasets"))
 ENV = os.environ.get("ARBITER_ENV", "dev")
 
 
-@lru_cache(maxsize=1)
-def get_store() -> EventStore:
+@lru_cache(maxsize=64)
+def get_store(org_id: str = "local") -> EventStore:
+    """One tenant-scoped store per org (docs/28 §2). Every read/write the store
+    does is filtered to `org_id`."""
     if DB_URL.startswith("sqlite:///"):
         Path(DB_URL.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-    return EventStore(DB_URL)
+    return EventStore(DB_URL, org_id=org_id)

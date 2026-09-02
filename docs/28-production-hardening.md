@@ -96,7 +96,7 @@ false-match ≤ 1%, agent category-accuracy ≥ 85% with calibrated confidence, 
 the regression gate is live.
 
 ### Phase 2 — Multi-tenant platform
-5. Postgres + Alembic; `org_id` on every table; RLS policies; cross-tenant leakage test.
+5. Postgres + Alembic; `org_id` on every table; RLS policies; cross-tenant leakage test. — ✅ **`org_id` on the event store + `EventStore(url, org_id=...)` tenant scoping + run-id partitioning by tenant + the cross-tenant isolation test** (`test_events.py`). Still open: Postgres wiring + Alembic, Postgres RLS policies.
 6. Auth (orgs, RBAC, API keys); every route takes a principal; access audit log.
 7. Async runs: job queue + workers; `POST /runs` → 202; progress over WebSocket.
 8. Object storage for uploads; rate limiting; idempotency keys; published OpenAPI.
