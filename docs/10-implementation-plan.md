@@ -101,7 +101,7 @@ Assumes a solo builder, ~3 focused weeks. Adjust week lengths to your actual run
 - Cycle demo: 3 monthly batches, rules carried forward, the rising-curve on screen.
 - Starter rule packs.
 - **Close Memo** (`arbiter memo`, HTML + PDF); audit-pack export; `arbiter explain`.
-- (stretch) deterministic cash-position readout off the reconciled ledger.
+- (stretch — **done**) deterministic cash-position readout off the reconciled ledger (`arbiter cash-position`).
 - `KNOWN-FAILURE-MODES.md` populated from real bench runs; `RUNBOOK.md`; `/healthz`+`/readyz`.
 - README (with the ablation + calibration numbers), `BUILD-LOG.md` finalized, 5-min pitch video, doc pass.
 - **Exit:** all criteria from [02 §7](02-product-spec.md) **and** [doc 11 §7](11-plan-evaluation-and-gaps.md) pass from a clean checkout.

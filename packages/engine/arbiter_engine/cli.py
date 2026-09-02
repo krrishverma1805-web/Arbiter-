@@ -473,6 +473,81 @@ def rules_merge(
     )
 
 
+@app.command("cash-position")
+def cash_position_cmd(
+    run_id: str = typer.Argument(...),
+    db: str | None = typer.Option(None, "--db"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Where the money is, off the reconciled ledger — confirmed in bank, in
+    transit, held, or unexplained. Pure arithmetic, no LLM."""
+    from arbiter_engine.cash import cash_position
+    from arbiter_engine.events.fold import fold_run
+    from arbiter_engine.money import format_minor
+
+    store = _store(db)
+    proj = fold_run(store, run_id)
+    if not proj.completed:
+        typer.secho("run is not complete", fg=typer.colors.YELLOW)
+        raise typer.Exit(1)
+    cp = cash_position(proj)
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "run_id": cp.run_id,
+                    "gross_minor": cp.gross_minor,
+                    "mdr_minor": cp.mdr_minor,
+                    "gst_minor": cp.gst_minor,
+                    "refunds_minor": cp.refunds_minor,
+                    "net_expected_minor": cp.net_expected_minor,
+                    "confirmed_minor": cp.confirmed_minor,
+                    "confirmed_count": cp.confirmed_count,
+                    "in_transit_minor": cp.in_transit_minor,
+                    "held_minor": cp.held_minor,
+                    "money_found_minor": cp.money_found_minor,
+                    "unexplained_minor": cp.unexplained_minor,
+                    "accounted_minor": cp.accounted_minor,
+                    "reconciling_delta_minor": cp.reconciling_delta_minor,
+                    "by_bucket": cp.by_bucket,
+                },
+                indent=2,
+            )
+        )
+        return
+
+    def row(label: str, minor: int, note: str = "") -> None:
+        typer.echo(f"  {label:<32}{format_minor(minor):>16}   {note}")
+
+    typer.secho(f"\ncash position — run {cp.run_id}", bold=True)
+    row("gross payments processed", cp.gross_minor)
+    row("− MDR", -cp.mdr_minor)
+    row("− GST on MDR", -cp.gst_minor)
+    row("− refunds", -cp.refunds_minor)
+    typer.echo("  " + "─" * 48)
+    row("net expected from settlements", cp.net_expected_minor)
+    typer.echo("")
+    row("✓ confirmed in bank", cp.confirmed_minor, f"{cp.confirmed_count} settlements tied")
+    row("⧗ in transit", cp.in_transit_minor, "settles next period (TIMING)")
+    row("⚠ held — disputes / review", cp.held_minor, "")
+    row("? unexplained", cp.unexplained_minor, "")
+    typer.echo("  " + "─" * 48)
+    row("accounted for", cp.accounted_minor)
+    delta = cp.reconciling_delta_minor
+    tag = "every rupee placed" if delta == 0 else "still reconciling"
+    typer.secho(
+        f"  {'Δ vs net expected':<32}{format_minor(delta):>16}   {tag}",
+        fg=typer.colors.GREEN if delta == 0 else typer.colors.YELLOW,
+    )
+    if cp.money_found_minor:
+        typer.secho(
+            f"\n  + ₹ {cp.money_found_minor / 100:,.2f} over-charged by the processor — claw back "
+            f"(FEE_DEDUCTION)",
+            fg=typer.colors.CYAN,
+        )
+
+
 @app.command()
 def memo(
     run_id: str = typer.Argument(...),

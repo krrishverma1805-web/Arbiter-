@@ -8,6 +8,24 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M5 stretch: `arbiter cash-position`
+
+The reconciled ledger answers "is the money right?"; this answers "where is it?" —
+every settled rupee partitioned into confirmed-in-bank / in-transit / held /
+unexplained, as pure arithmetic (no LLM).
+
+**First cut didn't reconcile.** It summed exception `amount_impact_minor` into the
+buckets, but that field is a *severity heuristic* for ranking the queue, not a
+balance — it double-counted against `confirmed` and left a ₹30–70k `Δ`.
+
+**Fix: partition the settlement batches, not the exceptions.** Every processor row
+belongs to exactly one `settlement_utr`; each batch's net (gross − MDR − GST −
+refunds for *its* rows) lands in one bucket, chosen by the highest-severity
+exception that touches it, else by whether its decomposition is clean. Now the
+four buckets sum back to the processor-side net exactly — `reconciling_delta` is
+0 on every seed, and a non-zero value would be surfaced, not hidden.
+`test_cash.py` asserts the partition and its determinism.
+
 ## 2026-09-02 — M5: the cycle demo, and making the learning loop actually move a number
 
 The learning-loop *mechanism* landed earlier; this is the demo that proves it —
