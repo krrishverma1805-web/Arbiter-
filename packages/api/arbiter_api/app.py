@@ -30,7 +30,6 @@ from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import ChainBroken, EventStore
 from arbiter_engine.money import format_minor
 from arbiter_engine.replay import replay as do_replay
-from arbiter_engine.run import RunInputs, execute
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -129,24 +128,55 @@ def whoami() -> dict[str, Any]:
 @app.post("/v1/runs", status_code=202)
 def start_run(req: RunRequest) -> dict[str, Any]:
     _require("analyst")
+    from arbiter_api import jobs
+
     spec_path = SPECS_DIR / f"{req.spec}.yaml"
-    if not spec_path.exists():
-        spec_path = Path(req.spec)
-    if not spec_path.exists():
+    if not spec_path.exists() and not Path(req.spec).exists():
         raise _problem(404, "spec not found", req.spec)
-    ds = Path(req.dataset)
-    if not ds.exists():
-        ds = DATASETS_DIR / req.dataset
-    if not ds.exists():
+    if not Path(req.dataset).exists() and not (DATASETS_DIR / req.dataset).exists():
         raise _problem(404, "dataset not found", req.dataset)
 
-    proj = execute(
-        get_store(),
-        RunInputs(
-            spec_path=spec_path, dataset_dir=ds, no_ai=req.no_ai, model=req.model, rerun=req.rerun
-        ),
-    )
-    return _run_summary(proj.run_id)
+    org = current_principal().org_id
+    job_id = jobs.enqueue(org, "run", req.model_dump())
+    if jobs.ASYNC:
+        return {"job_id": job_id, "status": "queued"}
+    job = jobs.get(job_id, org)
+    assert job is not None
+    jobs.run_one(job)
+    done = jobs.get(job_id, org)
+    if done is None or done.status != "done" or done.run_id is None:
+        raise _problem(500, "run failed", (done.error if done else "") or "unknown error")
+    return {"job_id": job_id, **_run_summary(done.run_id)}
+
+
+@app.get("/v1/jobs")
+def list_jobs() -> dict[str, Any]:
+    from arbiter_api import jobs
+
+    org = current_principal().org_id
+    return {
+        "jobs": [
+            {"id": j.id, "kind": j.kind, "status": j.status, "run_id": j.run_id, "error": j.error}
+            for j in jobs.recent(org)
+        ]
+    }
+
+
+@app.get("/v1/jobs/{job_id}")
+def job_status(job_id: int) -> dict[str, Any]:
+    from arbiter_api import jobs
+
+    j = jobs.get(job_id, current_principal().org_id)
+    if j is None:
+        raise _problem(404, "job not found", str(job_id))
+    return {
+        "id": j.id,
+        "kind": j.kind,
+        "status": j.status,
+        "attempts": j.attempts,
+        "run_id": j.run_id,
+        "error": j.error,
+    }
 
 
 @app.get("/v1/runs")

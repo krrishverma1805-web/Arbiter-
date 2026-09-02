@@ -1,4 +1,4 @@
-.PHONY: help install demo cycle run bench bench-baseline test lint typecheck web api up clean
+.PHONY: help install demo cycle run bench bench-baseline test lint typecheck web api worker up clean
 
 SPEC ?= specs/razorpay-settlement.yaml
 DATASET ?= datasets/seed
@@ -50,6 +50,9 @@ gen:
 
 api:
 	uv run arbiter-api
+
+worker:
+	ARBITER_ASYNC=1 uv run arbiter-api worker
 
 web:
 	cd web && pnpm dev

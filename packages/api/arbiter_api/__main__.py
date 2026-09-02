@@ -32,11 +32,21 @@ def _issue_key(args: list[str]) -> None:
     print(issue_key(org, subject, role))
 
 
+def _worker() -> None:
+    from arbiter_api.jobs import worker_loop
+
+    print("arbiter worker: polling for queued jobs (Ctrl-C to stop)")
+    worker_loop()
+
+
 def main() -> None:
-    if len(sys.argv) > 1 and sys.argv[1] == "issue-key":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd == "issue-key":
         _issue_key(sys.argv[2:])
-        return
-    _serve()
+    elif cmd == "worker":
+        _worker()
+    else:
+        _serve()
 
 
 if __name__ == "__main__":

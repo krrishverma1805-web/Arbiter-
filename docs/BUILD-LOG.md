@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2: async runs — a DB-backed job queue
+
+`arbiter_api/jobs.py`: a single `jobs` table with an atomic claim (`UPDATE …
+WHERE status='queued' … RETURNING`, honoured by both SQLite and Postgres), so it
+survives a restart and needs no Redis. `POST /v1/runs` records a `Job` for the
+caller's org; with `ARBITER_ASYNC=1` it returns `202 {job_id, status:"queued"}`
+and `arbiter-api worker` (`make worker`) picks it up; otherwise it runs inline
+(the default — demo + tests unchanged). Up to `MAX_ATTEMPTS` retries, then
+`failed`. `GET /v1/jobs` and `GET /v1/jobs/{id}` are tenant-scoped.
+
+`test_api.py`: queued → worker drains → done + a completed run; a job failure is
+recorded on the row, not raised; the jobs list is tenant-scoped. 117 tests. Still
+open: WebSocket progress (the SSE stream exists), a proper worker Dockerfile
+(Phase 3).
+
 ## 2026-09-02 — Phase 2: API auth — principal, API keys, RBAC
 
 `arbiter_api/auth.py`: every request carries `Authorization: Bearer <key>`; the

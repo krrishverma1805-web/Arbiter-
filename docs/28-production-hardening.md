@@ -98,7 +98,7 @@ the regression gate is live.
 ### Phase 2 — Multi-tenant platform
 5. Postgres + Alembic; `org_id` on every table; RLS policies; cross-tenant leakage test. — ✅ **`org_id` on the event store + `EventStore(url, org_id=...)` tenant scoping + run-id partitioning by tenant + the cross-tenant isolation test** (`test_events.py`). Still open: Postgres wiring + Alembic, Postgres RLS policies.
 6. Auth (orgs, RBAC, API keys); every route takes a principal; access audit log. — ✅ **API-key auth (`arbiter_api/auth.py`), a per-request `Principal` in a ContextVar, tenant-scoped store, RBAC (`viewer`/`analyst`/`admin`) on the mutating routes, `GET /v1/me`, `arbiter-api issue-key`, and the "two API tenants can't see each other" test.** Still open: an access audit log; the cockpit sending its key.
-7. Async runs: job queue + workers; `POST /runs` → 202; progress over WebSocket.
+7. Async runs: job queue + workers; `POST /runs` → 202; progress over WebSocket. — ✅ **DB-backed job queue (`arbiter_api/jobs.py`), atomic claim, `arbiter-api worker` / `make worker`, `ARBITER_ASYNC=1` toggle (inline default), retries + dead-letter, tenant-scoped `GET /v1/jobs`.** Still open: WebSocket progress (SSE stream already exists).
 8. Object storage for uploads; rate limiting; idempotency keys; published OpenAPI.
 
 **Exit:** two orgs cannot see each other's data (proven by test); a run is

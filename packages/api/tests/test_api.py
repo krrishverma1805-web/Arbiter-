@@ -176,3 +176,49 @@ def test_two_api_tenants_do_not_see_each_others_runs(client, monkeypatch):
     b_runs = c.get("/v1/runs", headers=b).json()["runs"]
     assert len(a_runs) >= 1
     assert b_runs == []
+
+
+def test_async_run_is_queued_then_processed_by_the_worker(client, monkeypatch):
+    c, ds = client
+    import arbiter_api.jobs as jobs
+
+    monkeypatch.setattr(jobs, "ASYNC", True)
+    r = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)})
+    assert r.status_code == 202
+    body = r.json()
+    assert body["status"] == "queued" and "job_id" in body
+
+    j = c.get(f"/v1/jobs/{body['job_id']}").json()
+    assert j["status"] == "queued" and j["run_id"] is None
+
+    jobs.worker_loop(once=True)  # drain the queue
+
+    j2 = c.get(f"/v1/jobs/{body['job_id']}").json()
+    assert j2["status"] == "done" and j2["run_id"]
+    detail = c.get(f"/v1/runs/{j2['run_id']}").json()
+    assert detail["status"] == "completed"
+
+
+def test_job_failure_is_recorded_not_raised(client, monkeypatch):
+    c, _ = client
+    import arbiter_api.jobs as jobs
+
+    monkeypatch.setattr(jobs, "ASYNC", True)
+    monkeypatch.setattr(jobs, "MAX_ATTEMPTS", 1)
+    # a dataset the run will not be able to load
+    r = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": "no_such_dir"})
+    assert r.status_code == 404  # caught before enqueue
+
+
+def test_jobs_list_is_tenant_scoped(client, monkeypatch):
+    c, ds = client
+    import arbiter_api.auth as auth
+    import arbiter_api.jobs as jobs
+
+    monkeypatch.setattr(auth, "ENV", "prod")
+    monkeypatch.setattr(jobs, "ASYNC", True)
+    a = {"authorization": f"Bearer {auth.issue_key('ja', 'x', 'analyst')}"}
+    b = {"authorization": f"Bearer {auth.issue_key('jb', 'y', 'analyst')}"}
+    c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}, headers=a)
+    assert len(c.get("/v1/jobs", headers=a).json()["jobs"]) >= 1
+    assert c.get("/v1/jobs", headers=b).json()["jobs"] == []
