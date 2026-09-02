@@ -1,4 +1,4 @@
-.PHONY: help install demo run bench test lint typecheck web api up clean
+.PHONY: help install demo cycle run bench test lint typecheck web api up clean
 
 SPEC ?= specs/razorpay-settlement.yaml
 DATASET ?= datasets/seed
@@ -10,6 +10,7 @@ help:
 	@echo "Arbiter — make targets"
 	@echo "  install    uv sync + pnpm install"
 	@echo "  demo       generate a seed dataset, run reconciliation, print the scorecard"
+	@echo "  cycle      3 monthly closes: resolve once, learn a rule, watch it carry forward"
 	@echo "  run        arbiter run --spec \$$(SPEC) --dataset \$$(DATASET)"
 	@echo "  bench      arbiter bench (matching + agent scorecard vs ground truth)"
 	@echo "  api        run the FastAPI backend on :8000"
@@ -30,6 +31,9 @@ $(DATASET)/manifest.json:
 demo: install $(DATASET)/manifest.json
 	uv run arbiter run --spec $(SPEC) --dataset $(DATASET)
 	uv run arbiter bench --spec $(SPEC) --dataset $(DATASET)
+
+cycle:
+	uv run arbiter cycle-demo --out data/cycle
 
 run:
 	uv run arbiter run --spec $(SPEC) --dataset $(DATASET)

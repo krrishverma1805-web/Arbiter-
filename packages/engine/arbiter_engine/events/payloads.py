@@ -135,6 +135,7 @@ class ResolutionApplied(BaseModel):
     actor: str
     prior_status: str
     source: str = "human"
+    category: str | None = None  # a human correction to the classifier's category
 
 
 class RuleDrafted(BaseModel):

@@ -33,14 +33,21 @@ escalation precision/recall) is the aggregate measure.
 
 ### Observed on the deterministic side (not the agent)
 
-- **Classifier under-detection at low anomaly density.** On a 150-record normal-
-  difficulty batch, `arbiter bench` reported `category_accuracy` 0.75 and detected
-  4 of 7 injected anomalies — the misses were single-record shapes (one `FEE_DRIFT`,
-  one `TIMING_STRADDLE`) that tied within tolerance and never opened an exception.
-  This is the matcher's tolerance band doing its job (they *are* within tolerance),
-  not a bug — but it means the ground-truth anomaly count and the exception count
-  legitimately differ. The matching scorecard measures this honestly via
-  `false_match_rate` (0.0 here — nothing was mis-tied) rather than raw recall.
+- **`SPLIT_SETTLEMENT` is detected but not auto-categorised.** On a 150-record
+  normal batch, `arbiter bench` detects 6 of 7 anomalies but `category_accuracy`
+  is 0.50: the split-settlement residual opens as `UNEXPLAINED` (a large residual
+  the base spec has no rule for), so it is *found* but not *named*. This is by
+  design — a first-occurrence novel shape is a human call — and it is exactly what
+  the learning loop closes: resolving one as `SPLIT_SETTLEMENT` drafts a rule that
+  names the shape on every later close (`arbiter cycle-demo`). Before 2026-09-02
+  the `SPLIT_BATCH` anomaly produced no residual at all (a `datagen` bug, see
+  BUILD-LOG) and was the anomaly `detected_anomalies` always missed.
+- **Sub-tolerance variances never open an exception.** `GST_ROUND` (±1–2 paise)
+  and small `FEE_DRIFT` land inside the ₹1.00 rounding band, so they don't appear
+  in the exception list. The matcher's tolerance band is doing its job — but the
+  ground-truth anomaly count and the exception count legitimately differ. The
+  matching scorecard measures this honestly via `false_match_rate` (0.0 — nothing
+  is mis-tied) rather than raw recall.
 
 | # | Case | Symptom | Root cause | Containment that caught it | Fix / mitigation |
 |---|---|---|---|---|---|

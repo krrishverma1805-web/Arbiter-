@@ -240,6 +240,10 @@ def _split_batch(ctx: BatchCtx, aid: str) -> Anomaly | None:
     item["settlement_utr"] = dst
     ctx.batches[dst]["items"].append(item)
     ctx.batches[src]["items"].remove(item)
+    # the bank settled `dst` before the order was re-routed into it: `dst`'s credit
+    # is short by this payment, so the batch carries a real residual until someone
+    # recognises the two halves net out across settlements. `src` re-ties cleanly.
+    ctx.freeze_bank(dst)
     return Anomaly(
         id=aid,
         kind="SPLIT_BATCH",
@@ -247,7 +251,7 @@ def _split_batch(ctx: BatchCtx, aid: str) -> Anomaly | None:
         true_resolution={"action": "accept_variance"},
         deterministically_resolvable=True,
         dollar_impact_minor=int(item["credit"]),
-        record_ids=[item["entity_id"]],
+        record_ids=[it["entity_id"] for it in ctx.batches[dst]["items"]],
         settlement_utr=dst,
         note="one order's payment moved to a different settlement batch",
     )

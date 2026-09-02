@@ -85,6 +85,8 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
                     "detail": payload.get("detail", ""),
                     "actor": payload["actor"],
                 }
+                if payload.get("category"):
+                    resolutions[payload["exception_id"]]["category"] = payload["category"]
             case EventType.SCORECARD_COMPUTED:
                 proj.scorecard = payload["scorecard"]
             case EventType.RUN_COMPLETED:
@@ -115,6 +117,9 @@ def fold_run(store: EventStore, run_id: str) -> RunProjection:
                 update["status"] = (
                     "wont_fix" if resolutions[e.id]["action"] == "wont_fix" else "resolved"
                 )
+                if resolutions[e.id].get("category"):
+                    update["category"] = resolutions[e.id]["category"]
+                    update["classified_by"] = "human:" + resolutions[e.id]["actor"]
             rebuilt.append(e.model_copy(update=update) if update else e)
         proj.exceptions = rebuilt
 

@@ -8,6 +8,47 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — M5: the cycle demo, and making the learning loop actually move a number
+
+The learning-loop *mechanism* landed earlier; this is the demo that proves it —
+three monthly closes with the learned rule carried forward (`arbiter cycle-demo`,
+`make cycle`).
+
+**What didn't work at first.** The pitch (docs/02 §5.3) is "resolve once → the
+match rate rises next cycle." But every mechanical anomaly the generator injected
+was *already* classified by a base-spec rule, and the one recurring `UNEXPLAINED`
+was an orphan bank credit — genuinely undecidable, correctly not generalisable.
+There was nothing for a learned rule to catch.
+
+**Root cause.** `datagen`'s `SPLIT_BATCH` injector moved a payment between two
+settlement batches but never froze either batch's bank credit, so both re-tied
+and the "split" produced no residual at all — a silent no-op anomaly (it was the
+one the scorecard's `detected_anomalies` always missed).
+
+**Fix.**
+- `_split_batch` now `freeze_bank(dst)`: the destination settlement was paid
+  before the order was re-routed into it, so it carries a real, labelled residual
+  until someone recognises the two halves net out. The source re-ties cleanly.
+- `arbiter resolve --category <C>` (and the API `category` field): a controller
+  correcting the classifier — "this UNEXPLAINED residual is a SPLIT_SETTLEMENT" —
+  is what seeds the rule. `RESOLUTION_APPLIED` carries the correction; the fold
+  applies it to the exception (`classified_by: human:<actor>`).
+- `SPLIT_SETTLEMENT` template added to `synthesize.py`:
+  `exception.record_count >= {rc} and abs(exception.residual_minor) <= {band}` —
+  the `rc` floor (≥ 3, generalised down from the resolved case) keeps it off 1:1
+  residuals; the band is 2× the accepted variance, so a larger one still opens an
+  exception.
+
+**The demo is an A/B, not a single line.** Each close is a fresh random batch, so
+batch-to-batch noise would swamp one metric column. `cycle-demo` scores every
+close twice — once on the base spec, once on the carried-forward spec — and
+reports the gap. That gap is the rule and nothing else.
+
+**Verified:** the 800-record bench gate is unchanged (auto-match 93.75%,
+false-match 0.0%, coverage 100%, replay hash stable); `test_cycle.py` asserts the
+later closes never regress and at least one recovers money the base spec left
+UNEXPLAINED. Full suite 90 tests, `ruff` + `mypy` clean.
+
 ## 2026-09-02 — M5: the learning loop + the Close Memo (docs/02 §5.3, docs/20 §2.6)
 
 When a human resolves an exception, Arbiter drafts a **candidate classification rule**

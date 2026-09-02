@@ -42,6 +42,27 @@ def test_judgment_categories_do_not_generalise():
         assert draft_rule_from_resolution(_exc(cat), "route_to_human") is None
 
 
+def test_human_category_override_seeds_the_rule():
+    """An UNEXPLAINED residual a controller resolves as SPLIT_SETTLEMENT generalises
+    on the corrected category, not the classifier's blank."""
+    exc = Exception_(
+        id="exc_test",
+        run_id="r",
+        category="UNEXPLAINED",
+        classified_by="unclassified",
+        amount_impact_minor=700,
+        record_ids=[f"r{i}" for i in range(12)],
+    )
+    assert draft_rule_from_resolution(exc, "accept_variance") is None
+    r = draft_rule_from_resolution(exc, "accept_variance", category="SPLIT_SETTLEMENT")
+    assert r is not None and r["classify"] == "SPLIT_SETTLEMENT"
+    assert r["resolve"] == "accept_variance"
+
+    from arbiter_engine.exceptions.rules import compile_rule
+
+    compile_rule(r["when"])
+
+
 def test_pending_then_merge_bumps_the_spec_version(tmp_path: Path, spec_path: Path):
     spec_copy = tmp_path / "spec.yaml"
     shutil.copy(spec_path, spec_copy)

@@ -65,9 +65,10 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
 - **M4** — the FastAPI backend and the Next.js cockpit (scorecard · keyboard-first exception
   queue · evidence drawer), verified end to end.
 - **M5** — the learning loop (resolution → drafted safe rule → reviewed spec merge → the rule
-  classifies the next run, no model in the loop) and the auditor-ready **Close Memo**.
+  classifies the next run, no model in the loop), the 3-close **cycle demo** (`make cycle`),
+  the auditor-ready **Close Memo**, and the `audit-pack` export.
 
-87 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
+90 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
 gate, and a web typecheck/lint/build job.
 
 ## Quickstart
@@ -84,9 +85,10 @@ uv run arbiter gen --scenario d2c --records 200 --seed 42 --out datasets/seed
 uv run arbiter run   --spec specs/razorpay-settlement.yaml --dataset datasets/seed [--no-ai]
 uv run arbiter bench --spec specs/razorpay-settlement.yaml --dataset datasets/seed --json
 uv run arbiter explain <run-id>            # the evidence for each exception, as text
-uv run arbiter resolve <run-id> <exc-id> --action <action>   # → drafts a learned rule
+uv run arbiter resolve <run-id> <exc-id> --action <a> [--category <C>]   # → drafts a learned rule
 uv run arbiter rules pending <run-id> --spec specs/razorpay-settlement.yaml
 uv run arbiter rules merge   <run-id> --spec specs/razorpay-settlement.yaml   # bumps version:
+uv run arbiter cycle-demo --out data/cycle   # 3 closes: resolve once, learn, carry forward
 uv run arbiter memo       <run-id> --out close-memo.html     # the auditor-ready Close Memo
 uv run arbiter audit-pack <run-id> --out pack.zip            # event log + memo + verify manifest
 uv run arbiter replay  <run-id>            # reproduce a completed run from its event log

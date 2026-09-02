@@ -269,6 +269,7 @@ class ResolveRequest(BaseModel):
     action: str
     detail: str = ""
     actor: str = "human:api"
+    category: str | None = None
 
 
 @app.post("/v1/exceptions/{run_id}/{exception_id}/resolve")
@@ -287,11 +288,12 @@ def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest) -> di
             "detail": req.detail,
             "actor": req.actor,
             "prior_status": exc.status,
+            "category": req.category,
         },
     )
     from arbiter_engine.learn import draft_rule_from_resolution
 
-    draft = draft_rule_from_resolution(exc, req.action)
+    draft = draft_rule_from_resolution(exc, req.action, category=req.category)
     if draft is not None:
         store.append(run_id, EventType.RULE_DRAFTED, draft)
     return {"ok": True, "exception_id": exception_id, "action": req.action, "drafted_rule": draft}

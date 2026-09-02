@@ -392,6 +392,9 @@ def resolve(
     action: str = typer.Option(..., "--action"),
     detail: str = typer.Option("", "--detail"),
     actor: str = typer.Option("human:cli", "--actor"),
+    category: str | None = typer.Option(
+        None, "--category", help="correct the classifier's category (seeds the learned rule)"
+    ),
     db: str | None = typer.Option(None, "--db"),
 ) -> None:
     """Apply a resolution to an exception; drafts a learned rule if the shape allows."""
@@ -413,9 +416,10 @@ def resolve(
             "detail": detail,
             "actor": actor,
             "prior_status": exc.status,
+            "category": category,
         },
     )
-    draft = draft_rule_from_resolution(exc, action)
+    draft = draft_rule_from_resolution(exc, action, category=category)
     if draft is not None:
         store.append(run_id, EventType.RULE_DRAFTED, draft)
         typer.secho(f"resolved · drafted rule {draft['rule_id']}", fg=typer.colors.GREEN)
@@ -503,6 +507,68 @@ def memo(
         typer.echo(f"→ {out}")
     else:
         typer.echo(doc)
+
+
+@app.command("cycle-demo")
+def cycle_demo(
+    out: Path = typer.Option(Path("data/cycle"), "--out", help="working directory"),
+    spec: Path = typer.Option(
+        Path("specs/razorpay-settlement.yaml"), "--spec", help="the starting spec"
+    ),
+    records: int = typer.Option(300, "--records"),
+    cycles: int = typer.Option(3, "--cycles", min=2),
+    difficulty: str = typer.Option("hard", "--difficulty"),
+) -> None:
+    """Three monthly closes: cycle 1 leaves a settlement residual UNEXPLAINED, a
+    controller resolves it, the drafted rule is merged, and cycles 2+ classify the
+    same shape automatically. Shows the unexplained-money line falling."""
+    from arbiter_datagen.generate import generate_dataset
+
+    from arbiter_engine.learn.cycle import run_cycle_demo
+
+    out.mkdir(parents=True, exist_ok=True)
+    datasets: list[Path] = []
+    for i in range(1, cycles + 1):
+        d = out / f"batch{i}"
+        generate_dataset(scenario="d2c", records=records, seed=i, out_dir=d, difficulty=difficulty)
+        datasets.append(d)
+
+    result = run_cycle_demo(spec, datasets, out)
+
+    typer.echo("")
+    typer.secho(f"{'':6}{'':10}{'base spec':>26}{'with learned rule':>28}", bold=True)
+    typer.secho(
+        f"{'cycle':<6}{'batch':<10}"
+        f"{'UNEXPLAINED':>13}{'unexplained ₹':>13}"
+        f"{'UNEXPLAINED':>14}{'unexplained ₹':>14}{'₹ recovered':>14}",
+        bold=True,
+    )
+    for r in result.rows:
+        typer.echo(
+            f"{r.cycle:<6}{r.dataset:<10}"
+            f"{r.base_unexplained_count:>13}{r.base_unexplained_minor / 100:>13,.0f}"
+            f"{r.learned_unexplained_count:>14}{r.learned_unexplained_minor / 100:>14,.0f}"
+            f"{r.money_recovered_minor / 100:>14,.0f}"
+        )
+    if result.drafted_rule is not None:
+        rule = result.drafted_rule
+        typer.echo("")
+        typer.secho(
+            f"cycle 1: controller resolved a split-settlement residual → drafted & merged "
+            f"{rule['rule_id']} "
+            f"(spec v{result.spec_version_before} → v{result.spec_version_after})",
+            fg=typer.colors.GREEN,
+        )
+        typer.echo(f"  when:     {rule['when']}")
+        typer.echo(f"  classify: {rule['classify']}   resolve: {rule['resolve']}")
+        later = result.rows[1:]
+        if later and all(r.money_recovered_minor >= 0 for r in later):
+            recovered = result.total_recovered_minor / 100
+            typer.secho(
+                f"\nthe learned rule cleared ₹{recovered:,.0f} of settlement residual across "
+                f"{len(later)} later close(s) that the base spec left UNEXPLAINED",
+                fg=typer.colors.GREEN,
+            )
 
 
 @app.command("audit-pack")
