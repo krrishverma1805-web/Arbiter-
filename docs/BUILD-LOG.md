@@ -8,6 +8,15 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Cockpit: surface grounding + the matcher's pass mix
+
+The Phase 1.2 / 1.3 accuracy work was invisible in the UI. The evidence drawer's
+proposal panel now shows **grounded confidence** (and, when it differs, what the
+model *said*), lists every `evidence_ref` inline, and flags a fabricated citation
+or a failed category check in red. The scorecard panel adds the `by_pass`
+breakdown (exact / tolerant / blocked / aggregate …) and the agent's grounded
+rate + confidence ECE. `pnpm typecheck && lint && build` clean.
+
 ## 2026-09-02 — Phase 1.4: mangled-UTR robustness stressor in the generator
 
 The new matcher passes (2b–2d) were only exercised by hand-built fixtures. On

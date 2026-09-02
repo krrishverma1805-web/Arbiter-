@@ -44,6 +44,7 @@ export interface Scorecard {
     dollar_unexplained: number;
     true_matches: number;
     correct_matches: number;
+    by_pass?: Record<string, number>;
   };
   exceptions: {
     total: number;
@@ -65,6 +66,9 @@ export interface Scorecard {
     escalation_precision: number;
     escalation_recall: number;
     hallucination_rate: number;
+    grounded_rate?: number;
+    confidence_ece?: number;
+    confidence_n?: number;
     est_cost_usd: number;
   };
 }

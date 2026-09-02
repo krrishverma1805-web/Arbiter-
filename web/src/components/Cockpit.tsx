@@ -196,6 +196,14 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
       <Row label="false-match rate" v={pct(m.false_match_rate)} bad={m.false_match_rate > 0.015} />
       <Row label="₹ coverage" v={pct(m.dollar_coverage)} />
       <Row label="₹ unexplained" v={pct(m.dollar_unexplained)} />
+      {m.by_pass && (
+        <Row
+          label="by pass"
+          v={Object.entries(m.by_pass)
+            .map(([k, v]) => `${k} ${v}`)
+            .join("  ")}
+        />
+      )}
       <hr className="border-border" />
       <div className="text-xs font-semibold uppercase tracking-wide text-muted">exceptions</div>
       {Object.entries(s.exceptions.by_type).map(([k, v]) => (
@@ -214,6 +222,12 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
         <>
           <Row label="task-completion" v={pct(s.agent.task_completion_rate)} />
           <Row label="hallucination" v={pct(s.agent.hallucination_rate)} bad={s.agent.hallucination_rate > 0.02} />
+          {typeof s.agent.grounded_rate === "number" && (
+            <Row label="grounded" v={pct(s.agent.grounded_rate)} />
+          )}
+          {typeof s.agent.confidence_ece === "number" && s.agent.confidence_n ? (
+            <Row label="confidence ECE" v={s.agent.confidence_ece.toFixed(3)} />
+          ) : null}
           <Row label="escalation recall" v={pct(s.agent.escalation_recall)} />
           <Row label="cost" v={`$${s.agent.est_cost_usd.toFixed(3)}`} />
         </>
@@ -271,15 +285,7 @@ function DrawerPanel({
         </div>
       ))}
 
-      {d.agent_proposal && (
-        <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
-          <div className="font-semibold text-accent">proposed by Arbiter</div>
-          <div className="mt-1">
-            {String(d.agent_proposal.category)} (confidence {String(d.agent_proposal.confidence)})
-          </div>
-          <p className="mt-1">{String(d.agent_proposal.explanation)}</p>
-        </div>
-      )}
+      {d.agent_proposal && <ProposalPanel p={d.agent_proposal} />}
       {d.agent_escalation && (
         <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
           <div className="font-semibold text-accent">escalated by Arbiter</div>
@@ -309,6 +315,49 @@ function DrawerPanel({
             </button>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function ProposalPanel({ p }: { p: Record<string, unknown> }) {
+  const g = (p.grounding ?? null) as Record<string, unknown> | null;
+  const raw = typeof p.confidence === "number" ? p.confidence : null;
+  const grounded = g && typeof g.grounded_confidence === "number" ? g.grounded_confidence : null;
+  const fabricated = (g?.fabricated as unknown[] | undefined)?.length ?? 0;
+  const catOk = g ? g.category_consistent !== false : true;
+  const refs = (p.evidence_refs as { claim: string; record_id: string; field: string }[]) ?? [];
+  return (
+    <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-accent">proposed by Arbiter</span>
+        {grounded !== null && (
+          <span
+            className={`font-mono ${grounded >= 0.8 ? "text-positive" : grounded >= 0.55 ? "text-attention" : "text-critical"}`}
+          >
+            {pct(grounded)} grounded
+            {raw !== null && raw !== grounded ? ` (said ${pct(raw)})` : ""}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 font-medium">{String(p.category)}</div>
+      <p className="mt-1">{String(p.explanation ?? "")}</p>
+      {refs.length > 0 && (
+        <ul className="mt-2 space-y-0.5 text-muted">
+          {refs.map((r, i) => (
+            <li key={i}>
+              ↳ {r.claim} <span className="font-mono">[{r.record_id}·{r.field}]</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {fabricated > 0 && (
+        <div className="mt-2 font-medium text-critical">
+          ⚠ {fabricated} citation(s) did not resolve to a real record — escalated
+        </div>
+      )}
+      {!catOk && typeof g?.category_note === "string" && g.category_note.length > 0 && (
+        <div className="mt-2 text-attention">⚠ {g.category_note}</div>
       )}
     </div>
   );
