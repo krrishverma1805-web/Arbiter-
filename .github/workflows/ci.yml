@@ -142,6 +142,44 @@ jobs:
           done
           curl -sf localhost:8000/healthz | grep -q '"status":"ok"'
           docker rm -f api
+      - name: build the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          push: false
+          load: true
+          tags: arbiter-web:ci
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - name: the web image starts and serves the cockpit
+        run: |
+          docker run -d --name web -p 3000:3000 -e ARBITER_API_URL=http://127.0.0.1:8000 arbiter-web:ci
+          for i in $(seq 1 30); do
+            curl -sf localhost:3000/ >/dev/null && break || sleep 1
+          done
+          curl -sf localhost:3000/ | grep -qi arbiter
+          docker rm -f web
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: "3.16.2"
+      - name: helm lint
+        run: helm lint deploy/helm/arbiter --values deploy/helm/arbiter/ci/lint-values.yaml
+      - name: render manifests
+        run: helm template arb deploy/helm/arbiter --values deploy/helm/arbiter/ci/lint-values.yaml > /tmp/manifests.yaml
+      - name: validate against the k8s schema
+        run: |
+          curl -sSL -o /tmp/kc.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kc.tar.gz -C /tmp
+          /tmp/kubeconform -strict -summary -kubernetes-version 1.28.0 \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            /tmp/manifests.yaml
 
   web:
     runs-on: ubuntu-latest

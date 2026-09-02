@@ -1,0 +1,114 @@
+# Default values for the Arbiter chart. Production deployments override the
+# image tags, the database URL, and the secret values.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: ghcr.io
+  repository: krrishverma1805-web/arbiter
+  # api/worker share one image; web is separate. Tag is set per-release.
+  apiTag: latest
+  webTag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Non-secret configuration — rendered into a ConfigMap.
+config:
+  ARBITER_ENV: prod
+  ARBITER_API_HOST: "0.0.0.0"
+  ARBITER_SPECS_DIR: /app/specs
+  ARBITER_ASYNC: "1"
+  ARBITER_UPLOADS_DIR: /data/uploads
+
+# Secrets — rendered into a Secret. Leave empty and set --set-string, or point
+# existingSecret at a Secret you manage out-of-band (e.g. external-secrets).
+secret:
+  existingSecret: ""
+  data:
+    ARBITER_DB_URL: "postgresql+psycopg://arbiter:arbiter@arbiter-pgbouncer:6432/arbiter"
+    ANTHROPIC_API_KEY: ""
+
+# One-shot `arbiter-api db upgrade` as a pre-install/pre-upgrade Helm hook so
+# the schema is migrated before any pod that reads it rolls out.
+migrations:
+  enabled: true
+  backoffLimit: 3
+
+api:
+  replicaCount: 2
+  port: 8000
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+worker:
+  replicaCount: 2
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+  # Scale workers on queued-job depth via KEDA if installed; CPU HPA otherwise.
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 65
+
+web:
+  replicaCount: 2
+  port: 3000
+  apiUrl: "http://arbiter-api:8000"
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 75
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: arbiter.example.com
+  tls:
+    enabled: false
+    secretName: arbiter-tls
+
+serviceAccount:
+  create: true
+  name: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+persistence:
+  # Shared uploads volume. In real clusters use an RWX class (EFS / Filestore)
+  # or swap storage.py for an S3/R2 backend and disable this.
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  storageClass: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

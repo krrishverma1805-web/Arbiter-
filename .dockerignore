@@ -1,0 +1,14 @@
+# Keep build contexts small and deterministic (docs/28 §3).
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+.git
+data/
+*.db
+web/tsconfig.tsbuildinfo
+scratchpad/

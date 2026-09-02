@@ -8,6 +8,25 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 3: web image + Helm chart
+
+`web/Dockerfile` (Next.js `output: "standalone"`, `node:20-slim`, non-root
+`nextjs` uid 10001, `HEALTHCHECK`) and a `web` service in `docker-compose.yml`.
+A `.dockerignore` keeps the build contexts small.
+
+`deploy/helm/arbiter/` — a real chart for the three workloads: `api`
+(Deployment + Service + HPA + PDB), `worker` (Deployment + HPA,
+`terminationGracePeriodSeconds: 120` so an in-flight run is re-claimed not
+lost), `web` (Deployment + Service). Schema migrations run as a
+`pre-install,pre-upgrade` hook Job (`arbiter-api db upgrade`). ConfigMap +
+Secret (or `existingSecret`), a shared uploads PVC, optional Ingress,
+`readOnlyRootFilesystem` + dropped caps + `seccompProfile: RuntimeDefault`
+everywhere.
+
+CI gains a `helm` job — `helm lint` + `helm template` piped through
+`kubeconform -strict` against the k8s 1.28 schema (14 resources, all valid) —
+and the `docker` job now also builds the `web` image and curls the cockpit.
+
 ## 2026-09-02 — Phase 2: Postgres row-level security
 
 Migration `28f8eb3b` (Postgres-only — a no-op on SQLite): `ENABLE` +

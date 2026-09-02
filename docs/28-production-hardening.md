@@ -105,8 +105,8 @@ the regression gate is live.
 queued and executed by a worker; the API survives a load test at target RPS.
 
 ### Phase 3 — Infra, deploy, observability
-9. Dockerfiles (api/worker/web) + full compose + Helm chart. — ✅ **the `api`/`worker` image (`packages/api/Dockerfile`, multi-stage, non-root, healthcheck) + a real `docker-compose` (`db` + `api` + 2× `worker` behind the `app` profile).** Still open: a `web` image, a Helm chart.
-10. CI/CD: image build+scan+push, migration gate, preview envs, rolling deploy + auto-rollback. — ✅ **CI `docker` job: builds the image (GHA cache) and asserts a container answers `/healthz`.** Still open: image scan + push to a registry, migration gate, preview envs, deploy pipeline.
+9. Dockerfiles (api/worker/web) + full compose + Helm chart. — ✅ **the `api`/`worker` image (`packages/api/Dockerfile`, multi-stage, non-root, healthcheck) + the `web` image (`web/Dockerfile`, Next.js standalone, non-root) + a real `docker-compose` (`db` + `api` + 2× `worker` + `web` behind the `app` profile) + a Helm chart (`deploy/helm/arbiter/` — api/worker/web Deployments, HPAs, PDB, a `pre-upgrade` migration-hook Job, ConfigMap/Secret, PVC, Ingress; `helm lint` + `kubeconform -strict` in CI).** Still open: nothing on this line — the chart is real.
+10. CI/CD: image build+scan+push, migration gate, preview envs, rolling deploy + auto-rollback. — ✅ **CI `docker` job: builds the `api` and `web` images (GHA cache) and asserts each container serves (`/healthz`, cockpit root); CI `helm` job renders + schema-validates the chart.** Still open: image scan + push to a registry, migration gate, preview envs, deploy pipeline.
 11. OpenTelemetry + structlog + Prometheus/Grafana + Sentry + SLOs + alerting. — ✅ **structlog JSON logs + request-id correlation (`X-Request-Id`) + `GET /metrics` (Prometheus: request counts/latency, run outcomes, queue depth).** Still open: OTEL span export, Grafana, Sentry, SLO alerting.
 12. Redis cache + CDN + autoscaling + pgbouncer; backup + **restore drill in CI**; chaos test.
 

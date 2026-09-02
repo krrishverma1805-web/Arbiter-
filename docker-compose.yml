@@ -66,5 +66,22 @@ services:
     deploy:
       replicas: 2
 
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    environment:
+      ARBITER_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports: ["3000:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
 volumes:
   arbiter_pgdata:

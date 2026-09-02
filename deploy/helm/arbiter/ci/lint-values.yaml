@@ -1,0 +1,13 @@
+# Values used by `helm lint` / `helm template` in CI (docs/28 §3 item 9).
+image:
+  apiTag: "ci"
+  webTag: "ci"
+secret:
+  data:
+    ARBITER_DB_URL: "postgresql+psycopg://arbiter:arbiter@arbiter-pgbouncer:6432/arbiter"
+    ANTHROPIC_API_KEY: "sk-ant-ci-placeholder"
+ingress:
+  enabled: true
+  host: arbiter.ci.example.com
+  tls:
+    enabled: true

@@ -1,0 +1,21 @@
+Arbiter {{ .Chart.AppVersion }} is deploying as release "{{ .Release.Name }}".
+
+  API      Deployment/{{ include "arbiter.fullname" . }}-api      (Service :{{ .Values.api.port }})
+  Worker   Deployment/{{ include "arbiter.fullname" . }}-worker   ({{ .Values.worker.replicaCount }}+ replicas, HPA {{ .Values.worker.autoscaling.enabled }})
+  Web      Deployment/{{ include "arbiter.fullname" . }}-web       (Service :{{ .Values.web.port }})
+
+Schema migrations ran as a pre-upgrade hook Job:
+  kubectl -n {{ .Release.Namespace }} logs job/{{ include "arbiter.fullname" . }}-migrate
+
+{{ if .Values.ingress.enabled -}}
+Cockpit:  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/
+{{- else -}}
+Port-forward the cockpit:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "arbiter.fullname" . }}-web {{ .Values.web.port }}:{{ .Values.web.port }}
+{{- end }}
+
+{{ if not .Values.secret.existingSecret -}}
+WARNING: secrets were rendered from values. For production set
+  --set secret.existingSecret=<name>
+and manage ARBITER_DB_URL / ANTHROPIC_API_KEY out-of-band.
+{{- end }}

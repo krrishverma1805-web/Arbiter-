@@ -1,0 +1,12 @@
+apiVersion: v2
+name: arbiter
+description: Arbiter — deterministic, auditable reconciliation with a bounded investigation agent
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/krrishverma1805-web/Arbiter-
+sources:
+  - https://github.com/krrishverma1805-web/Arbiter-
+maintainers:
+  - name: krrishverma1805-web
