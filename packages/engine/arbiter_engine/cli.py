@@ -476,6 +476,15 @@ def resolve(
     else:
         typer.secho("resolved", fg=typer.colors.GREEN)
 
+    try:  # opt-in global pattern library (docs/28 §3 item 15)
+        from arbiter_engine.learn.global_patterns import contribute
+
+        recs = [r for r in proj.records if r.id in exc.record_ids]
+        if contribute(getattr(store, "org_id", "local"), exc, recs, action):
+            typer.echo("  contributed the (anonymised) shape to the global library")
+    except Exception:  # noqa: BLE001
+        pass
+
 
 rules_app = typer.Typer(help="Review and merge learned classification rules.")
 app.add_typer(rules_app, name="rules")

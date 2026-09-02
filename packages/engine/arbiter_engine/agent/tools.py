@@ -102,12 +102,13 @@ class Tools:
         self, category_hint: str | None = None, pattern: str | None = None
     ) -> dict[str, Any]:
         mem = self.snap.resolution_memory
+        network = self._network_resolutions()
         if mem is not None and self.exc is not None:
             recs = [self.snap.records[i] for i in self.exc.record_ids if i in self.snap.records]
             hits = mem.recall(self.exc, recs, k=6)
             if category_hint:
                 hits = [h for h in hits if h.category == category_hint] or hits
-            return {
+            out: dict[str, Any] = {
                 "resolved_before": [
                     {
                         "category": h.category,
@@ -119,12 +120,33 @@ class Tools:
                 ],
                 "method": "semantic",
             }
+            if network:
+                out["from_the_network"] = network
+            return out
         hits2 = [
             r
             for r in self.snap.prior_resolutions
             if (not category_hint or r.get("category") == category_hint)
         ]
-        return {"resolved_before": hits2[:10], "method": "category_filter"}
+        res: dict[str, Any] = {"resolved_before": hits2[:10], "method": "category_filter"}
+        if network:
+            res["from_the_network"] = network
+        return res
+
+    def _network_resolutions(self) -> list[dict[str, Any]]:
+        """Opt-in global pattern library (docs/28 §3 item 15). Empty unless the
+        tenant set `ARBITER_GLOBAL_PATTERNS`."""
+        if self.exc is None:
+            return []
+        try:
+            from arbiter_engine.learn.global_patterns import recall_global
+        except Exception:  # pragma: no cover
+            return []
+        recs = [self.snap.records[i] for i in self.exc.record_ids if i in self.snap.records]
+        return [
+            {"resolution": h.action, "other_teams": h.distinct_tenants, "times_seen": h.occurrences}
+            for h in recall_global(self.exc, recs)
+        ]
 
     def candidate_matches(self, record_id: str) -> dict[str, Any]:
         cands = self.snap.candidates.get(record_id, [])

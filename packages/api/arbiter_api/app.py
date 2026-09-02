@@ -546,6 +546,14 @@ def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest, reque
     draft = draft_rule_from_resolution(exc, req.action, category=req.category)
     if draft is not None:
         store.append(run_id, EventType.RULE_DRAFTED, draft)
+
+    try:  # opt-in global pattern library (docs/28 §3 item 15) — no-op unless enabled
+        from arbiter_engine.learn.global_patterns import contribute
+
+        recs = [r for r in proj.records if r.id in exc.record_ids]
+        contribute(org, exc, recs, req.action)
+    except Exception:  # noqa: BLE001
+        pass
     body = {
         "ok": True,
         "exception_id": exception_id,

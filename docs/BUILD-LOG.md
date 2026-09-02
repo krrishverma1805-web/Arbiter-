@@ -8,6 +8,24 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 4: opt-in global pattern library
+
+`arbiter_engine/learn/global_patterns.py` — the network effect, done carefully.
+On a resolve (CLI + API) the exception's *shape* — `anon_shape`: category,
+residual band, record-count band, sorted source/kind types, and three
+has-a-reference / -counterparty / -dispute-id booleans — plus the action goes to
+a **separate** library DB (`ARBITER_GLOBAL_DB_URL`). No amounts, names, ids,
+free text, or org id ever cross; the contributor is `sha256(org_id + salt)` so
+"3 other teams resolved this as accept_variance" works without knowing who.
+
+`similar_exceptions` gains a `from_the_network` section. `ARBITER_GLOBAL_PATTERNS`
+= `off` (default) / `consume` / `contribute` is the per-tenant kill-switch and
+`org_id == "local"` never contributes.
+
+The library table uses its own `MetaData` (not `SQLModel.metadata`) — the
+migration-drift test caught the first cut trying to add `global_patterns` to the
+tenant schema. 5 tests incl. an identifier-leak assertion. 149 total.
+
 ## 2026-09-03 — Phase 4: input-drift detection + model registry
 
 `arbiter_engine/learn/drift.py`: after ingest, each run gets a numeric profile
