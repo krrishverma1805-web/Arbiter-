@@ -110,6 +110,28 @@ export interface EvidenceDrawer {
   }>;
 }
 
+export interface StreamFrame {
+  seq: number;
+  type: string;
+  ts?: string;
+  exception_id?: string | null;
+  category?: string | null;
+  turn?: number | null;
+  text?: string;
+  tool_calls?: string[];
+  stop_reason?: string | null;
+  explanation?: string;
+  grounded_confidence?: number | null;
+  question?: string;
+  reason?: string | null;
+  impact_minor?: number | null;
+  counts?: Record<string, number>;
+}
+
+// The cockpit runs in the browser, where the Next rewrite proxies /api/* to the
+// backend; EventSource needs the same-origin proxied URL.
+export const streamUrl = (runId: string) => `/api/v1/runs/${runId}/stream`;
+
 export const api = {
   listRuns: () => get<{ runs: RunSummary[] }>("/v1/runs"),
   listSpecs: () => get<{ specs: { name: string; path: string }[] }>("/v1/specs"),

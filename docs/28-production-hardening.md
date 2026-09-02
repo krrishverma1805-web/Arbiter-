@@ -126,7 +126,7 @@ their *own* data, with every model promotion gated by an eval.
 _Started: ✅ the investigation trace renders in the evidence drawer (turn text +
 tool calls, from the `AGENT_INTERACTION` events)._
 
-17. Framer Motion system; streaming investigation view; ⌘K palette.
+17. Framer Motion system; streaming investigation view; ⌘K palette. — ✅ **streaming investigation view (`web/.../runs/[id]/live`, `LiveRun.tsx`): opens the SSE stream (now enriched — `_stream_frame` carries agent turn text, tool calls, proposal + escalation payloads, `Last-Event-ID` resume, heartbeats), folds it into a per-exception timeline that animates in with Framer Motion springs (`prefers-reduced-motion` honoured), and a phase rail (ingest → match → classify → investigate → done). `NewRun` routes an AI run straight here.** Still open: ⌘K palette, motion on the cockpit itself.
 18. Apple-minimal design system pass; realtime presence + live scorecard over WebSocket.
 
 **Exit:** a judge (or a prospect) watches an agent investigate in real time and

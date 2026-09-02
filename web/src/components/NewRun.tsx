@@ -23,7 +23,8 @@ export function NewRun({
     setErr(null);
     try {
       const r = await api.startRun(spec, dataset, noAi);
-      router.push(`/runs/${r.run_id}`);
+      // watch the agent think when AI is on; jump straight to the cockpit otherwise
+      router.push(noAi ? `/runs/${r.run_id}` : `/runs/${r.run_id}/live`);
     } catch (e) {
       setErr(String(e));
       setBusy(false);

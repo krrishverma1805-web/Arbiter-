@@ -341,24 +341,81 @@ def run_replay(run_id: str) -> dict[str, Any]:
     }
 
 
+def _stream_frame(ev: Any) -> dict[str, Any]:
+    """A compact, UI-shaped view of one event for the streaming investigation
+    view (docs/28 §5) — enough to choreograph the agent's thinking, no more."""
+    p = json.loads(ev.payload)
+    base = {"seq": ev.seq, "type": ev.type, "ts": ev.ts}
+    if ev.type == EventType.AGENT_INVESTIGATION_STARTED:
+        return {**base, "exception_id": p.get("exception_id"), "category": p.get("category")}
+    if ev.type == EventType.AGENT_INTERACTION:
+        return {
+            **base,
+            "exception_id": p.get("exception_id"),
+            "turn": p.get("turn"),
+            "text": p.get("text", ""),
+            "tool_calls": [tc.get("name") for tc in p.get("tool_calls", [])],
+            "stop_reason": p.get("stop_reason"),
+        }
+    if ev.type == EventType.AGENT_PROPOSAL_CREATED:
+        g = p.get("grounding") or {}
+        return {
+            **base,
+            "exception_id": p.get("exception_id"),
+            "category": p.get("category"),
+            "explanation": p.get("explanation", ""),
+            "grounded_confidence": g.get("grounded_confidence"),
+        }
+    if ev.type == EventType.AGENT_ESCALATED:
+        return {
+            **base,
+            "exception_id": p.get("exception_id"),
+            "question": p.get("question", ""),
+            "reason": p.get("reason"),
+        }
+    if ev.type == EventType.EXCEPTION_OPENED:
+        exc = p.get("exception", {})
+        return {
+            **base,
+            "exception_id": exc.get("id"),
+            "category": exc.get("category"),
+            "impact_minor": exc.get("amount_impact_minor"),
+        }
+    if ev.type == EventType.RUN_COMPLETED:
+        return {**base, "counts": p.get("counts", {})}
+    return base
+
+
 @app.get("/v1/runs/{run_id}/stream")
-async def run_stream(run_id: str) -> StreamingResponse:
+async def run_stream(run_id: str, request: Request) -> StreamingResponse:
     store = get_store()
+    try:
+        after = int(request.headers.get("last-event-id", "-1"))
+    except ValueError:
+        after = -1
 
     async def gen() -> Any:
         seen = 0
-        for _ in range(600):  # ~60s cap
+        for tick in range(1200):  # ~120s cap
             events = store.events(run_id)
             for ev in events[seen:]:
-                frame = {"seq": ev.seq, "type": ev.type}
-                yield f"event: {ev.type}\ndata: {json.dumps(frame)}\n\n"
+                if ev.seq <= after:
+                    continue
+                frame = _stream_frame(ev)
+                yield f"id: {ev.seq}\nevent: {ev.type}\ndata: {json.dumps(frame)}\n\n"
             seen = len(events)
             if events and events[-1].type == EventType.RUN_COMPLETED:
                 yield "event: done\ndata: {}\n\n"
                 return
+            if tick % 100 == 0:  # heartbeat so proxies keep the connection open
+                yield ": ping\n\n"
             await asyncio.sleep(0.1)
 
-    return StreamingResponse(gen(), media_type="text/event-stream")
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # --------------------------------------------------------------------- exceptions

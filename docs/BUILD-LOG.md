@@ -8,6 +8,28 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 5: streaming investigation view + motion system
+
+`GET /v1/runs/{id}/stream` now emits UI-shaped frames (`_stream_frame`): agent
+turn text + tool-call names, proposal (with `grounded_confidence`) and
+escalation payloads, `EXCEPTION_OPENED` impact, `RUN_COMPLETED` counts — plus
+`id:` lines + `Last-Event-ID` honouring for reconnection, `: ping` heartbeats
+and `X-Accel-Buffering: no`.
+
+`web/src/components/LiveRun.tsx` + `/runs/[id]/live`: opens the stream, folds it
+into a per-exception timeline, and choreographs it with Framer Motion — cards
+spring in, each agent turn slides in under its investigation, the proposal /
+escalation fades in as the verdict. A phase rail tracks ingest → match →
+classify → investigate → done. `useReducedMotion` collapses every transition to
+0s. `NewRun` sends an AI run here; `--no-ai` still goes straight to the cockpit.
+`framer-motion` + `cmdk` added (cmdk is for the next slice). 139 tests + a
+stream-shape API test.
+
+Regression: the `docker` job's `curl | sudo sh` trivy install exited 1 right
+after resolving the version. Swapped to `aquasecurity/setup-trivy@v0.2.6`
+(the maintained installer action; `trivy-action` itself was pinning a
+non-existent `setup-trivy@v0.2.2`).
+
 ## 2026-09-02 — Phase 4: feedback → FS retraining behind an eval gate
 
 `arbiter_engine/learn/retrain.py` + `arbiter retrain --spec`. Every confirmed

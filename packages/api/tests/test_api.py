@@ -75,6 +75,22 @@ def test_run_lifecycle(client):
     assert rp["ok"] is True
 
 
+def test_stream_replays_enriched_frames_for_a_finished_run(client):
+    """The streaming investigation view (docs/28 §5) needs more than {seq,type}:
+    exception + agent frames carry a compact payload, and a finished run's
+    stream terminates with `event: done`."""
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+    body = c.get(f"/v1/runs/{run_id}/stream").text
+    assert "event: RUN_COMPLETED" in body
+    assert "event: done" in body
+    assert '"counts"' in body  # RUN_COMPLETED frame is enriched
+    if "event: EXCEPTION_OPENED" in body:
+        assert '"impact_minor"' in body
+
+
 def test_exception_detail_and_resolve(client):
     c, ds = client
     run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[

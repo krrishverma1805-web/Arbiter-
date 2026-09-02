@@ -167,10 +167,10 @@ jobs:
           curl -sf localhost:3000/ | grep -qi arbiter
           docker rm -f web
       - name: install trivy
-        run: |
-          curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sudo sh -s -- -b /usr/local/bin v0.58.1
-          trivy --version
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: v0.58.1
+          cache: true
       - name: scan both images (fail on fixable CRITICAL)
         run: |
           for svc in api web; do
