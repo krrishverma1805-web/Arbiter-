@@ -1,3 +1,38 @@
-from arbiter_engine.ingest.csv_source import IngestResult, ingest_csv
+"""Ingestion — normalise a source file into hash-chained RECORD_INGESTED events.
 
-__all__ = ["IngestResult", "ingest_csv"]
+`ingest_source` dispatches on the file extension. All readers share the row loop,
+header detection, and junk-row stripping in `ingest.tabular`.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from arbiter_engine.events.store import EventStore
+from arbiter_engine.ingest.csv_source import IngestResult, ingest_csv, neutralize_for_export
+from arbiter_engine.ingest.xlsx_source import ingest_xlsx
+from arbiter_engine.specs.model import SourceSpec
+
+__all__ = [
+    "IngestResult",
+    "ingest_csv",
+    "ingest_source",
+    "ingest_xlsx",
+    "neutralize_for_export",
+]
+
+
+def ingest_source(
+    store: EventStore,
+    run_id: str,
+    source_name: str,
+    spec: SourceSpec,
+    path: str | Path,
+    *,
+    profile: str | None = None,
+    force: bool = False,
+) -> IngestResult:
+    suffix = Path(path).suffix.lower()
+    if suffix in (".xlsx", ".xlsm"):
+        return ingest_xlsx(store, run_id, source_name, spec, path, profile=profile, force=force)
+    return ingest_csv(store, run_id, source_name, spec, path, profile=profile, force=force)

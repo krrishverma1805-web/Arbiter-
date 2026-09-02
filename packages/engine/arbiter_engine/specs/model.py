@@ -26,6 +26,8 @@ class SourceSpec(BaseModel):
     sign_convention: dict[str, str] = Field(default_factory=dict)
     untrusted_fields: list[str] = Field(default_factory=list)
     kind: str | None = None  # default record kind if the source doesn't carry `type`
+    sheet: str | None = None  # xlsx: sheet name (default: the first / active sheet)
+    header_row: int | None = None  # 0-indexed header override (default: auto-detect)
 
 
 class ReconSpec(BaseModel):

@@ -25,7 +25,7 @@ from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import EventStore
 from arbiter_engine.exceptions import build_exceptions
 from arbiter_engine.hashing import canonical_json, sha256_hex
-from arbiter_engine.ingest.csv_source import ingest_csv
+from arbiter_engine.ingest import ingest_source
 from arbiter_engine.match import run_matching
 from arbiter_engine.models import RunConfig
 from arbiter_engine.specs import ReconSpec, load_spec, spec_hash
@@ -54,8 +54,9 @@ class RunInputs:
 
 def _dataset_hash(dataset_dir: Path) -> str:
     parts = []
-    for f in sorted(dataset_dir.glob("*.csv")):
-        parts.append(f"{f.name}:{sha256_hex(f.read_bytes().decode('utf-8', 'replace'))}")
+    for f in sorted(dataset_dir.iterdir()):
+        if f.suffix.lower() in (".csv", ".xlsx", ".xlsm"):
+            parts.append(f"{f.name}:{sha256_hex(f.read_bytes().decode('utf-8', 'replace'))}")
     return sha256_hex("|".join(parts))[:16]
 
 
@@ -116,10 +117,10 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
     for source_name, source_spec in sorted(spec.sources.items()):
         if source_name in ingested:
             continue
-        csv_path = _resolve_source_file(inputs.dataset_dir, source_name)
-        if csv_path is None:
+        src_path = _resolve_source_file(inputs.dataset_dir, source_name)
+        if src_path is None:
             continue
-        ingest_csv(store, run_id, source_name, source_spec, csv_path)
+        ingest_source(store, run_id, source_name, source_spec, src_path)
 
     proj = fold_run(store, run_id)
     records = proj.records
@@ -189,11 +190,18 @@ def execute(store: EventStore, inputs: RunInputs) -> RunProjection:
     return fold_run(store, run_id)
 
 
+_SOURCE_EXTS = (".csv", ".xlsx", ".xlsm")
+
+
 def _resolve_source_file(dataset_dir: Path, source_name: str) -> Path | None:
-    for candidate in (f"{source_name}.csv", f"{source_name.replace('_', '-')}.csv"):
-        p = dataset_dir / candidate
-        if p.exists():
-            return p
-    # loose match: e.g. source "bank" -> "bank.csv"; "razorpay_recon" -> "razorpay_recon.csv"
-    matches = sorted(p for p in dataset_dir.glob("*.csv") if source_name.split("_")[0] in p.stem)
+    for ext in _SOURCE_EXTS:
+        for stem in (source_name, source_name.replace("_", "-")):
+            p = dataset_dir / f"{stem}{ext}"
+            if p.exists():
+                return p
+    # loose match: e.g. source "bank" -> "bank.csv"; "razorpay_recon" -> "razorpay_recon.xlsx"
+    prefix = source_name.split("_")[0]
+    matches = sorted(
+        p for p in dataset_dir.iterdir() if p.suffix.lower() in _SOURCE_EXTS and prefix in p.stem
+    )
     return matches[0] if matches else None

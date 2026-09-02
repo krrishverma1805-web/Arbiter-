@@ -8,6 +8,33 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.1: XLSX ingestion + a shared messy-tabular core
+
+The engine only read `.csv`, and its CSV reader assumed a clean table (header on
+row 0, no junk rows). Real bank / processor exports are `.xlsx` as often as not,
+with title lines above the header and a "Grand Total" row at the bottom.
+
+- `ingest/tabular.py` — the shared row loop plus `detect_header` (find the real
+  header row by matching the spec's mapped column names) and `is_junk_row` (drop
+  a row when every populated cell is a number or an exact totals/balance marker
+  and at least one marker is present — so a narration that merely *contains*
+  "total" is safe).
+- `ingest/csv_source.py` — rewritten to route through the shared core; adds
+  delimiter sniffing (`,` `;` `\t` `|`) and an encoding fallback
+  (utf-8-sig → utf-8 → cp1252 → latin-1).
+- `ingest/xlsx_source.py` — openpyxl, `read_only` + `data_only`, one sheet
+  (`spec.sheet` or the first), same core. `SourceSpec` gains `sheet` and
+  `header_row`.
+- `ingest_source(...)` dispatches on the file extension; `run.py` and
+  `_resolve_source_file` / `_dataset_hash` now accept `.xlsx` / `.xlsm`.
+
+**Bug caught in the test:** the "Grand Total" label landed in the *amount*
+column (bank.csv's column 0), so the first `is_junk_row` — which special-cased
+amount columns — missed it and the row was quarantined as an unparseable amount.
+Rewrote the check to be column-agnostic. `test_ingest.py`: an .xlsx with a
+2-line preamble + a totals row ingests the exact same records as the CSV.
+101 tests, bench gate unchanged.
+
 ## 2026-09-02 — Phase 1.2: multi-key blocking (matcher survives a missing UTR)
 
 The matcher blocked **only** on an exact `settlement_utr` join. Real bank

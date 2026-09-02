@@ -1,7 +1,9 @@
 """CSV ingestion (docs/13 §4, docs/14 C4).
 
-Hardened: size + row caps, streaming read, formula-injection neutralization on
-any value we might later export, duplicate-file guard via content hash.
+Hardened: size + row caps, formula-injection neutralization on any value we might
+later export, duplicate-file guard via content hash. The row loop, header
+detection, and junk-row stripping are shared with the XLSX reader
+(`ingest.tabular`).
 """
 
 from __future__ import annotations
@@ -13,11 +15,10 @@ from pathlib import Path
 
 from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import EventStore
-from arbiter_engine.ingest.normalize import QuarantineRow, normalize_row
+from arbiter_engine.ingest.tabular import detect_header, ingest_rows, rows_from_grid
 from arbiter_engine.specs.model import SourceSpec
 
 MAX_BYTES = 50 * 1024 * 1024
-MAX_ROWS = 100_000
 _DANGEROUS_PREFIX = ("=", "+", "-", "@")
 
 
@@ -32,12 +33,15 @@ class IngestResult:
     quarantine_reasons: list[str] = field(default_factory=list)
 
 
-def _file_hash(path: Path) -> str:
+def file_hash(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as fh:
         for chunk in iter(lambda: fh.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+_file_hash = file_hash  # backwards-compatible alias
 
 
 def neutralize_for_export(value: str) -> str:
@@ -49,6 +53,36 @@ def neutralize_for_export(value: str) -> str:
     if value and value[0] in _DANGEROUS_PREFIX:
         return "'" + value
     return value
+
+
+def _guard_duplicate(store: EventStore, run_id: str, name: str, fh_hash: str, force: bool) -> None:
+    if force:
+        return
+    for etype, payload in store.iter_payloads(run_id):
+        if etype == EventType.SOURCE_INGESTED and payload.get("file_hash") == fh_hash:
+            raise ValueError(
+                f"file {name} (hash {fh_hash[:12]}) already ingested in this run; "
+                "pass force=True to override"
+            )
+
+
+def _read_csv_grid(path: Path) -> list[list[str]]:
+    """Best-effort text decode, then the whole sheet as rows of strings."""
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            text = path.read_text(encoding=enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:  # pragma: no cover - latin-1 never raises
+        text = path.read_text(encoding="latin-1", errors="replace")
+    # pick the delimiter only if a non-comma clearly dominates the first line
+    first = next((ln for ln in text.splitlines() if ln.strip()), "")
+    delim = ","
+    for cand in (";", "\t", "|"):
+        if first.count(cand) > first.count(delim):
+            delim = cand
+    return [list(row) for row in csv.reader(text.splitlines(), delimiter=delim)]
 
 
 def ingest_csv(
@@ -67,80 +101,22 @@ def ingest_csv(
     if p.stat().st_size > MAX_BYTES:
         raise ValueError(f"{p} exceeds the {MAX_BYTES // 1024 // 1024} MB cap")
 
-    fh_hash = _file_hash(p)
-    if not force:
-        for etype, payload in store.iter_payloads(run_id):
-            if etype == EventType.SOURCE_INGESTED and payload.get("file_hash") == fh_hash:
-                raise ValueError(
-                    f"file {p.name} (hash {fh_hash[:12]}) already ingested in this run; "
-                    "pass force=True to override"
-                )
+    fh_hash = file_hash(p)
+    _guard_duplicate(store, run_id, p.name, fh_hash, force)
 
-    result = IngestResult(source=source_name, file_hash=fh_hash)
+    grid = _read_csv_grid(p)
+    header_idx = spec.header_row if spec.header_row is not None else detect_header(grid, spec)
+    rows = rows_from_grid(grid, header_idx)
 
-    with p.open(newline="", encoding="utf-8-sig") as fh:
-        reader = csv.DictReader(fh)
-        for i, row in enumerate(reader):
-            if i >= MAX_ROWS:
-                raise ValueError(f"{p} exceeds the {MAX_ROWS} row cap")
-            result.rows_in += 1
-            row = {k: (v or "").strip() for k, v in row.items() if k is not None}
-            source_row_id = row.get("entity_id") or row.get("id") or f"row{i}"
-            try:
-                outcome = normalize_row(
-                    row,
-                    source_name=source_name,
-                    spec=spec,
-                    run_id=run_id,
-                    source_row_id=source_row_id,
-                    file_hash=fh_hash,
-                )
-            except QuarantineRow as exc:
-                result.rows_quarantined += 1
-                result.quarantine_reasons.append(exc.reason)
-                store.append(
-                    run_id,
-                    EventType.ROW_QUARANTINED,
-                    {
-                        "source": source_name,
-                        "source_row_id": source_row_id,
-                        "reason": exc.reason,
-                        "raw": row,
-                    },
-                )
-                continue
-
-            for pii_field in outcome.pii_dropped:
-                result.pii_dropped += 1
-                store.append(
-                    run_id,
-                    EventType.PII_DROPPED,
-                    {
-                        "source": source_name,
-                        "source_row_id": source_row_id,
-                        "field": pii_field,
-                        "kind": "card_number",
-                    },
-                )
-
-            store.append(
-                run_id,
-                EventType.RECORD_INGESTED,
-                {"record": outcome.record.model_dump(mode="json")},
-            )
-            result.rows_ok += 1
-
-    store.append(
-        run_id,
-        EventType.SOURCE_INGESTED,
-        {
-            "source": source_name,
-            "format": spec.format,
-            "profile": profile,
-            "rows_in": result.rows_in,
-            "rows_ok": result.rows_ok,
-            "rows_quarantined": result.rows_quarantined,
-            "file_hash": fh_hash,
-        },
+    rows_in, rows_ok, rows_q, pii, reasons = ingest_rows(
+        store, run_id, source_name, spec, rows, fmt="csv", profile=profile, file_hash=fh_hash
     )
-    return result
+    return IngestResult(
+        source=source_name,
+        rows_in=rows_in,
+        rows_ok=rows_ok,
+        rows_quarantined=rows_q,
+        pii_dropped=pii,
+        file_hash=fh_hash,
+        quarantine_reasons=reasons,
+    )

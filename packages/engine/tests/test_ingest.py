@@ -66,3 +66,42 @@ def test_full_card_number_is_dropped_and_flagged(tmp_path: Path, spec_path: Path
 
     proj = fold_run(store, "run4")
     assert "4111111111111111" not in str(proj.records[0].untrusted)
+
+
+def test_xlsx_with_preamble_and_totals_row_matches_the_csv(clean_dataset: Path, spec_path: Path):
+    """An .xlsx export with two title lines above the header and a 'Grand Total'
+    row at the bottom must ingest the same records as the clean CSV."""
+    import csv as _csv
+
+    from arbiter_engine.ingest import ingest_source
+    from openpyxl import Workbook
+
+    spec = load_spec(spec_path)
+    src = spec.sources["bank"]
+
+    with (clean_dataset / "bank.csv").open() as fh:
+        rows = list(_csv.reader(fh))
+
+    xlsx = Path(clean_dataset).parent / "bank_export.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Acme Bank — Statement of Account"])
+    ws.append(["Period: 01 Aug 2026 to 31 Aug 2026"])
+    ws.append([])
+    for r in rows:
+        ws.append(r)
+    ws.append(["Grand Total", "", "", ""])
+    wb.save(xlsx)
+
+    store = EventStore("sqlite://")
+    csv_res = ingest_csv(store, "csvrun", "bank", src, clean_dataset / "bank.csv")
+    xlsx_res = ingest_source(store, "xlsxrun", "bank", src, xlsx)
+
+    assert xlsx_res.rows_ok == csv_res.rows_ok
+    assert xlsx_res.rows_quarantined == 0
+
+    from arbiter_engine.events.fold import fold_run
+
+    a = sorted(r.amount_minor for r in fold_run(store, "csvrun").records)
+    b = sorted(r.amount_minor for r in fold_run(store, "xlsxrun").records)
+    assert a == b

@@ -12,6 +12,7 @@ dependencies = [
     "polars>=1.5",
     "python-dateutil>=2.9",
     "anthropic>=0.69",
+    "openpyxl>=3.1",
 ]
 
 [project.scripts]
