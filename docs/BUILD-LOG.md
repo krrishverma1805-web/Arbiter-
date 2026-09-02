@@ -34,10 +34,11 @@ classify → investigate → done. `useReducedMotion` collapses every transition
 `framer-motion` + `cmdk` added (cmdk is for the next slice). 139 tests + a
 stream-shape API test.
 
-Regression: the `docker` job's `curl | sudo sh` trivy install exited 1 right
-after resolving the version. Swapped to `aquasecurity/setup-trivy@v0.2.6`
-(the maintained installer action; `trivy-action` itself was pinning a
-non-existent `setup-trivy@v0.2.2`).
+Regression (three tries): `trivy-action` pinned a non-existent
+`setup-trivy@v0.2.2`; the raw `install.sh` and `setup-trivy@v0.2.6` both exit 1
+right after resolving the version on the runner. Settled on running
+`aquasec/trivy:0.58.1` as a container with the docker socket mounted — no
+installer, scans the loaded local images directly.
 
 ## 2026-09-02 — Phase 4: feedback → FS retraining behind an eval gate
 

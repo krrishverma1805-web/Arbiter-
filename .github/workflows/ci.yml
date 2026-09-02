@@ -166,19 +166,21 @@ jobs:
           done
           curl -sf localhost:3000/ | grep -qi arbiter
           docker rm -f web
-      - name: install trivy
-        uses: aquasecurity/setup-trivy@v0.2.6
-        with:
-          version: v0.58.1
-          cache: true
-      - name: scan both images (fail on fixable CRITICAL)
+      - name: scan both images with trivy (fail on fixable CRITICAL)
         run: |
+          mkdir -p "$HOME/.cache/trivy"
+          TRIVY() {
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+              -v "$PWD:/work" -w /work \
+              aquasec/trivy:0.58.1 "$@"
+          }
           for svc in api web; do
-            trivy image --scanners vuln --ignore-unfixed --severity CRITICAL \
+            TRIVY image --scanners vuln --ignore-unfixed --severity CRITICAL \
               --exit-code 1 --no-progress "arbiter-$svc:ci"
           done
-      - name: SBOM for the api image
-        run: trivy image --format cyclonedx --output sbom-api.cdx.json --no-progress arbiter-api:ci
+          TRIVY image --format cyclonedx --output sbom-api.cdx.json --no-progress arbiter-api:ci
       - uses: actions/upload-artifact@v4
         with:
           name: sbom
