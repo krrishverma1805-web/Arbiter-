@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
+from typing import Any
 
 from arbiter_engine.decompose.identity import expected_net_minor
 from arbiter_engine.exceptions.context import build_context
@@ -52,7 +53,11 @@ def build_exceptions(
     spec: ReconSpec,
     *,
     candidates: dict[str, list[MatchCandidate]] | None = None,
+    prior_batches: list[Any] | None = None,
 ) -> list[ReconException]:
+    from arbiter_engine.match.cross_period import match_carry_forward
+
+    priors = prior_batches or []
     rounding = int((spec.identity or {}).get("rounding_tolerance_minor", 100))
     p_start, p_end = _period(spec)
     try:
@@ -211,8 +216,16 @@ def build_exceptions(
         # if the bank amount ties an unmatched settlement batch's net, the UTR was
         # just lost from the narration; otherwise it's a genuine orphan credit
         ties_a_batch = any(abs(b.amount_minor - net) <= rounding for net in unmatched_block_nets)
+        carried = match_carry_forward(b.amount_minor, utr, priors, tol=rounding) if priors else None
+        note = None
         if ties_a_batch:
             cat, rule, conf = "MISSING_UTR", "rule:r_missing_utr", 0.7
+        elif carried is not None:
+            cat, rule, conf = "TIMING", "rule:r_cross_period", 0.75
+            note = (
+                f"carried forward — settles batch {carried.settlement_utr} left open by "
+                f"run {carried.from_run_id[:8]} (period {carried.period})"
+            )
         else:
             cat, rule, conf = "UNEXPLAINED", "unclassified", None
         out.append(
@@ -225,6 +238,7 @@ def build_exceptions(
                 amount_impact_minor=abs(b.amount_minor),
                 confidence=conf,
                 candidates=cands,
+                note=note,
                 status="open",
             )
         )

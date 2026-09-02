@@ -180,9 +180,18 @@ def _pipeline(
 
     # -- CLASSIFYING --
     if EventType.EXCEPTION_OPENED not in seen:
-        with span("classify", run_id=run_id):
+        from arbiter_engine.match.cross_period import prior_open_batches
+
+        priors = prior_open_batches(store, sh, exclude_run_id=run_id)
+        with span("classify", run_id=run_id, prior_batches=len(priors)):
             exceptions = build_exceptions(
-                run_id, records, mr.matches, mr.decompositions, spec, candidates=mr.candidates
+                run_id,
+                records,
+                mr.matches,
+                mr.decompositions,
+                spec,
+                candidates=mr.candidates,
+                prior_batches=priors,
             )
         for exc in exceptions:
             store.append(

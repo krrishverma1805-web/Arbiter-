@@ -8,6 +8,24 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 1: cross-period carry-forward
+
+`match/cross_period.py`. `prior_open_batches(store, spec_hash, exclude_run_id)`
+folds the tenant's earlier *completed* runs for the same spec and returns the
+settlement batches (`settlement_utr`, net, from-run, period) that ended a run
+still open (`TIMING` / `MISSING_UTR` / `SPLIT_SETTLEMENT` / `UNEXPLAINED` /
+`PARTIAL_PAYMENT`). `build_exceptions` gained a `prior_batches` arg: a
+would-be-orphan bank credit that `match_carry_forward` ties to one (by UTR, then
+by net amount) is classified `TIMING` / `rule:r_cross_period` with a
+`note="carried forward — settles batch … left open by run … (period …)"` — the
+new `Exception_.note` field.
+
+Deliberately not an auto-match: the batch lives in another run's ledger, so a
+human still confirms. Replay-safe because classification only runs when
+`EXCEPTION_OPENED` isn't already on the log — a replay in a fresh store (no
+priors) never re-classifies. `run.py` wires it via `prior_open_batches` before
+`build_exceptions`. 4 tests, 162 total, gate green.
+
 ## 2026-09-03 — Phase 1: MT940 + CAMT.053 bank-statement ingestion
 
 Two real bank-statement formats, both **dependency-free**:

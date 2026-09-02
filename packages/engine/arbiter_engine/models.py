@@ -132,6 +132,7 @@ class Exception_(BaseModel):
     agent_proposal: dict[str, Any] | None = None  # a Proposal (docs/19 §4), gated
     agent_escalation: dict[str, Any] | None = None  # an Escalate
     resolution: dict[str, str] | None = None
+    note: str | None = None  # deterministic classifier annotation (e.g. cross-period link)
     status: ExceptionStatus = "open"
 
 
