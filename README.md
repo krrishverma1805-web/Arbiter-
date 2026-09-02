@@ -69,7 +69,7 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
   the auditor-ready **Close Memo**, and the `audit-pack` export.
 
 90 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
-gate, and a web typecheck/lint/build job.
+gate, a `gitleaks` + `pip-audit` security job, and a web typecheck/lint/build job.
 
 ## Quickstart
 
@@ -142,12 +142,42 @@ do multi-currency consolidation · detect fraud · produce a full cash forecast 
 auth / multi-tenancy / billing. Each is a deliberate scope boundary with a reason —
 see [`docs/02 §6`](docs/02-product-spec.md) and [`docs/06 §M`](docs/06-feature-inventory.md).
 
+## The numbers (800-record adversarial batch, seed 42, `--no-ai`)
+
+| metric | value | | metric | value |
+|---|---|---|---|---|
+| auto-match rate | **93.8%** | | false-match rate | **0.0%** |
+| precision | 100.0% | | ₹ coverage | 100.0% |
+| recall | 93.8% | | ₹ unexplained | 0.7% |
+| anomalies caught | 8 / 10 | | category accuracy | 75.0% |
+
+**Ablation** (`arbiter bench --ablate`) — the deterministic core is the whole
+table below until an `ANTHROPIC_API_KEY` is set; the model tiers (haiku triage →
+opus investigate) then slot in as extra rows and the **AI lift** on category
+accuracy is reported against the `--no-ai` baseline. The nightly `live` CI job
+runs that path; there is no key in the dev/CI environment.
+
+| config | category acc. | task compl. | escalation recall | $/run |
+|---|---|---|---|---|
+| `--no-ai` | 75.0% | — | — | 0.00 |
+| haiku / sonnet / opus | *nightly-live only* | | | |
+
+**Calibration** (`arbiter bench --calibration`) — ECE **0.12**, isotonic-recalibrated
+and disclosed. At demo scale the deterministic matcher's confidence is effectively
+binary (1.0 for a clean tie), so every prediction lands in one reliability bin
+(conf 1.00, acc 0.88) — a 12-point over-confidence, not a spread. Calibration
+becomes meaningful for the Fellegi–Sunter fuzzy pass and the agent's `P(match)`,
+which need live runs and more data ([`docs/12 §6`](docs/12-agent-design.md)).
+
 ## Honest limitations
 
 - The benchmark runs on **synthetic data**, which is cleaner than production. Real-world match
   rates will be lower. The generator injects realistic messiness and the difficulty dial shows
   where accuracy degrades — but the asterisk is real and stays visible.
 - Small batch sizes (50–500) mean wide confidence intervals on the rates. `bench --seeds N` aggregates.
+- The investigation agent's own scorecard (task-completion, hallucination, escalation P/R) and
+  the model ablation only have real numbers from the nightly `live` job — there is no API key
+  in the dev/CI environment. Offline, the agent path is exercised with recorded/scripted turns.
 - See [`docs/07 §6`](docs/07-evaluation-and-benchmark.md) for the full list.
 
 ## License
