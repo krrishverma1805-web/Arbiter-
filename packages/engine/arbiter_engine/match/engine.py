@@ -4,6 +4,9 @@ Passes over the not-yet-matched remainder, in fixed order:
   1. exact     — settlement_utr join, zero residual, confidence 1.0
   2. tolerant  — settlement_utr join, Fellegi–Sunter weight over the comparison
                  vector, calibrated P(match) (docs/16 §5)
+  2b. blocked  — for blocks the UTR key could not tie (a real bank statement often
+                 loses or reformats the UTR): amount-within-tolerance + date-in-
+                 window, greedy stable assignment, confidence from closeness alone
   3. subset    — an orphan bank credit vs a subset of unmatched processor items
                  (subset-sum matching, docs/16 §6)
   4. fuzzy     — FS-ranked candidates attached to the remaining unmatched records;
@@ -16,9 +19,10 @@ no wall-clock in any decision.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from arbiter_engine.decompose.identity import decompose_group, expected_net_minor
-from arbiter_engine.match.compare import compare_bank_to_group
+from arbiter_engine.match.compare import compare_bank_to_group, date_level
 from arbiter_engine.match.fellegi_sunter import FSModel
 from arbiter_engine.match.subset import subset_sum_match
 from arbiter_engine.models import Decomposition, Match, MatchCandidate, Record
@@ -88,6 +92,10 @@ def run_matching(
     n_batches = max(len(proc_blocks), 1)
     prior = 1.0 / n_batches  # block prior P(match) (docs/16 §5.4)
 
+    # blocks the settlement_utr key could not tie to a bank credit — retried in
+    # pass 2b by amount + date (real bank narrations lose or mangle the UTR)
+    unresolved: list[tuple[str, list[Record], int, date | None, list[Record]]] = []
+
     # ---- passes 1 & 2: settlement_utr keyed ----
     for utr in sorted(proc_blocks):
         items = sorted(proc_blocks[utr], key=lambda r: r.id)
@@ -103,6 +111,7 @@ def run_matching(
 
         cands = sorted(bank_by_utr.get(utr, []), key=lambda r: r.id)
         if not cands:
+            unresolved.append((utr, items, expected, group_settled, ledger_matches))
             continue
         bank_rec = min(cands, key=lambda b: (abs(b.amount_minor - expected), b.id))
         delta = bank_rec.amount_minor - expected
@@ -165,6 +174,79 @@ def run_matching(
             )
             continue
         # settlement_utr matches but amount is out of tolerance → exception downstream
+
+    # ---- pass 2b: amount + date blocking — for blocks the UTR key could not tie ----
+    # Real bank statements routinely drop or reformat the settlement UTR. For each
+    # such block, find the free bank credit whose net ties within tolerance and
+    # whose date is in-window; assign greedily by closeness. This pass has no UTR
+    # or reference signal by construction, so its confidence comes from amount +
+    # date closeness alone and is never rated above the UTR-keyed passes.
+    if unresolved:
+        free_bank = sorted(
+            (
+                b
+                for b in bank
+                if b.id not in result.matched_ids and b.external_ids.get("utr") not in proc_blocks
+            ),
+            key=lambda r: r.id,
+        )
+        pairs: list[tuple[int, str, int, int, Record]] = []  # (gap, date_lvl_ord, bi, gap, bank)
+        _dord = {"same_day": 0, "within_1": 1, "within_window": 2, "none": 3}
+        by_block: dict[int, list[int]] = {}
+        for bi, (_u0, _i0, expected0, gs0, _l0) in enumerate(unresolved):
+            for b in free_bank:
+                gap0 = abs(b.amount_minor - expected0)
+                if gap0 > tol.amount_minor:
+                    continue
+                dl = date_level(b.value_date, gs0, window=tol.date_window_days)
+                if dl == "none" and gap0 > tol.rounding_minor:
+                    continue
+                pairs.append((gap0, dl, bi, gap0, b))
+                by_block.setdefault(bi, []).append(gap0)
+        pairs.sort(key=lambda c: (c[0], _dord[c[1]], c[4].id))
+        taken_bank: set[str] = set()
+        taken_block: set[int] = set()
+        for gap0, dl, bi, _g, b in pairs:
+            if bi in taken_block or b.id in taken_bank:
+                continue
+            gaps = sorted(by_block.get(bi, []))
+            ambiguous = len(gaps) > 1 and (gaps[1] - gaps[0]) <= tol.rounding_minor
+            utr, items, expected, group_settled, ledger_matches = unresolved[bi]
+            ledger_total = sum(m.amount_minor for m in ledger_matches) or None
+            decomp = decompose_group(
+                run_id,
+                utr,
+                items,
+                bank_amount_minor=b.amount_minor,
+                ledger_total_minor=ledger_total,
+            )
+            base = {"same_day": 0.94, "within_1": 0.9, "within_window": 0.85, "none": 0.8}[dl]
+            if gap0 > tol.rounding_minor:
+                base -= 0.1
+            conf = base
+            if ambiguous:
+                conf = min(conf, tol.review - 0.01)
+            if not decomp.ledger_crosscheck_ok:
+                conf = min(conf, tol.review)
+            if conf < tol.review:
+                continue  # too weak — leave it for subset / fuzzy / an exception
+            result.decompositions.append(decomp)
+            _emit(
+                result,
+                run_id,
+                utr,
+                items,
+                [b],
+                ledger_matches,
+                match_pass="blocked",
+                confidence=round(conf, 4),
+                weight=None,
+                per_field={},
+                residual=decomp.residual_minor,
+                tol=tol,
+            )
+            taken_block.add(bi)
+            taken_bank.add(b.id)
 
     # ---- pass 3: subset — orphan bank credits vs unmatched processor items ----
     unmatched_proc = [r for r in processor if r.id not in result.matched_ids]

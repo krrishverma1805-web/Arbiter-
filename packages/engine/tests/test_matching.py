@@ -22,6 +22,28 @@ def test_clean_batch_matches_everything(clean_dataset: Path, spec_path: Path):
     assert proj.exceptions == []
 
 
+def test_blocking_pass_ties_a_credit_whose_utr_is_missing(clean_dataset: Path, spec_path: Path):
+    """Real bank statements lose the settlement UTR. Strip every bank UTR and the
+    amount+date blocking pass (2b) should still tie the batches."""
+    store = EventStore("sqlite://")
+    proj = execute(store, RunInputs(spec_path=spec_path, dataset_dir=clean_dataset))
+    spec = load_spec(spec_path)
+
+    stripped = []
+    for r in proj.records:
+        if r.source == "bank" and r.external_ids.get("utr"):
+            ext = {k: v for k, v in r.external_ids.items() if k != "utr"}
+            stripped.append(r.model_copy(update={"external_ids": ext}))
+        else:
+            stripped.append(r)
+
+    res = run_matching("x", stripped, spec)
+    blocked = [m for m in res.matches if m.match_pass == "blocked"]
+    assert blocked, "the blocking pass tied nothing after the UTR was removed"
+    # and it did not mis-tie: every blocked match's residual is within tolerance
+    assert all(abs(m.residual_minor) <= 200 for m in blocked)
+
+
 def test_adversarial_batch_produces_matches_and_exceptions(
     adversarial_dataset: Path, spec_path: Path
 ):

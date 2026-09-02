@@ -87,7 +87,7 @@ reconciles a messy real statement correctly is fundable. Infra follows demand.
 
 ### Phase 1 — Real-world accuracy _(the moat; do this first)_
 1. **Ingestion breadth.** XLSX + PDF (pdfplumber, OCR fallback) + one real bank format (MT940 or CAMT.053). Header detection, totals-row stripping, encoding fallback, DR/CR handling, multi-currency field. A `--profile` per bank. Fixture corpus of real-shaped (anonymized) statements.
-2. **Matching robustness.** Multi-key blocking; N:M settlement matching; cross-period carry-forward; persist the trained FS model per spec version and load it on the next run; counterparty entity resolution (normalize + fuzzy cluster).
+2. **Matching robustness.** ✅ Multi-key blocking (pass 2b — amount+date when the UTR key fails). Still open: N:M settlement matching; cross-period carry-forward; persist the trained FS model per spec version and load it on the next run; counterparty entity resolution (normalize + fuzzy cluster).
 3. **Agent accuracy.** ✅ Grounding enforcement (`agent/grounding.py` — reject proposals whose `evidence_refs` don't resolve; deterministic category check; `grounded_confidence` replaces the model's self-assessment). ✅ Agent-confidence calibration (`bench` agent ECE). ✅ RAG resolution memory (`agent/memory.py` — IDF-cosine over exception-shape features, cross-run; pgvector + cross-tenant is Phase 4). Still open: verifier pass (2nd model), tiered triage wiring, self-consistency for high-$ exceptions.
 4. **Evaluation upgrade.** A harder synthetic distribution; real anonymized datasets; per-loop scorecards; a CI regression gate on every scorecard metric.
 

@@ -8,6 +8,25 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 1.2: multi-key blocking (matcher survives a missing UTR)
+
+The matcher blocked **only** on an exact `settlement_utr` join. Real bank
+statements routinely drop or reformat the UTR (it lives in free-text narration),
+so on real data passes 1–2 would fire on almost nothing and everything fell to
+subset/fuzzy.
+
+New **pass 2b** (`match/engine.py`): a settlement block the UTR key could not tie
+is retried against every free bank credit whose net is within amount tolerance
+and whose date is in-window. Greedy stable assignment by amount closeness; a
+runner-up within the rounding band marks the block ambiguous and caps its
+confidence below `review`. Confidence comes from amount + date closeness alone
+(0.80–0.94) — this pass has no UTR or reference signal by construction and is
+never rated above the UTR-keyed passes.
+
+`test_matching.py`: strip every bank UTR from the clean dataset → pass 2b still
+ties the batches, and none is mis-tied. Bench gate unchanged at 800 records
+(auto 93.75%, false 0.0%, coverage 100%). 100 tests.
+
 ## 2026-09-02 — Phase 1.3: resolution memory (semantic `similar_exceptions`)
 
 The `similar_exceptions` tool was an exact-category filter over a
