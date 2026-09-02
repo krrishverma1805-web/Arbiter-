@@ -83,7 +83,7 @@ make up            # the API + the cockpit on localhost
 
 ```bash
 uv sync --all-packages
-uv run arbiter gen --scenario d2c --records 200 --seed 42 --out datasets/seed
+uv run arbiter gen --scenario d2c --records 800 --seed 42 --out datasets/seed
 uv run arbiter run   --spec specs/razorpay-settlement.yaml --dataset datasets/seed [--no-ai]
 uv run arbiter bench --spec specs/razorpay-settlement.yaml --dataset datasets/seed --json
 uv run arbiter explain <run-id>            # the evidence for each exception, as text
