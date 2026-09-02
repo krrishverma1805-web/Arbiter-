@@ -147,10 +147,14 @@ def _pipeline(
 
     # -- MATCHING + DECOMPOSING (deterministic; re-run in memory, emit once) --
     from arbiter_engine.match.fellegi_sunter import FSModel
-    from arbiter_engine.match.fs_store import load_calibration
+    from arbiter_engine.match.fs_store import load_calibration, load_fs_model
 
-    calib = load_calibration(store, sh)
-    fs_model = FSModel(calibration=calib) if calib else None
+    # a per-tenant retrained m/u table (if one has cleared the eval gate) wins;
+    # otherwise the domain prior + any fitted calibration map.
+    fs_model = load_fs_model(store, sh)
+    if fs_model is None:
+        calib = load_calibration(store, sh)
+        fs_model = FSModel(calibration=calib) if calib else None
     with span("match", run_id=run_id, records=len(records)):
         mr = run_matching(run_id, records, spec, fs=fs_model)
     if EventType.MATCH_CONFIRMED not in seen and EventType.DECOMPOSITION_COMPUTED not in seen:

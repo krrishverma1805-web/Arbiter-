@@ -51,3 +51,9 @@ mypy_path = ["packages/engine", "packages/datagen"]
 [[tool.mypy.overrides]]
 module = ["dateutil.*", "opentelemetry.*", "sentry_sdk.*", "mcp.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# FastMCP's `@mcp.tool()` has no type info when the `mcp` extra isn't installed
+# (it's `Any`), which trips `disallow_untyped_decorators` under strict.
+module = ["arbiter_api.mcp_server"]
+disallow_untyped_decorators = false

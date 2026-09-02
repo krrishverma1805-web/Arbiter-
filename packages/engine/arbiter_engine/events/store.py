@@ -131,12 +131,18 @@ class EventStore:
                 )
             )
 
-    def runs(self) -> list[str]:
+    def runs(self, *, include_internal: bool = False) -> list[str]:
+        """Distinct run ids for this tenant. `__`-prefixed ids are internal
+        pseudo-runs (e.g. the learning loop's retrain log) and are hidden unless
+        `include_internal` is set."""
         with self._session() as session:
             rows = session.exec(
                 select(col(Event.run_id)).where(Event.org_id == self.org_id).distinct()
             ).all()
-            return sorted(set(rows))
+            ids = sorted(set(rows))
+            if include_internal:
+                return ids
+            return [r for r in ids if not r.startswith("__")]
 
     def iter_payloads(self, run_id: str) -> Iterator[tuple[str, dict[str, Any]]]:
         for ev in self.events(run_id):

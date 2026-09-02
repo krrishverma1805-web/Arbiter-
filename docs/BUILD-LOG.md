@@ -8,6 +8,25 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 4: feedback → FS retraining behind an eval gate
+
+`arbiter_engine/learn/retrain.py` + `arbiter retrain --spec`. Every confirmed
+match a tenant accumulates is a labelled positive; a matched bank credit paired
+with a *different* run's batch is a negative. `FSModel.from_labeled` re-estimates
+the m/u table from those — the matcher literally learns this tenant's data.
+
+The gate: the labelled pairs are split (spec-hash-seeded, so the decision is
+reproducible); the candidate must beat the incumbent on held-out ROC-AUC by
+`margin` (0.01) or it is **rejected**. Both outcomes are events —
+`FS_MODEL_PROMOTED` (carries the full mu table) / `FS_MODEL_REJECTED` — parked on
+a `__learn__<org>` pseudo-run (hidden from `store.runs()` by a new
+`include_internal` flag). `run.py` now loads a promoted table via
+`fs_store.load_fs_model` ahead of the domain prior + calibration map.
+
+Bug found writing the AUC: had the Mann–Whitney tie term as `- 0.5·ties`
+instead of `+`, so a signal-blind model scored −0.5. 5 tests (incl. the gate
+rejecting a worse candidate, and a promoted run still verifying). 138 total.
+
 ## 2026-09-02 — Phase 4: MCP server (read-only reconciliation as a capability)
 
 `arbiter_api/mcp_server.py` — a FastMCP stdio server (`arbiter-api mcp`, behind

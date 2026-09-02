@@ -33,6 +33,8 @@ class EventType(StrEnum):
     RULE_MERGED = "RULE_MERGED"
     SCORECARD_COMPUTED = "SCORECARD_COMPUTED"
     FS_CALIBRATION_FITTED = "FS_CALIBRATION_FITTED"
+    FS_MODEL_PROMOTED = "FS_MODEL_PROMOTED"
+    FS_MODEL_REJECTED = "FS_MODEL_REJECTED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_PURGED = "RUN_PURGED"
 
@@ -167,6 +169,31 @@ class FSCalibrationFitted(BaseModel):
     ece_before: float
 
 
+class FSModelPromoted(BaseModel):
+    """A per-tenant Fellegi–Sunter m/u table retrained from this tenant's own
+    confirmed matches and promoted because it beat the incumbent on a held-out
+    set (docs/28 §3 item 14). The next run over this spec loads it."""
+
+    spec_hash: str
+    mu: dict[str, dict[str, list[float]]]  # {field: {level: [m, u]}}
+    auc_before: float
+    auc_after: float
+    n_pairs: int
+    trained_by: str
+
+
+class FSModelRejected(BaseModel):
+    """A retrain that did not clear the eval gate — recorded so the decision is
+    auditable and the same data isn't retried forever."""
+
+    spec_hash: str
+    auc_before: float
+    auc_after: float
+    n_pairs: int
+    reason: str
+    trained_by: str
+
+
 class RunCompleted(BaseModel):
     status: str  # "completed" | "failed"
     counts: dict[str, int]
@@ -197,6 +224,8 @@ EVENT_PAYLOADS: dict[EventType, type[BaseModel]] = {
     EventType.RULE_MERGED: RuleMerged,
     EventType.SCORECARD_COMPUTED: ScorecardComputed,
     EventType.FS_CALIBRATION_FITTED: FSCalibrationFitted,
+    EventType.FS_MODEL_PROMOTED: FSModelPromoted,
+    EventType.FS_MODEL_REJECTED: FSModelRejected,
     EventType.RUN_COMPLETED: RunCompleted,
     EventType.RUN_PURGED: RunPurged,
 }

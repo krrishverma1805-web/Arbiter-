@@ -166,31 +166,19 @@ jobs:
           done
           curl -sf localhost:3000/ | grep -qi arbiter
           docker rm -f web
-      - name: scan both images (fail on CRITICAL/HIGH)
-        uses: aquasecurity/trivy-action@v0.29.0
-        with:
-          scan-type: image
-          image-ref: arbiter-api:ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: CRITICAL
-      - name: scan the web image
-        uses: aquasecurity/trivy-action@v0.29.0
-        with:
-          scan-type: image
-          image-ref: arbiter-web:ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: CRITICAL
+      - name: install trivy
+        run: |
+          curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sudo sh -s -- -b /usr/local/bin v0.58.1
+          trivy --version
+      - name: scan both images (fail on fixable CRITICAL)
+        run: |
+          for svc in api web; do
+            trivy image --scanners vuln --ignore-unfixed --severity CRITICAL \
+              --exit-code 1 --no-progress "arbiter-$svc:ci"
+          done
       - name: SBOM for the api image
-        uses: aquasecurity/trivy-action@v0.29.0
-        with:
-          scan-type: image
-          image-ref: arbiter-api:ci
-          format: cyclonedx
-          output: sbom-api.cdx.json
+        run: trivy image --format cyclonedx --output sbom-api.cdx.json --no-progress arbiter-api:ci
       - uses: actions/upload-artifact@v4
         with:
           name: sbom

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import EventStore
+from arbiter_engine.match.fellegi_sunter import FSModel
 
 _MIN_SAMPLES = 12
 _MIN_POINTS = 2
@@ -51,7 +52,7 @@ def load_calibration(store: EventStore, spec_hash: str) -> list[tuple[float, flo
     """The most recent fitted map for this spec across every run, or []."""
     latest: list[tuple[float, float]] = []
     best_n = -1
-    for rid in store.runs():
+    for rid in store.runs(include_internal=True):
         for t, p in store.iter_payloads(rid):
             if t != EventType.FS_CALIBRATION_FITTED or p.get("spec_hash") != spec_hash:
                 continue
@@ -59,3 +60,26 @@ def load_calibration(store: EventStore, spec_hash: str) -> list[tuple[float, flo
                 best_n = p["n_samples"]
                 latest = [(float(x), float(y)) for x, y in p["points"]]
     return latest
+
+
+def load_fs_model(store: EventStore, spec_hash: str) -> FSModel | None:
+    """The most recently promoted per-tenant m/u table for this spec (docs/28
+    §3 item 14), with any fitted calibration map folded in. `None` if this
+    tenant has never had a retrain clear the eval gate — the caller then uses
+    the domain-prior `FSModel()`."""
+    best_mu: dict[str, dict[str, tuple[float, float]]] | None = None
+    best_key = (-1.0, -1)  # (auc_after, n_pairs)
+    for rid in store.runs(include_internal=True):
+        for t, p in store.iter_payloads(rid):
+            if t != EventType.FS_MODEL_PROMOTED or p.get("spec_hash") != spec_hash:
+                continue
+            key = (float(p.get("auc_after", 0.0)), int(p.get("n_pairs", 0)))
+            if key >= best_key:
+                best_key = key
+                best_mu = {
+                    f: {lvl: (float(v[0]), float(v[1])) for lvl, v in lv.items()}
+                    for f, lv in p["mu"].items()
+                }
+    if best_mu is None:
+        return None
+    return FSModel(mu=best_mu, calibration=load_calibration(store, spec_hash))

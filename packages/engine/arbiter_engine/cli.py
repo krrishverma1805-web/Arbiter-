@@ -598,6 +598,28 @@ def cash_position_cmd(
 
 
 @app.command()
+def retrain(
+    spec: Path = typer.Option(..., "--spec", help="path to the recon spec YAML"),
+    actor: str = typer.Option("cli", "--actor"),
+    db: str | None = typer.Option(None, "--db"),
+) -> None:
+    """Retrain this tenant's Fellegi–Sunter m/u table from its confirmed matches,
+    behind an eval gate (docs/28 §3 item 14). Promotes only if the candidate
+    beats the incumbent on a held-out ROC-AUC; the decision is written to the
+    event log and the next run loads any promoted table."""
+    from arbiter_engine.learn.retrain import retrain as _retrain
+    from arbiter_engine.specs import load_spec
+
+    res = _retrain(_store(db), load_spec(spec), trained_by=actor)
+    colour = typer.colors.GREEN if res.promoted else typer.colors.YELLOW
+    typer.secho(
+        f"{res.reason}: AUC {res.auc_before:.3f} -> {res.auc_after:.3f} "
+        f"over {res.n_pairs} labelled pairs",
+        fg=colour,
+    )
+
+
+@app.command()
 def memo(
     run_id: str = typer.Argument(...),
     out: Path | None = typer.Option(None, "--out", help="write the HTML here (default: stdout)"),

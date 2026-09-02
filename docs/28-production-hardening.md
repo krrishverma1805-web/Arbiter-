@@ -115,7 +115,7 @@ worker's run self-heals; a backup restores in CI; dashboards show the span tree.
 
 ### Phase 4 — Continuous learning platform
 13. Per-tenant resolution memory (semantic `similar_exceptions`).
-14. Feedback → nightly retraining (FS table, few-shots, threshold) **behind an eval gate**.
+14. Feedback → nightly retraining (FS table, few-shots, threshold) **behind an eval gate**. — ✅ **`arbiter_engine/learn/retrain.py` + `arbiter retrain --spec`: re-estimates this tenant's Fellegi–Sunter m/u table from its own confirmed matches (positives) vs. real bank↔wrong-batch pairs (negatives); the labelled set is split and the candidate must beat the incumbent on held-out ROC-AUC by a margin or it's rejected — both outcomes are `FS_MODEL_PROMOTED`/`FS_MODEL_REJECTED` events, and `run.py` loads any promoted table via `fs_store.load_fs_model`. Deterministic (spec-hash-seeded split).** Still open: retraining the agent's few-shots / escalation threshold; wiring it to a scheduler.
 15. Opt-in global pattern library with hard anonymization + kill-switch.
 16. Model registry + drift detection; MCP server. — ✅ **MCP server (`arbiter_api/mcp_server.py`, `arbiter-api mcp`, stdio, `arbiter-api[mcp]` extra) — 7 read-only tools (`list_runs`, `run_summary`, `verify_run`, `cash_position_for`, `query_evidence`, `decomposition_detail`, `list_exceptions`), tenant-scoped by `ARBITER_MCP_ORG`; a test asserts no tool name can mutate.** Still open: model registry + input-drift detection.
 
