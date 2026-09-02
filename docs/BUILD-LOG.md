@@ -8,6 +8,26 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 1: MT940 + CAMT.053 bank-statement ingestion
+
+Two real bank-statement formats, both **dependency-free**:
+`ingest/mt940_source.py` (a tolerant `:61:`/`:86:` SWIFT tag parser — a
+malformed `:61:` is quarantined, not fatal) and `ingest/camt_source.py`
+(ISO 20022 XML via stdlib `xml.etree`, namespace-agnostic). Each `:61:` / each
+`<Ntry>` becomes a row with the **same canonical keys a `bank_csv` source
+produces** (`amount` magnitude + `debit` for the sign, `value_date`,
+`posted_date`, `narration`, `account_no`), so the spec column map,
+`extract_utr(reference)` derive and card-number scrub all apply unchanged.
+`ingest_source` routes on extension first (`.sta/.mt940/.940` → MT940,
+`.xml` → CAMT), `spec.format:` only disambiguates a bare `.txt`. `run.py`
+`_SOURCE_EXTS` / `_dataset_hash` widened to match.
+
+Snags while writing the tests: the MT940 debit row set only `debit`, so
+`normalize_row` raised "missing amount" before it checked the sign — now both
+readers put the magnitude on `amount` and add `debit` for outflows; and the
+`.xml` file was routing to the MT940 reader because the spec's `format: mt940`
+string matched first. 6 tests, 158 total, gate green.
+
 ## 2026-09-03 — Phase 3: Redis cache + deploy pipeline
 
 `arbiter_api/cache.py` — `get_or_set(key, ttl, fn)`. The scorecard endpoint

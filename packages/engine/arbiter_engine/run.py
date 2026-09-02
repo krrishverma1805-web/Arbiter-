@@ -56,7 +56,7 @@ class RunInputs:
 def _dataset_hash(dataset_dir: Path) -> str:
     parts = []
     for f in sorted(dataset_dir.iterdir()):
-        if f.suffix.lower() in (".csv", ".xlsx", ".xlsm"):
+        if f.suffix.lower() in _SOURCE_EXTS:
             parts.append(f"{f.name}:{sha256_hex(f.read_bytes().decode('utf-8', 'replace'))}")
     return sha256_hex("|".join(parts))[:16]
 
@@ -233,7 +233,7 @@ def _pipeline(
     return fold_run(store, run_id)
 
 
-_SOURCE_EXTS = (".csv", ".xlsx", ".xlsm")
+_SOURCE_EXTS = (".csv", ".xlsx", ".xlsm", ".xml", ".sta", ".mt940", ".940")
 
 
 def _resolve_source_file(dataset_dir: Path, source_name: str) -> Path | None:
