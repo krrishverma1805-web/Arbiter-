@@ -27,6 +27,14 @@ def client(tmp_path_factory: pytest.TempPathFactory):
     return TestClient(app), ds
 
 
+@pytest.fixture(autouse=True)
+def _fresh_limits():
+    from arbiter_api.ratelimit import limiter
+
+    limiter.reset()
+    yield
+
+
 def test_health(client):
     c, _ = client
     assert c.get("/healthz").json()["status"] == "ok"
@@ -222,3 +230,18 @@ def test_jobs_list_is_tenant_scoped(client, monkeypatch):
     c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}, headers=a)
     assert len(c.get("/v1/jobs", headers=a).json()["jobs"]) >= 1
     assert c.get("/v1/jobs", headers=b).json()["jobs"] == []
+
+
+def test_rate_limit_returns_429_with_retry_after(client, monkeypatch):
+    c, _ = client
+    import arbiter_api.ratelimit as rl
+
+    # a tiny bucket so the limit trips fast
+    monkeypatch.setattr(rl, "_READ_RATE", 0.0)
+    monkeypatch.setattr(rl, "_READ_BURST", 3.0)
+    rl.limiter.reset()
+    codes = [c.get("/v1/specs").status_code for _ in range(6)]
+    assert codes.count(200) == 3
+    r = c.get("/v1/specs")
+    assert r.status_code == 429
+    assert "Retry-After" in r.headers

@@ -38,6 +38,7 @@ from pydantic import BaseModel
 from arbiter_api import __version__
 from arbiter_api.auth import current_principal, current_store, has_role, resolve, set_current
 from arbiter_api.deps import DATASETS_DIR, ENV, SPECS_DIR
+from arbiter_api.ratelimit import limiter
 
 app = FastAPI(title="Arbiter API", version=__version__)
 app.add_middleware(
@@ -51,7 +52,7 @@ _PUBLIC = ("/healthz", "/readyz", "/docs", "/openapi.json", "/redoc")
 
 
 @app.middleware("http")
-async def _authenticate(request: Request, call_next):  # type: ignore[no-untyped-def]
+async def _gate(request: Request, call_next):  # type: ignore[no-untyped-def]
     if request.url.path in _PUBLIC:
         return await call_next(request)
     principal = resolve(request.headers.get("authorization"))
@@ -61,6 +62,15 @@ async def _authenticate(request: Request, call_next):  # type: ignore[no-untyped
             content={"title": "unauthorized", "detail": "a valid API key is required"},
         )
     set_current(principal)
+
+    is_write = request.method not in ("GET", "HEAD", "OPTIONS")
+    ok, retry = limiter.allow(f"{principal.org_id}:{principal.subject}", write=is_write)
+    if not ok:
+        return JSONResponse(
+            status_code=429,
+            content={"title": "rate limited", "detail": f"retry in {retry:.1f}s"},
+            headers={"Retry-After": str(int(retry) + 1)},
+        )
     return await call_next(request)
 
 

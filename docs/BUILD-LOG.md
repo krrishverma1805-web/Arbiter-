@@ -8,6 +8,16 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2: per-tenant rate limiting
+
+`arbiter_api/ratelimit.py` — a token-bucket limiter keyed on
+`(org, subject)` with two buckets: a generous one for reads (600/min, burst 120)
+and a tight one for writes (60/min, burst 20), all env-tunable. The `_gate`
+middleware checks it after auth; over the limit → **429** with `Retry-After`.
+In-memory (correct for one API instance; a Redis bucket is the multi-node swap,
+same interface). `test_api.py` trips a tiny bucket and asserts the 429 + header;
+an autouse fixture resets the limiter between tests. 118 tests.
+
 ## 2026-09-02 — Phase 2: async runs — a DB-backed job queue
 
 `arbiter_api/jobs.py`: a single `jobs` table with an atomic claim (`UPDATE …
