@@ -7,6 +7,7 @@ from sqlmodel import SQLModel
 
 # import every module that defines a `table=True` model so metadata is complete
 import arbiter_api.auth  # noqa: F401  (ApiKey)
+import arbiter_api.idempotency  # noqa: F401  (IdempotencyRecord)
 import arbiter_api.jobs  # noqa: F401  (Job)
 
 target_metadata = SQLModel.metadata

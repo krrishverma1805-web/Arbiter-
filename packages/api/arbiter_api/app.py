@@ -176,12 +176,20 @@ def list_uploads() -> dict[str, Any]:
 
 
 @app.post("/v1/runs", status_code=202)
-def start_run(req: RunRequest) -> dict[str, Any]:
+def start_run(req: RunRequest, request: Request) -> Any:
     _require("analyst")
-    from arbiter_api import jobs
+    from arbiter_api import idempotency, jobs
     from arbiter_api.resolve import resolve_dataset, resolve_spec
 
     org = current_principal().org_id
+    idem = request.headers.get("idempotency-key", "")
+    try:
+        cached = idempotency.lookup(org, idem, req.model_dump())
+    except ValueError as e:
+        raise _problem(409, "idempotency conflict", str(e)) from e
+    if cached is not None:
+        return JSONResponse(status_code=cached[0], content=cached[1])
+
     if resolve_spec(req.spec) is None:
         raise _problem(404, "spec not found", req.spec)
     if resolve_dataset(org, req.dataset) is None:
@@ -189,14 +197,18 @@ def start_run(req: RunRequest) -> dict[str, Any]:
 
     job_id = jobs.enqueue(org, "run", req.model_dump())
     if jobs.ASYNC:
-        return {"job_id": job_id, "status": "queued"}
+        body: dict[str, Any] = {"job_id": job_id, "status": "queued"}
+        idempotency.store(org, idem, req.model_dump(), 202, body)
+        return body
     job = jobs.get(job_id, org)
     assert job is not None
     jobs.run_one(job)
     done = jobs.get(job_id, org)
     if done is None or done.status != "done" or done.run_id is None:
         raise _problem(500, "run failed", (done.error if done else "") or "unknown error")
-    return {"job_id": job_id, **_run_summary(done.run_id)}
+    body = {"job_id": job_id, **_run_summary(done.run_id)}
+    idempotency.store(org, idem, req.model_dump(), 202, body)
+    return body
 
 
 @app.get("/v1/jobs")
@@ -403,8 +415,20 @@ class ResolveRequest(BaseModel):
 
 
 @app.post("/v1/exceptions/{run_id}/{exception_id}/resolve")
-def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest) -> dict[str, Any]:
+def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest, request: Request) -> Any:
     _require("analyst")
+    from arbiter_api import idempotency
+
+    org = current_principal().org_id
+    idem = request.headers.get("idempotency-key", "")
+    key_payload = {"run_id": run_id, "exception_id": exception_id, **req.model_dump()}
+    try:
+        cached = idempotency.lookup(org, idem, key_payload)
+    except ValueError as e:
+        raise _problem(409, "idempotency conflict", str(e)) from e
+    if cached is not None:
+        return JSONResponse(status_code=cached[0], content=cached[1])
+
     store = get_store()
     proj = _proj_or_404(run_id)
     exc = next((e for e in proj.exceptions if e.id == exception_id), None)
@@ -427,7 +451,14 @@ def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest) -> di
     draft = draft_rule_from_resolution(exc, req.action, category=req.category)
     if draft is not None:
         store.append(run_id, EventType.RULE_DRAFTED, draft)
-    return {"ok": True, "exception_id": exception_id, "action": req.action, "drafted_rule": draft}
+    body = {
+        "ok": True,
+        "exception_id": exception_id,
+        "action": req.action,
+        "drafted_rule": draft,
+    }
+    idempotency.store(org, idem, key_payload, 200, body)
+    return body
 
 
 @app.get("/v1/runs/{run_id}/rules/pending")

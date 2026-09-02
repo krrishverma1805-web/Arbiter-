@@ -303,3 +303,36 @@ def test_uploads_are_tenant_scoped(client, tmp_path, monkeypatch):
     c.post("/v1/uploads", files=[("files", (one.name, one.read_bytes(), "text/csv"))], headers=a)
     assert len(c.get("/v1/uploads", headers=a).json()["uploads"]) == 1
     assert c.get("/v1/uploads", headers=b).json()["uploads"] == []
+
+
+def test_idempotency_key_replays_the_first_response(client):
+    c, ds = client
+    body = {"spec": "razorpay-settlement", "dataset": str(ds)}
+    h = {"Idempotency-Key": "req-abc-123"}
+    r1 = c.post("/v1/runs", json=body, headers=h)
+    r2 = c.post("/v1/runs", json=body, headers=h)
+    assert r1.status_code == r2.status_code
+    assert r1.json() == r2.json()  # exact replay, no second job
+
+    # same key, different body -> 409
+    r3 = c.post("/v1/runs", json={**body, "no_ai": True}, headers=h)
+    assert r3.status_code == 409
+
+
+def test_resolve_is_idempotent(client):
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+    exc_id = c.get(f"/v1/runs/{run_id}/exceptions").json()["exceptions"][0]["id"]
+    h = {"Idempotency-Key": "resolve-1"}
+    a = c.post(
+        f"/v1/exceptions/{run_id}/{exc_id}/resolve", json={"action": "carry_forward"}, headers=h
+    )
+    b = c.post(
+        f"/v1/exceptions/{run_id}/{exc_id}/resolve", json={"action": "carry_forward"}, headers=h
+    )
+    assert a.json() == b.json()
+    # exactly one RESOLUTION_APPLIED event was appended
+    events = c.get(f"/v1/runs/{run_id}/verify").json()
+    assert events["intact"] is True

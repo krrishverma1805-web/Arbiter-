@@ -8,6 +8,19 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-02 — Phase 2: idempotency keys on the mutating routes
+
+`arbiter_api/idempotency.py` + an `idempotency_keys` table (migration
+`5c450dd7`). `POST /v1/runs` and `.../resolve` honour an `Idempotency-Key`
+header: the first `(org, key)` response is stored (24 h TTL) and every later
+request with the same key gets it back verbatim — so a retried run doesn't
+enqueue twice and a retried resolve doesn't append a second event. Same key +
+a *different* body → **409** (a client bug worth surfacing).
+
+The drift test caught the new table immediately — the migration was written and
+`env.py` now imports `arbiter_api.idempotency`. `test_api.py`: run-replay,
+resolve-replay, key-conflict. 126 tests.
+
 ## 2026-09-02 — Phase 2: tenant-scoped upload storage
 
 `POST /v1/uploads` (multipart) writes a customer's CSV/XLSX under
