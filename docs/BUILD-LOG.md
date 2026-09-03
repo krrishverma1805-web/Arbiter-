@@ -8,6 +8,20 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 3: per-PR preview environments + CDN-ready ingress
+
+`.github/workflows/preview.yml` — on every PR, a `gate` job checks for
+`KUBE_CONFIG` + `ARBITER_PREVIEW_DOMAIN` and no-ops without them; when set,
+`deploy` builds `pr-<n>` images, `helm upgrade --install arbiter-pr-<n>` into
+`arbiter-previews` at `pr-<n>.<domain>` (autoscaling off, 1 worker, `--atomic
+--wait`), and upserts a PR comment with the URL; `teardown` `helm uninstall`s on
+PR close.
+
+Chart Ingress now always carries `nginx.ingress.kubernetes.io/proxy-buffering:
+off` + `proxy-read-timeout: 180` so the SSE stream survives an nginx ingress;
+static assets already get `immutable` cache headers from Next standalone, so any
+CDN can front the host.
+
 ## 2026-09-03 — Phase 1: PDF bank-statement ingestion
 
 `ingest/pdf_source.py` via `pypdf` — which, unlike `pdfplumber`, has **zero

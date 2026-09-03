@@ -1,0 +1,84 @@
+name: preview
+
+# A per-PR preview environment. Dormant until a KUBE_CONFIG secret + a
+# *.preview.<domain> wildcard are configured — then each PR gets its own Helm
+# release in the `arbiter-previews` namespace at pr-<n>.<ARBITER_PREVIEW_DOMAIN>,
+# torn down when the PR closes.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.KUBE_CONFIG }}" ] && [ -n "${{ vars.ARBITER_PREVIEW_DOMAIN }}" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::preview env not configured (KUBE_CONFIG + ARBITER_PREVIEW_DOMAIN) — skipping."
+          fi
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.go == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build + push the PR images
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          T="ghcr.io/${{ github.repository_owner }}/arbiter"
+          docker buildx build --push -f packages/api/Dockerfile -t "$T-api:pr-${{ github.event.pull_request.number }}" .
+          docker buildx build --push -f web/Dockerfile -t "$T-web:pr-${{ github.event.pull_request.number }}" .
+      - uses: azure/setup-helm@v4
+        with: { version: "3.16.2" }
+      - name: helm upgrade the preview release
+        env:
+          KUBECONFIG: /tmp/kc
+          N: ${{ github.event.pull_request.number }}
+        run: |
+          printf '%s' "${{ secrets.KUBE_CONFIG }}" | base64 -d > /tmp/kc
+          helm upgrade --install "arbiter-pr-$N" deploy/helm/arbiter \
+            --namespace arbiter-previews --create-namespace \
+            --set image.apiTag="pr-$N" --set image.webTag="pr-$N" \
+            --set secret.existingSecret="${{ secrets.ARBITER_PREVIEW_SECRET || 'arbiter-preview' }}" \
+            --set ingress.enabled=true \
+            --set ingress.host="pr-$N.${{ vars.ARBITER_PREVIEW_DOMAIN }}" \
+            --set worker.replicaCount=1 --set worker.autoscaling.enabled=false \
+            --set api.autoscaling.enabled=false --set redis.enabled=true \
+            --atomic --wait --timeout 6m
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const url = `https://pr-${context.issue.number}.${{ vars.ARBITER_PREVIEW_DOMAIN }}/`;
+            const marker = "<!-- arbiter-preview -->";
+            const body = `${marker}\n🔎 **Preview:** ${url}`;
+            const cs = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
+            const mine = cs.data.find(c => c.body.startsWith(marker));
+            if (mine) await github.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body });
+            else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+
+  teardown:
+    needs: gate
+    if: needs.gate.outputs.go == 'true' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/setup-helm@v4
+        with: { version: "3.16.2" }
+      - env:
+          KUBECONFIG: /tmp/kc
+        run: |
+          printf '%s' "${{ secrets.KUBE_CONFIG }}" | base64 -d > /tmp/kc
+          helm uninstall "arbiter-pr-${{ github.event.pull_request.number }}" \
+            --namespace arbiter-previews || true

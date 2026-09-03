@@ -5,10 +5,13 @@ metadata:
   name: {{ include "arbiter.fullname" . }}
   labels:
     {{- include "arbiter.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    # SSE (/api/v1/runs/{id}/stream) must not be buffered or timed out early
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if .Values.ingress.tls.enabled }}
