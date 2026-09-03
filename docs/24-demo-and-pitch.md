@@ -1,5 +1,11 @@
 # 24 — Demo & Pitch Script
 
+> **Superseded.** The current, number-accurate 3-minute script is
+> [`docs/buildathon/DEMO.md`](buildathon/DEMO.md). This file is the earlier
+> 5-minute narrative and its numbers (96.4% / 0.6% false-match / 18 exceptions)
+> predate the current build (93.8% / 0.0% / 8 exceptions on `datasets/seed`).
+> Kept for the framing and the objection-handling notes below.
+
 _The 5-minute pitch video and the judge walkthrough. The bar says "one cherry-picked match proves nothing" — the demo is built to be the opposite of a cherry-pick._
 
 ---

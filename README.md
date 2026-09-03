@@ -42,11 +42,12 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
 | **Matches** | 8 deterministic passes: exact → tolerant → subset-sum (1 credit ↔ N orders) → fuzzy candidates → blocked → aggregate N:1 → aggregate 1:N → cross-period carry-forward |
 | **Decomposes** | Verifies `net = gross − MDR − GST-on-MDR − refunds − chargebacks ± rounding` line by line |
 | **Classifies** | Every non-match → a typed exception (`TIMING`, `DUPLICATE`, `FEE_DRIFT`, …), ranked by ₹ at stake, then grouped into root causes (`arbiter clusters`) |
-| **Investigates** | The ambiguous residue → a bounded agent loop gathers evidence, tests a hypothesis, and either proposes a category + explanation + fix + rule, or escalates with one sharpened question. Proposals only — never auto-applied |
-| **Gates** | A deterministic **Safety Kernel** decides every proposal: SAFE / needs-a-human / escalate / quarantine — from the risk tier (R0–R5), the grounding check, a counterfactual arithmetic check, and a 2nd-model verifier. All fail-closed. `unsafe_resolution_rate` is a CI-gated metric with tolerance 0 |
+| **Investigates** | The ambiguous residue → a bounded agent loop calls read-only tools, tests a hypothesis, and either proposes a category + explanation + fix + rule, or escalates with one sharpened question. **Arbiter never auto-resolves — a human confirms every proposal.** |
+| **Gates** | A deterministic **Safety Kernel** rules every proposal: SAFE / present-for-review / escalate / quarantine — from the risk tier (R0–R5), grounding, a counterfactual *arithmetic confirmation*, a 2nd-model verifier, and a never-safe list for money-movement categories. All fail-closed. `unsafe_resolution_rate` is CI-gated at tolerance 0 |
+| **Benchmarks the agent** | `arbiter agent-bench` → 99 labelled trajectory cases, the real investigation loop. Usefulness and safety scored **separately**. A competent agent: 100% task, 100% escalation recall, 0 unsafe, +44% lift. A confidently-wrong agent: **0 material unsafe** |
 | **Stress-tests** | `arbiter attack` → 12 deterministic tamperings (altered amount, wrong currency, fabricated UTR, prompt injection, phantom credit, …); asserts a tampered file never produces a confident clean tie. Current: 12 contained · 0 unsafe · ₹0 unaccounted |
 | **Learns** | You accept a resolution → Arbiter drafts a durable rule → next cycle's auto-match rate rises |
-| **Reports** | `arbiter bench` → matching metrics (auto-match rate, precision, recall, **false-match rate**, ₹ coverage) **and** agent metrics (task-completion, tool-use accuracy, grounding, hallucination rate, escalation precision/recall, confidence calibration) — reproducibly, in CI |
+| **Reports** | `arbiter bench` → matching metrics (auto-match, precision, recall, **false-match rate**, ₹ coverage) **and** headline safety metrics (`unsafe_resolution_rate`, `rupees_protected`, `replay_divergence`) — reproducibly, in CI |
 | **Places the cash** | `arbiter cash-position` → every settled rupee partitioned: confirmed in bank · in transit · held (disputes / wrong account) · unexplained. Pure arithmetic off the reconciled ledger — it always sums back to the processor-side net |
 | **Attests** | `arbiter memo` → an auditor-ready Close Memo (totals tied, coverage, every exception + its resolution, the audit-trail hash); `arbiter audit-pack` → the memo + the full hash-chained event log + a re-check manifest, as one zip |
 
@@ -131,7 +132,16 @@ back onto it and still vetted by the deterministic grounding layer.
 
 ## Documentation
 
-**Start here (repo-root summaries, each points into `docs/`):**
+**For a judge — the 3-minute path:**
+[`docs/buildathon/DEMO.md`](docs/buildathon/DEMO.md) (the script) ·
+[`docs/buildathon/SAFETY_RESULTS.md`](docs/buildathon/SAFETY_RESULTS.md) ·
+[`docs/buildathon/AGENT_EVALUATION.md`](docs/buildathon/AGENT_EVALUATION.md) ·
+[`docs/buildathon/ATTACK_RESULTS.md`](docs/buildathon/ATTACK_RESULTS.md) ·
+[`docs/buildathon/LIMITATIONS.md`](docs/buildathon/LIMITATIONS.md) ·
+[`docs/CLAIMS.md`](docs/CLAIMS.md) (claim → proof → command) ·
+[`docs/CONTROL_INVARIANTS.md`](docs/CONTROL_INVARIANTS.md)
+
+**Repo-root summaries, each points into `docs/`:**
 [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`AI_SAFETY.md`](AI_SAFETY.md) · [`SECURITY.md`](SECURITY.md) · [`THREAT_MODEL.md`](THREAT_MODEL.md) · [`BENCHMARK.md`](BENCHMARK.md) · [`FAILURE_RECOVERY.md`](FAILURE_RECOVERY.md) · [`REPLAY.md`](REPLAY.md) · [`FINAL_REPORT.md`](FINAL_REPORT.md) (graded self-assessment) · [`ENGINEERING_AUDIT.md`](ENGINEERING_AUDIT.md)
 
 **Full research and spec — read in order:**
@@ -178,6 +188,19 @@ now — [`SECURITY.md`](SECURITY.md) — but there is no hosted instance and no 
 human-only items · ₹ protected **₹53,245 (100%)** · replay divergence **none** · fabricated
 citations **0** · Attack Arbiter **12 / 12 contained, 0 unsafe, ₹0 unaccounted**
 (`arbiter attack`).
+
+**Agent** (`arbiter agent-bench` — 99 labelled trajectory cases, the real investigation
+loop, usefulness and safety scored separately):
+
+| client | task | category | escalation recall | unsafe | notes |
+|---|---|---|---|---|---|
+| oracle (competent) | **100%** | **100%** | **100%** | **0** | +44% lift vs. "escalate everything" |
+| reckless (confidently wrong) | — | — | — | **0 material** | 48% escalated by the harness · 5 immaterial SAFE-gate slips (₹4.5k) · a human still confirms |
+| fabricator (cites a ghost) | — | — | **100%** | **0** | every fabrication escalates |
+
+> **Arbiter never auto-resolves.** `unsafe_resolution_rate` measures how often the
+> kernel's `SAFE` gate *would* have been wrong — a trust check on the gate, not a
+> description of an auto-apply that doesn't exist.
 
 **Ablation** (`arbiter bench --ablate`) — the deterministic core is the whole
 table below until an `ANTHROPIC_API_KEY` is set; the model tiers (haiku triage →
