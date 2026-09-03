@@ -67,6 +67,19 @@ def normalize_row(
     except MoneyParseError as exc:
         raise QuarantineRow(f"unparseable amount: {exc}") from exc
 
+    # --- multi-currency: convert to the base currency for matching (docs/28 §1.1) ---
+    row_currency = (get("currency") or "INR").upper()
+    fx_orig_minor: int | None = None
+    base_currency = str(spec.fx.get("base", "INR")).upper() if spec.fx else "INR"
+    if spec.fx and row_currency != base_currency:
+        rate = (spec.fx.get("rates") or {}).get(row_currency)
+        if not rate:
+            raise QuarantineRow(f"no FX rate for {row_currency}->{base_currency}")
+        fx_orig_minor = amount_minor
+        amount_minor = round(amount_minor * float(rate))
+        fee_minor = round(fee_minor * float(rate))
+        tax_minor = round(tax_minor * float(rate))
+
     # --- dates ---
     value_date = _parse_date(get("value_date") or get("order_date") or get("date"))
     posted_date = _parse_date(get("posted_date"))
@@ -107,6 +120,9 @@ def normalize_row(
         derived = _derive(dexpr, row, cols)
         if derived:
             external_ids[dkey] = derived
+    if fx_orig_minor is not None:
+        external_ids["fx_orig_currency"] = row_currency
+        external_ids["fx_orig_amount_minor"] = str(fx_orig_minor)
 
     # --- reference (normalized, used in matching) ---
     reference = _normalize_ref(get("reference") or get("narration") or external_ids.get("utr"))
@@ -137,7 +153,7 @@ def normalize_row(
         amount_minor=amount_minor,
         fee_minor=fee_minor,
         tax_minor=tax_minor,
-        currency=(get("currency") or "INR").upper(),
+        currency=base_currency if fx_orig_minor is not None else row_currency,
         value_date=value_date,
         posted_date=posted_date,
         settled_at=settled_at,

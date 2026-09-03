@@ -8,6 +8,17 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 1: multi-currency / FX
+
+`SourceSpec.fx = {"base": "INR", "rates": {"USD": 83.2, …}}`. In `normalize_row`,
+a row whose `currency` differs from the base is converted (amount + fee + tax)
+before matching; the pre-conversion amount and currency go into
+`external_ids.fx_orig_amount_minor` / `fx_orig_currency`. An unrated currency is
+quarantined ("no FX rate for JPY->INR") rather than silently mis-matched.
+`_classify_residual` gained an `FX_DIFFERENCE` branch — a batch residual within
+2% of expected, on a batch that has FX-converted line items, is the conversion
+spread, not an unexplained gap. 4 tests, 175 total, gate green.
+
 ## 2026-09-03 — Phase 1: counterparty entity resolution
 
 `match/entity.py`: `canonical_entity(name)` folds a counterparty to a stable key

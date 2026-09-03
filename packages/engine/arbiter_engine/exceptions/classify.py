@@ -303,8 +303,13 @@ def _classify_residual(
             )
 
     # fallback: built-in heuristics (M1 behaviour, retained until every case is a rule)
+    has_fx = any(it.external_ids.get("fx_orig_currency") for it in items)
     if abs_res <= ctx.rounding_minor:
         cat, rule, conf = "ROUNDING", "rule:r_rounding", 0.95
+    elif has_fx and abs_res <= abs(decomp.expected_minor) * 0.02:
+        # the gap is within a typical FX conversion spread and the batch has
+        # non-base-currency line items (docs/28 §1.1)
+        cat, rule, conf = "FX_DIFFERENCE", "rule:r_fx_spread", 0.75
     elif not decomp.ledger_crosscheck_ok:
         cat, rule, conf = "PARTIAL_PAYMENT", "unclassified", 0.6
     elif abs_res <= total_fee * 0.25:

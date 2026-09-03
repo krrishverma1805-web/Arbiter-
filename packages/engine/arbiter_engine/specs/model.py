@@ -28,6 +28,10 @@ class SourceSpec(BaseModel):
     kind: str | None = None  # default record kind if the source doesn't carry `type`
     sheet: str | None = None  # xlsx: sheet name (default: the first / active sheet)
     header_row: int | None = None  # 0-indexed header override (default: auto-detect)
+    # multi-currency: {"base": "INR", "rates": {"USD": 83.2, "EUR": 90.5}}. When a
+    # row's currency != base and a rate is known, amounts are converted to base
+    # for matching and the original is kept in external_ids (docs/28 §1.1).
+    fx: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReconSpec(BaseModel):
