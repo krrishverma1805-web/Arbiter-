@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from arbiter_engine.agent.pricing import estimate_cost
 from arbiter_engine.bench.calibration import calibrate
 from arbiter_engine.events.fold import RunProjection
 
@@ -53,10 +54,13 @@ class AgentScore:
     grounded_rate: float = 0.0  # proposals whose every citation resolved
     confidence_ece: float = 0.0  # calibration of grounded_confidence vs category-correct
     confidence_n: int = 0
+    calibration_model: str | None = None  # provider/model the ECE above was measured on
+    prompt_hash: str | None = None  # investigator prompt version behind these numbers
+    insufficient_eval_data: bool = False  # too few labelled investigations to trust the rates
     tool_calls: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
-    est_cost_usd: float = 0.0
+    est_cost_usd: float | None = 0.0  # None ⇒ no price for this model (never show as $0)
 
 
 @dataclass
@@ -298,13 +302,6 @@ def _score_safety(
     )
 
 
-_PRICE_M = {
-    "claude-opus-5": (5.0, 25.0),
-    "claude-haiku-4-5": (1.0, 5.0),
-    "claude-sonnet-5": (2.0, 10.0),
-}
-
-
 def _score_agent(
     proj: RunProjection, anomalies: list[dict[str, Any]], events: list[tuple[str, dict[str, Any]]]
 ) -> AgentScore:
@@ -318,6 +315,7 @@ def _score_agent(
         return AgentScore(enabled=False)
 
     model = next((s["model"] for s in started if s.get("model") not in (None, "none")), "none")
+    prompt_hash = next((s.get("prompt_hash") for s in started if s.get("prompt_hash")), None)
     reasons: dict[str, int] = {}
     for ev in escs:
         r = (ev.get("escalation") or {}).get("reason", "?")
@@ -375,15 +373,21 @@ def _score_agent(
         got = (p.get("proposal") or {}).get("category")
         if conf is not None and want:
             cal_preds.append((float(conf), got == want))
-    cal = calibrate(cal_preds) if cal_preds else None
+    cal_key = f"{model}@{prompt_hash}" if prompt_hash else model
+    cal = calibrate(cal_preds, model_key=cal_key) if cal_preds else None
 
     completed = correct_props + esc_correct
     tin = sum(i.get("tokens_in", 0) for i in interactions)
     tout = sum(i.get("tokens_out", 0) for i in interactions)
-    pin, pout = _PRICE_M.get(model, (0.0, 0.0))
+    # too few labelled investigations ⇒ the rates below are noise, not signal.
+    # A single live run over one exception scores 0% task-completion *by
+    # construction*; say so rather than showing a misleading number.
+    scored_props = sum(1 for p in props if true_cat_by_exc.get(p["exception_id"]))
+    thin_eval = (len(started) < 5) or (scored_props + esc_correct < 3)
     return AgentScore(
         enabled=True,
         model=model,
+        prompt_hash=prompt_hash,
         investigations=len(started),
         proposals=len(props),
         escalations=len(escs),
@@ -396,8 +400,10 @@ def _score_agent(
         grounded_rate=round(grounded / len(props), 4) if props else 0.0,
         confidence_ece=round(cal.ece, 4) if cal else 0.0,
         confidence_n=cal.n if cal else 0,
+        calibration_model=f"{model}@{prompt_hash}" if cal and cal.n else None,
+        insufficient_eval_data=thin_eval,
         tool_calls=sum(len(i.get("tool_calls", [])) for i in interactions),
         tokens_in=tin,
         tokens_out=tout,
-        est_cost_usd=round(tin / 1e6 * pin + tout / 1e6 * pout, 4),
+        est_cost_usd=estimate_cost(model, tin, tout),
     )

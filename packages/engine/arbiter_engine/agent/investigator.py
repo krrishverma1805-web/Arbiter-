@@ -59,6 +59,20 @@ _TOOL_DEFS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "get_record",
+        "description": (
+            "Fetch ONE record by its exact id — every field, PII-redacted. Use this to "
+            "inspect a record before you cite it, so every evidence_ref is a record you "
+            "actually looked at."
+        ),
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"record_id": {"type": "string"}},
+            "required": ["record_id"],
+        },
+    },
+    {
         "name": "candidate_matches",
         "description": "Ranked fuzzy candidates for a record with the per-field weight breakdown.",
         "input_schema": {

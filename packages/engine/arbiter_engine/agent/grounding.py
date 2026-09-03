@@ -127,8 +127,10 @@ def _category_check(proposal: Proposal, snap: RunSnapshot) -> tuple[bool, str]:
 
     if cat == "DUPLICATE" and len(pay_ids) == len(set(pay_ids)):
         return False, "DUPLICATE proposed but no repeated payment_id in the cited records"
-    if cat == "ROUNDING" and residual is not None and residual > 500:
-        return False, f"ROUNDING proposed but the residual is {residual} minor (> ₹5.00)"
+    if cat == "ROUNDING" and residual is not None:
+        limit = max(50_00, len(ref_recs) * 100)
+        if residual > limit:
+            return False, f"ROUNDING proposed but the residual is {residual} minor (> {limit})"
     if cat == "CHARGEBACK" and not has_dispute:
         return False, "CHARGEBACK proposed but no dispute_id / chargeback record cited"
     if cat == "MISSING_UTR" and ref_recs and not has_utr_gap:

@@ -229,6 +229,80 @@ def test_security_review_is_never_investigated(adversarial_dataset: Path, spec_p
     assert not (started & sec), "a SECURITY_REVIEW exception was sent to the agent"
 
 
+def test_get_record_tool_is_read_only_and_pii_safe(adversarial_dataset: Path, spec_path: Path):
+    _store, proj, _spec = _snapshot(adversarial_dataset, spec_path)
+    snap = RunSnapshot.from_projection(proj)
+    tools = Tools(snap)
+
+    any_id = next(iter(snap.records))
+    before = {k: v.model_dump() for k, v in snap.records.items()}
+    view = tools.get_record(any_id)
+    assert view["id"] == any_id
+    # a real record view, and untrusted content comes back fenced, not raw
+    assert "amount_minor" in view and "untrusted" in view
+    for fenced in view["untrusted"].values():
+        assert "IGNORE ALL PREVIOUS INSTRUCTIONS" not in fenced or "untrusted-record-data" in fenced
+    # account numbers are redacted
+    assert view["external_ids"].get("account") in (None, "****")
+    # the snapshot is unchanged — the tool cannot mutate
+    assert {k: v.model_dump() for k, v in snap.records.items()} == before
+
+    missing = tools.get_record("no_such_record")
+    assert "error" in missing
+
+
+def test_agent_tool_surface_is_entirely_read_only(adversarial_dataset: Path, spec_path: Path):
+    """Control invariant: every tool the investigator can call leaves the run
+    snapshot byte-identical. The tools are the agent's whole surface — this is
+    the backstop that makes money-safety independent of model-safety."""
+    import copy
+
+    from arbiter_engine.agent.investigator import _TOOL_DEFS
+
+    _store, proj, _spec = _snapshot(adversarial_dataset, spec_path)
+    snap = RunSnapshot.from_projection(proj)
+    exc = _first_unexplained(proj)
+    tools = Tools(snap, exc)
+
+    def fingerprint() -> str:
+        return repr(
+            (
+                sorted((k, v.model_dump_json()) for k, v in snap.records.items()),
+                [m.model_dump_json() for m in snap.matches],
+                [d.model_dump_json() for d in snap.decompositions],
+                [e.model_dump_json() for e in snap.exceptions],
+            )
+        )
+
+    before = fingerprint()
+    # the store must not even be reachable from a tool
+    assert not hasattr(tools, "store") and not hasattr(tools, "_store")
+    assert {t["name"] for t in _TOOL_DEFS} == {
+        "query_evidence",
+        "get_record",
+        "counterparty_history",
+        "similar_exceptions",
+        "candidate_matches",
+        "decomposition_detail",
+    }
+
+    # call each tool with a plausible argument; none may change the snapshot
+    a_rec = next(iter(snap.records))
+    calls = {
+        "query_evidence": {"source": "any"},
+        "get_record": {"record_id": a_rec},
+        "counterparty_history": {"counterparty": "acme"},
+        "similar_exceptions": {},
+        "candidate_matches": {"record_id": a_rec},
+        "decomposition_detail": {"settlement_utr": "nope"},
+    }
+    for name, kwargs in calls.items():
+        getattr(tools, name)(**kwargs)
+    assert fingerprint() == before
+    # and the deep-copy check for good measure
+    assert copy.deepcopy(before) == before
+
+
 def test_injection_note_is_fenced_in_the_task_message(adversarial_dataset: Path, spec_path: Path):
     from arbiter_engine.agent.tools import build_task_message
 

@@ -152,7 +152,10 @@ export interface Scorecard {
     grounded_rate?: number;
     confidence_ece?: number;
     confidence_n?: number;
-    est_cost_usd: number;
+    calibration_model?: string | null;
+    prompt_hash?: string | null;
+    insufficient_eval_data?: boolean;
+    est_cost_usd: number | null;
   };
 }
 

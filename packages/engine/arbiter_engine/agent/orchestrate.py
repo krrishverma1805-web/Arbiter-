@@ -24,6 +24,7 @@ from arbiter_engine.agent.client import (
 )
 from arbiter_engine.agent.investigator import investigate
 from arbiter_engine.agent.memory import ResolutionMemory
+from arbiter_engine.agent.pricing import ceiling_cost
 from arbiter_engine.agent.prompts import INVESTIGATOR_V1_HASH
 from arbiter_engine.agent.tools import RunSnapshot, Tools
 from arbiter_engine.events.payloads import EventType
@@ -81,14 +82,6 @@ def _build_memory(store: EventStore, run_id: str, org: str | None) -> Any:
         except Exception:  # noqa: BLE001 - never fail the run over memory
             pass
     return ResolutionMemory.from_store(store, exclude_run_id=run_id, org_id=org)
-
-
-# very rough per-model output pricing ($/Mtok) for the cost ceiling
-_PRICE = {
-    "claude-opus-5": (5.0, 25.0),
-    "claude-haiku-4-5": (1.0, 5.0),
-    "claude-sonnet-5": (2.0, 10.0),
-}
 
 
 def _adjudication(spec: Any) -> dict[str, Any]:
@@ -351,8 +344,7 @@ def run_investigations(
                 actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
             )
         if not replay and client is None:
-            pin, pout = _PRICE.get(getattr(active, "model", ""), (5.0, 25.0))
-            spent += inv.tokens_in / 1e6 * pin + inv.tokens_out / 1e6 * pout
+            spent += ceiling_cost(getattr(active, "model", ""), inv.tokens_in, inv.tokens_out)
 
         gate = inv.decision.as_dict() if getattr(inv, "decision", None) else None
         if inv.outcome == "proposal" and inv.proposal is not None:

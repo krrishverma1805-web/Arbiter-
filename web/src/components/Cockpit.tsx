@@ -358,6 +358,12 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
       </div>
       {s.agent.enabled && (
         <>
+          {s.agent.insufficient_eval_data && (
+            <p className="text-[11px] text-attention">
+              too few labelled investigations to trust these rates — see{" "}
+              <span className="font-mono">arbiter agent-bench</span>
+            </p>
+          )}
           <Row label="task-completion" v={pct(s.agent.task_completion_rate)} />
           <Row
             label="hallucination"
@@ -369,10 +375,22 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
           )}
           {typeof s.agent.confidence_ece === "number" &&
           s.agent.confidence_n ? (
-            <Row label="confidence ECE" v={s.agent.confidence_ece.toFixed(3)} />
+            <Row
+              label="confidence ECE"
+              v={`${s.agent.confidence_ece.toFixed(3)}${
+                s.agent.calibration_model ? ` · ${s.agent.calibration_model}` : ""
+              }`}
+            />
           ) : null}
           <Row label="escalation recall" v={pct(s.agent.escalation_recall)} />
-          <Row label="cost" v={`$${s.agent.est_cost_usd.toFixed(3)}`} />
+          <Row
+            label="cost"
+            v={
+              typeof s.agent.est_cost_usd === "number"
+                ? `$${s.agent.est_cost_usd.toFixed(3)}`
+                : "unavailable for this provider"
+            }
+          />
         </>
       )}
       {s.safety && (

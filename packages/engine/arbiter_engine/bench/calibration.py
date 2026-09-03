@@ -37,11 +37,14 @@ class CalibrationReport:
     n: int = 0
     recalibration: list[tuple[float, float]] = field(default_factory=list)
     applied: bool = False
+    # what this diagram was measured on — a Claude ECE must never be shown for GPT
+    model_key: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
             "ece": round(self.ece, 4),
             "n": self.n,
+            "model_key": self.model_key,
             "well_calibrated": self.ece <= _ECE_THRESHOLD,
             "reliability": [
                 {
@@ -58,9 +61,18 @@ class CalibrationReport:
         }
 
 
-def calibrate(predictions: list[tuple[float, bool]], *, n_buckets: int = 10) -> CalibrationReport:
-    """predictions: (stated_confidence, is_correct)."""
-    report = CalibrationReport(n=len(predictions))
+def calibrate(
+    predictions: list[tuple[float, bool]],
+    *,
+    n_buckets: int = 10,
+    model_key: str | None = None,
+) -> CalibrationReport:
+    """predictions: (stated_confidence, is_correct).
+
+    `model_key` (e.g. ``"gpt-4o@<prompt-hash>"``) records which provider/model/
+    prompt this reliability diagram belongs to — a calibration measured on one
+    model must never be presented as another model's."""
+    report = CalibrationReport(n=len(predictions), model_key=model_key)
     if not predictions:
         return report
 

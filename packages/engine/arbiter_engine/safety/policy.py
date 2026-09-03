@@ -21,6 +21,19 @@ _DEFAULT_MATERIAL_MINOR = 5_000_00  # ₹5,000
 # a proposal touching one of these is never presented without a human.
 _DEFAULT_CONTROL_CATEGORIES = ("SECURITY_REVIEW", "WRONG_ACCOUNT")
 
+# categories that always need a human sign-off even with a confident, grounded,
+# arithmetic-confirmed proposal — they are money-movement or dispute decisions,
+# not classifications. The kernel will PROPOSE them but never mark them SAFE.
+_DEFAULT_NEVER_SAFE_CATEGORIES = (
+    "DUPLICATE",
+    "CHARGEBACK",
+    "PARTIAL_PAYMENT",
+    "WRONG_ACCOUNT",
+    "MISSING_UTR",
+    "UNEXPLAINED",
+    "SECURITY_REVIEW",
+)
+
 
 @dataclass(frozen=True)
 class Policy:
@@ -33,6 +46,7 @@ class Policy:
     # from adjudication.risk (new)
     material_minor: int = _DEFAULT_MATERIAL_MINOR
     control_categories: tuple[str, ...] = _DEFAULT_CONTROL_CATEGORIES
+    never_safe_categories: tuple[str, ...] = _DEFAULT_NEVER_SAFE_CATEGORIES
     # a proposal at risk R4+ must clear theta_conclude, not just theta_escalate
     escalate_material_below_conclude: bool = True
     tolerances: dict[str, int] = field(default_factory=dict)  # e.g. {"rounding": 100}
@@ -52,6 +66,9 @@ class Policy:
             verify_above_minor=int(adj.get("verify_above_minor", 100_00)),
             material_minor=int(risk.get("material_minor", _DEFAULT_MATERIAL_MINOR)),
             control_categories=tuple(risk.get("control_categories", _DEFAULT_CONTROL_CATEGORIES)),
+            never_safe_categories=tuple(
+                risk.get("never_safe_categories", _DEFAULT_NEVER_SAFE_CATEGORIES)
+            ),
             escalate_material_below_conclude=bool(
                 risk.get("escalate_material_below_conclude", True)
             ),
@@ -66,5 +83,6 @@ class Policy:
             "verify_above_minor": self.verify_above_minor,
             "material_minor": self.material_minor,
             "control_categories": list(self.control_categories),
+            "never_safe_categories": list(self.never_safe_categories),
             "escalate_material_below_conclude": self.escalate_material_below_conclude,
         }

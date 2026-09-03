@@ -145,7 +145,7 @@ def bench(
             key = m.id.removeprefix("m_")
             correct = (key in true_utrs or key in benign) and abs(m.residual_minor) <= 100
             preds.append((m.confidence, correct))
-        report = calibrate(preds)
+        report = calibrate(preds, model_key=f"fellegi-sunter@{spec.stem}")
         payload["calibration"] = report.to_dict()
         if db and report.recalibration:
             from arbiter_engine.match.fs_store import persist_calibration
@@ -244,6 +244,12 @@ def _print_agent(a: dict) -> None:  # type: ignore[type-arg]
         f"    investigations   {a['investigations']}  "
         f"({a['proposals']} proposals, {a['escalations']} escalations {a['escalation_reasons']})"
     )
+    if a.get("insufficient_eval_data"):
+        typer.secho(
+            "    ⚠ too few labelled investigations to trust the rates below — "
+            "run `arbiter agent-bench` for a real number",
+            fg=typer.colors.YELLOW,
+        )
     typer.echo(f"    task-completion  {a['task_completion_rate']:.1%}")
     typer.echo(f"    category acc.    {a['category_accuracy']:.1%}   (of proposals)")
     typer.echo(
@@ -252,9 +258,14 @@ def _print_agent(a: dict) -> None:  # type: ignore[type-arg]
     typer.echo(f"    hallucination    {a['hallucination_rate']:.1%}")
     typer.echo(f"    grounded         {a.get('grounded_rate', 0):.1%}")
     if a.get("confidence_n"):
-        typer.echo(f"    confidence ECE   {a['confidence_ece']:.3f}  (n={a['confidence_n']})")
+        on = a.get("calibration_model") or a["model"]
+        typer.echo(
+            f"    confidence ECE   {a['confidence_ece']:.3f}  (n={a['confidence_n']}, on {on})"
+        )
+    cost = a.get("est_cost_usd")
+    cost_str = f"${cost:.3f}" if isinstance(cost, int | float) else "unavailable for this provider"
     typer.echo(
-        f"    cost             ${a['est_cost_usd']:.3f}  "
+        f"    cost             {cost_str}  "
         f"({a['tool_calls']} tool calls, {a['tokens_in']}+{a['tokens_out']} tok)"
     )
 
@@ -286,6 +297,8 @@ def _print_safety(s: dict) -> None:  # type: ignore[type-arg]
 def _print_calibration(c: dict) -> None:  # type: ignore[type-arg]
     verdict = "well-calibrated" if c["well_calibrated"] else "RECALIBRATED"
     typer.secho("\n  confidence calibration", bold=True)
+    if c.get("model_key"):
+        typer.echo(f"    measured on      {c['model_key']}")
     typer.echo(f"    ECE              {c['ece']}   ({verdict})")
     typer.echo(f"    predictions      {c['n']}")
     for r in c["reliability"]:
@@ -333,6 +346,72 @@ def _print_scorecard(card) -> None:  # type: ignore[no-untyped-def]
     typer.echo(f"    records/sec      {card.throughput['records_per_sec']}")
     mark = "✓" if card.determinism["replay_hash_match"] else "✗ MISMATCH"
     typer.echo(f"    deterministic    {mark}")
+
+
+@app.command("agent-bench")
+def agent_bench(
+    client: str = typer.Option(
+        "oracle", "--client", help="oracle | reckless | fabricator | openai | anthropic"
+    ),
+    seeds: int = typer.Option(10, "--seeds", help="how many seeded datasets to build cases from"),
+    gate: bool = typer.Option(False, "--gate", help="exit 1 if a safety invariant fails"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Agent trajectory benchmark — score the investigation loop against a
+    labelled corpus of real exceptions (spec §32). Usefulness and safety are
+    reported separately; `unsafe_resolution_rate` must be 0."""
+    from arbiter_engine.bench.agent_bench import _DEFAULT_SEEDS, evaluate
+
+    rep = evaluate(client=client, seeds=_DEFAULT_SEEDS[: max(1, seeds)])
+    failures = rep.gate_failures()
+
+    if as_json:
+        typer.echo(json.dumps({**rep.as_dict(), "gate_failures": failures}, indent=2))
+        if gate and failures:
+            raise typer.Exit(1)
+        return
+
+    typer.secho(f"\nagent-bench · client={rep.client} · {rep.cases} cases\n", bold=True)
+    typer.secho("  usefulness", bold=True)
+    typer.echo(f"    task completion      {rep.task_completion_rate:.1%}")
+    typer.echo(f"    category accuracy    {rep.category_accuracy:.1%}")
+    typer.echo(f"    evidence grounded    {rep.evidence_grounded_rate:.1%}")
+    typer.echo(
+        f"    escalation P / R     {rep.escalation_precision:.1%} / {rep.escalation_recall:.1%}"
+    )
+    typer.echo(f"    false escalations    {rep.false_escalation_rate:.1%}  (cautious, not unsafe)")
+    typer.echo(f"    avg turns / tokens   {rep.avg_turns} / {rep.avg_tokens:.0f}")
+    typer.echo(f"    lift vs escalate-all {rep.ai_lift_vs_escalate_all:+.1%}")
+    typer.secho("\n  safety (independent)", bold=True)
+    mat = rep.material_unsafe_resolutions
+    mark = (
+        typer.style("✓ 0", fg=typer.colors.GREEN)
+        if mat == 0
+        else typer.style(f"✗ {mat}", fg=typer.colors.RED)
+    )
+    typer.echo(f"    material unsafe      {mark}  (SAFE-resolved while wrong & material)")
+    typer.echo(
+        f"    SAFE-gate slips      {rep.unsafe_resolutions}  "
+        f"(₹{rep.unsafe_rupees:,.0f} — all immaterial; a human still confirms)"
+    )
+    typer.echo(
+        f"    harness catch rate   {rep.harness_catch_rate:.1%}  (of wrong attempts, escalated)"
+    )
+    typer.echo(
+        f"    misleading proposals {rep.misleading_proposal_rate:.1%}  (wrong, shown to a human)"
+    )
+    typer.echo(f"    fabricated → escalated {rep.fabricated_escalated_rate:.1%}")
+    typer.echo(f"    forbidden actions    {rep.forbidden_action_rate:.1%}")
+    typer.echo(f"    injection cases      {rep.injection_cases} ({rep.injection_unsafe} unsafe)")
+
+    if failures:
+        typer.secho("\n  GATE FAILED:", fg=typer.colors.RED, bold=True)
+        for f in failures:
+            typer.secho(f"    - {f}", fg=typer.colors.RED)
+        if gate:
+            raise typer.Exit(1)
+    elif gate:
+        typer.secho("\n  gate OK", fg=typer.colors.GREEN)
 
 
 @app.command()

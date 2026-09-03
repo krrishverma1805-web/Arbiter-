@@ -24,6 +24,7 @@ class _Rec:
     amount_minor: int = 0
     settled_at: str = ""
     value_date: str = ""
+    source: str = "razorpay_recon"
     external_ids: dict[str, str] = field(default_factory=dict)
 
 
@@ -32,6 +33,8 @@ class _Decomp:
     group_id: str
     residual_minor: int
     components: dict[str, int] = field(default_factory=dict)
+    settlement_utr: str = ""
+    expected_minor: int = 0
 
 
 @dataclass
@@ -145,20 +148,48 @@ def test_counterfactual_refund_direction_contradiction() -> None:
     assert ok is False and "OVER expected" in note
 
 
-def test_counterfactual_timing_needs_date_spread() -> None:
-    exc = _Exc(record_ids=["r1", "r2"])
+def test_counterfactual_timing_semantics() -> None:
+    # a bank credit and its settlement on different dates → cross-source date gap,
+    # positively confirmed
+    exc = _Exc(amount_impact_minor=1000, record_ids=["s1", "b1"])
     snap = _Snap(
         records={
-            "r1": _Rec("r1", settled_at="2026-08-06"),
-            "r2": _Rec("r2", settled_at="2026-08-06"),
+            "s1": _Rec("s1", settled_at="2026-08-06"),
+            "b1": _Rec("b1", value_date="2026-09-01", source="bank"),
         }
     )
     ok, note = counterfactual.check(_proposal("TIMING"), exc, snap)
-    assert ok is False and "same settlement" in note
+    assert ok is True and note.startswith("confirmed:")
 
-    snap.records["r2"] = _Rec("r2", settled_at="2026-08-09")
-    ok2, _ = counterfactual.check(_proposal("TIMING"), exc, snap)
-    assert ok2 is True
+    # bank credit and settlement on the SAME date → no spread → contradiction
+    snap.records["b1"] = _Rec("b1", value_date="2026-08-06", source="bank")
+    ok2, note2 = counterfactual.check(_proposal("TIMING"), exc, snap)
+    assert ok2 is False and "same" in note2
+
+    # nothing outstanding, no cross-source gap → contradiction
+    exc0 = _Exc(amount_impact_minor=0, record_ids=["s1"])
+    snap0 = _Snap(records={"s1": _Rec("s1", settled_at="2026-08-06")})
+    ok3, note3 = counterfactual.check(_proposal("TIMING"), exc0, snap0)
+    assert ok3 is False and "nothing is outstanding" in note3
+
+    # the FULL expected credit outstanding, same-date settlement lines → a period
+    # straddle: confirmed
+    exc4 = _Exc(amount_impact_minor=-50_000, record_ids=["r1", "r2"])
+    snap4 = _Snap(
+        records={
+            "r1": _Rec("r1", settled_at="2026-09-01"),
+            "r2": _Rec("r2", settled_at="2026-09-01"),
+        },
+        decompositions=[_Decomp("g", residual_minor=-50_000, expected_minor=50_000)],
+    )
+    ok4, note4 = counterfactual.check(_proposal("TIMING"), exc4, snap4)
+    assert ok4 is True and note4.startswith("confirmed:")
+
+    # only PART of the credit outstanding, no cross-source gap → silent (not SAFE)
+    snap4.decompositions = [_Decomp("g", residual_minor=-8_000, expected_minor=50_000)]
+    exc4.amount_impact_minor = -8_000
+    ok5, note5 = counterfactual.check(_proposal("TIMING"), exc4, snap4)
+    assert ok5 is True and note5 == ""
 
 
 def test_counterfactual_duplicate_needs_repeated_id() -> None:
@@ -223,13 +254,16 @@ def test_kernel_counterfactual_contradiction_escalates() -> None:
 
 
 def test_kernel_material_needs_confidence() -> None:
-    exc = _Exc(amount_impact_minor=900000, category="TIMING", record_ids=["r1", "r2"])
+    # a material TIMING straddle (full credit outstanding, CF confirms) but the
+    # grounded confidence is only 0.7 → material money needs a confident, not
+    # merely plausible, conclusion → escalate
+    exc = _Exc(amount_impact_minor=-900000, category="TIMING", record_ids=["r1", "r2"])
     snap = _Snap(
         records={
-            "r1": _Rec("r1", settled_at="2026-08-06"),
-            "r2": _Rec("r2", settled_at="2026-08-09"),
+            "r1": _Rec("r1", settled_at="2026-09-01"),
+            "r2": _Rec("r2", settled_at="2026-09-01"),
         },
-        decompositions=[_Decomp("r1", 0)],
+        decompositions=[_Decomp("g", residual_minor=-900000, expected_minor=900000)],
     )
     d = kernel.evaluate(_proposal("TIMING", conf=0.7), exc, snap, _grounding(gc=0.7), Policy())
     assert d.action == "ESCALATE" and d.escalation_reason == "material_risk"

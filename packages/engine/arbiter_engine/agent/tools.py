@@ -156,6 +156,16 @@ class Tools:
             for h in recall_global(self.exc, recs)
         ]
 
+    def get_record(self, record_id: str) -> dict[str, Any]:
+        """Fetch one record by its exact id, every field, PII-redacted. Read-only.
+
+        The agent uses this to inspect a record before it cites it, so a citation
+        it makes is a citation it actually looked at (docs/28 §1.3)."""
+        r = self.snap.records.get(record_id)
+        if r is None:
+            return {"error": f"no record with id {record_id!r} in this run"}
+        return _record_view(r)
+
     def candidate_matches(self, record_id: str) -> dict[str, Any]:
         cands = self.snap.candidates.get(record_id, [])
         return {

@@ -98,7 +98,10 @@ def evaluate(
     cf_ok, cf_note = counterfactual.check(proposal, exc, snap)
     if not cf_ok:
         return esc("counterfactual_contradicted", cf_note)
-    if cf_note:
+    cf_confirmed = cf_note.startswith("confirmed:")
+    if cf_confirmed:
+        d.reasons.append("counterfactual_confirmed")
+    elif cf_note:
         d.reasons.append("counterfactual_ok")
 
     # 4. the 2nd-model verifier (when it ran)
@@ -123,15 +126,31 @@ def evaluate(
         d.detail = "control-sensitive — presented with a caveat, human confirmation required"
         return d
 
-    # 7. safe iff low risk, high confidence, category matches the evidence
+    # 6b. some categories are money-movement / dispute decisions — a human signs
+    #     off even a perfectly grounded proposal. Propose, never SAFE.
+    if str(proposal.category) in policy.never_safe_categories:
+        d.action = "PROPOSE"
+        d.detail = f"{proposal.category} always needs human sign-off — presented, not auto-safe"
+        return d
+
+    # 7. SAFE is *earned*, not merely "no red flag": low risk, high grounded
+    #    confidence, category consistent with the evidence shape, AND a
+    #    deterministic arithmetic check that actively confirmed the hypothesis
+    #    (not just stayed silent). A confident wrong proposal that trips none of
+    #    the narrow checks still only gets PROPOSE — a human confirms it.
     if (
         tier <= RiskTier.R2_LOW_RISK_PROPOSAL
         and gc >= policy.theta_conclude
         and grounding.category_consistent
+        and cf_confirmed
     ):
         d.action = "SAFE"
-        d.detail = "grounded, low-risk, category consistent"
+        d.detail = "grounded, low-risk, category consistent, arithmetic confirmed"
     else:
         d.action = "PROPOSE"
-        d.detail = d.detail or "presented for review"
+        d.detail = d.detail or (
+            "presented for review — no deterministic check positively confirmed the category"
+            if not cf_confirmed
+            else "presented for review"
+        )
     return d
