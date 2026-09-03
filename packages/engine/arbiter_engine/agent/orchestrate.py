@@ -354,6 +354,7 @@ def run_investigations(
             pin, pout = _PRICE.get(getattr(active, "model", ""), (5.0, 25.0))
             spent += inv.tokens_in / 1e6 * pin + inv.tokens_out / 1e6 * pout
 
+        gate = inv.decision.as_dict() if getattr(inv, "decision", None) else None
         if inv.outcome == "proposal" and inv.proposal is not None:
             store.append(
                 run_id,
@@ -366,6 +367,7 @@ def run_investigations(
                     "tokens_in": inv.tokens_in,
                     "tokens_out": inv.tokens_out,
                     "grounding": inv.grounding.as_dict() if inv.grounding else None,
+                    "decision": gate,
                 },
                 actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
             )
@@ -379,6 +381,7 @@ def run_investigations(
                     "escalation": esc,
                     "tool_calls": inv.tool_calls,
                     "turns": inv.turns,
+                    "decision": gate,
                 },
                 actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
             )

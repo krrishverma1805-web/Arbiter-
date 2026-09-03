@@ -102,6 +102,7 @@ class Investigation:
     tokens_out: int = 0
     model: str = ""
     prompt_hash: str = INVESTIGATOR_V1_HASH
+    decision: Any = None  # safety.kernel.Decision — the gate that produced this outcome
 
 
 def investigate(
@@ -143,7 +144,7 @@ def investigate(
         parsed = _try_parse(t, exc.id)
         if parsed is not None:
             if isinstance(parsed, Proposal):
-                return _finalize_proposal(inv, parsed, tools, thresholds, verifier)
+                return _finalize_proposal(inv, parsed, tools, thresholds, verifier, spec)
             inv.outcome, inv.escalation = "escalate", parsed
             return inv
 
@@ -177,33 +178,44 @@ def _finalize_proposal(
     tools: Tools,
     thresholds: dict[str, float],
     verifier: LLMClient | None = None,
+    spec: Any = None,
 ) -> Investigation:
-    """Ground the proposal against the run before trusting it. A fabricated
-    citation, or a grounded confidence below the escalation floor, converts the
-    proposal to an escalation (docs/28 §1.3). If a verifier client is supplied,
-    a second model must also agree the cited evidence supports the claim."""
+    """Hand the grounded proposal to the Safety Kernel — the single deterministic
+    gate (`safety/kernel.py`, ENGINEERING_AUDIT.md G1). The kernel checks
+    grounding, a counterfactual arithmetic test, the 2nd-model verifier (run
+    here so its verdict feeds the decision), the risk tier, and the policy
+    thresholds, and returns SAFE / PROPOSE / ESCALATE. The Decision is recorded
+    on the investigation and persisted in the `decision` field of the
+    AGENT_PROPOSAL_CREATED / AGENT_ESCALATED event, so gating is auditable."""
+    from dataclasses import replace
+
+    from arbiter_engine.safety import kernel
+    from arbiter_engine.safety.policy import Policy
+
     rep = check_grounding(proposal, tools.snap)
     inv.grounding = rep
 
-    if rep.fabricated:
-        return _escalate(
-            inv,
-            "contradictory",
-            f"the proposal cited record(s) that do not exist in this run: "
-            f"{', '.join(rep.fabricated[:3])}",
-        )
-    if rep.grounded_confidence < thresholds.get("theta_escalate", 0.55):
-        why = (
-            rep.category_note
-            or "the cited evidence does not support the conclusion strongly enough"
-        )
-        return _escalate(inv, "evidence_exhausted", why)
+    policy = Policy.from_spec(spec) if spec is not None else Policy()
+    policy = replace(
+        policy,
+        theta_conclude=thresholds.get("theta_conclude", policy.theta_conclude),
+        theta_escalate=thresholds.get("theta_escalate", policy.theta_escalate),
+    )
 
-    if verifier is not None:
-        ok, reason = _verify(proposal, tools, verifier, inv)
-        if not ok:
-            return _escalate(inv, "verifier_rejected", reason)
+    # run the verifier before the kernel (skip it for a doomed proposal)
+    vres: tuple[bool, str] | None = None
+    if (
+        verifier is not None
+        and not rep.fabricated
+        and rep.grounded_confidence >= policy.theta_escalate
+    ):
+        vres = _verify(proposal, tools, verifier, inv)
 
+    decision = kernel.evaluate(proposal, tools.exc, tools.snap, rep, policy, verifier_result=vres)
+    inv.decision = decision
+
+    if decision.escalated:
+        return _escalate(inv, decision.escalation_reason or "evidence_exhausted", decision.detail)
     inv.outcome, inv.proposal = "proposal", proposal
     return inv
 
@@ -245,8 +257,11 @@ def _verify(
     try:
         data = json.loads(t.text or "{}")
     except json.JSONDecodeError:
-        return True, "verifier response unparseable — not blocking"
-    return bool(data.get("supported", True)), str(data.get("reason", "verifier disagreed"))[:200]
+        # fail closed (spec §92): if the check itself is broken, don't wave it through
+        return False, "the verifier response could not be parsed — escalating to be safe"
+    if "supported" not in data:
+        return False, "the verifier did not return a verdict — escalating to be safe"
+    return bool(data["supported"]), str(data.get("reason", "verifier disagreed"))[:200]
 
 
 def _record_brief(r: Any) -> dict[str, Any]:

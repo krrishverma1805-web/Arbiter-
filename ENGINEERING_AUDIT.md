@@ -306,13 +306,12 @@ step. Do not advance past a red state.
 
 ## 7. Prioritized implementation plan
 
-**Tier A — real Buildathon leverage, do these (≈1–1.5 days):**
-| # | Item | Why | Effort |
+**Tier A — real Buildathon leverage:**
+| # | Item | Why | Status |
 |---|---|---|---|
-| A1 | G1 + G2 — Safety Kernel + explicit R0–R5 tiers | the spec's centrepiece; directly serves "AI Judgment" + "Build Quality"; a refactor, low risk | ~1 day |
-| A2 | G6 — Attack Arbiter harness + CLI + UI button | strongest "Failure Recovery" demo move; "watch Arbiter refuse to be fooled" | ~0.5 day |
-| A3 | G3 — deterministic counterfactual verification (refund / fee / timing / duplicate) | removes the "LLM checks LLM" criticism; real finance content | ~0.5 day |
-| A4 | G7 — headline safety metrics in the scorecard + gate | makes the safety story a *number*, not a claim | ~2h |
+| A1 | G1 + G2 + G3 — Safety Kernel + explicit R0–R5 tiers + deterministic counterfactual | the spec's centrepiece; serves "AI Judgment" + "Build Quality"; a refactor | ✅ **DONE** — `safety/` package (`kernel.py` / `risk.py` / `counterfactual.py` / `policy.py`), 17 tests, wired through `investigator._finalize_proposal`, `Decision` on every proposal/escalation event, `_verify` fail-open closed, `risk:` block in the spec |
+| A2 | G6 — Attack Arbiter harness + CLI + UI button | strongest "Failure Recovery" demo move; "watch Arbiter refuse to be fooled" | next |
+| A4 | G7 — headline safety metrics in the scorecard + gate | makes the safety story a *number*, not a claim | next |
 
 **Tier B — worth it if time allows:**
 | B1 | G5 — root-cause clustering + panel | strong finance UX; "5 causes not 87 rows" | ~0.5 day |

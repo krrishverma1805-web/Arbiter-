@@ -185,3 +185,8 @@ adjudication:
   tools: [query_evidence, counterparty_history, similar_exceptions, candidate_matches, decomposition_detail, propose_category, draft_resolution, draft_rule]
   proposal_only: true                   # hard guarantee — ADR-0001
   stopping: { theta_conclude: 0.80, theta_escalate: 0.55 }
+  risk:                                 # Safety Kernel policy — ENGINEERING_AUDIT.md G2, spec §7
+    version: razorpay-risk-v1
+    material_minor: 500000              # ≥ ₹5,000 ⇒ risk tier R4; needs a confident, verified conclusion
+    control_categories: [SECURITY_REVIEW, WRONG_ACCOUNT]
+    escalate_material_below_conclude: true

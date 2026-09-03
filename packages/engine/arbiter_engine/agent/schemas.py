@@ -112,6 +112,8 @@ class Escalate(BaseModel):
         "malformed_output",
         "verifier_rejected",  # a second model disagreed the evidence supports the claim
         "inconsistent",  # self-consistency samples did not agree on a category
+        "counterfactual_contradicted",  # the deterministic arithmetic check refuted the hypothesis
+        "material_risk",  # material ₹ impact without a confident, verified conclusion
     ]
 
 
