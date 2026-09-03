@@ -47,6 +47,12 @@ interface Investigation {
   };
   verifier?: { supported: boolean; reason: string };
   escalation?: { question: string; reason: string | null };
+  decision?: {
+    action: string;
+    risk: string;
+    risk_label?: string;
+    reasons: string[];
+  } | null;
 }
 
 // the agent's terminal turns arrive as JSON text; pull them out so they render
@@ -281,6 +287,38 @@ export function LiveRun({ runId }: { runId: string }) {
                   <p className="mt-1">{inv.verifier.reason}</p>
                 </motion.div>
               )}
+              {inv.decision && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={spring}
+                  className="border-t border-border bg-surface px-4 py-2 text-[11px]"
+                >
+                  <span className="font-semibold text-muted uppercase tracking-wide">
+                    safety kernel
+                  </span>{" "}
+                  <span className="font-mono">
+                    {inv.decision.risk} ·{" "}
+                    <span
+                      className={
+                        inv.decision.action === "SAFE"
+                          ? "text-positive"
+                          : inv.decision.action === "ESCALATE" ||
+                              inv.decision.action === "QUARANTINE"
+                            ? "text-attention"
+                            : "text-accent"
+                      }
+                    >
+                      {inv.decision.action}
+                    </span>
+                  </span>
+                  {inv.decision.reasons.length > 0 && (
+                    <span className="ml-2 text-muted">
+                      {inv.decision.reasons.join(" · ")}
+                    </span>
+                  )}
+                </motion.div>
+              )}
               {inv.escalation && (
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -439,16 +477,20 @@ function foldInvestigations(frames: StreamFrame[]): Investigation[] {
           inv.turns.push({ text: clean, tools: f.tool_calls ?? [] });
       }
     } else if (f.type === "AGENT_PROPOSAL_CREATED" && id) {
-      ensure(id).proposal = {
+      const inv = ensure(id);
+      inv.proposal = {
         category: f.category ?? null,
         explanation: f.explanation ?? "",
         grounded: f.grounded_confidence ?? null,
       };
+      if (f.decision) inv.decision = f.decision;
     } else if (f.type === "AGENT_ESCALATED" && id) {
-      ensure(id).escalation = {
+      const inv = ensure(id);
+      inv.escalation = {
         question: f.question ?? "",
         reason: f.reason ?? null,
       };
+      if (f.decision) inv.decision = f.decision;
     }
   }
   // only show exceptions the agent actually looked at, most recent first
@@ -456,7 +498,11 @@ function foldInvestigations(frames: StreamFrame[]): Investigation[] {
     .map((id) => byId.get(id)!)
     .filter(
       (inv) =>
-        inv.turns.length > 0 || inv.proposal || inv.verifier || inv.escalation,
+        inv.turns.length > 0 ||
+        inv.proposal ||
+        inv.verifier ||
+        inv.escalation ||
+        inv.decision,
     )
     .reverse();
 }

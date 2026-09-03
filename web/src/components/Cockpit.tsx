@@ -6,8 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   api,
   rupees,
+  type AgentInvestigation,
   type AttackReport,
   type EvidenceDrawer,
+  type InvestigationStep,
   type ReconException,
   type RunSummary,
   type Scorecard,
@@ -563,6 +565,7 @@ function DrawerPanel({
   onResolve: (a: string) => void;
 }) {
   const e = d.exception;
+  const dc = d.decompositions[0];
   return (
     <div className="space-y-4">
       <div>
@@ -575,6 +578,48 @@ function DrawerPanel({
           {e.impact_display ?? rupees(e.amount_impact_minor)} ·{" "}
           {e.classified_by} · {e.status}
         </div>
+        {dc && Object.keys(dc.components ?? {}).length > 0 && (
+          <details className="mt-1 text-[11px]">
+            <summary className="cursor-pointer text-muted hover:text-text">
+              explain this number
+            </summary>
+            <div className="mt-1 rounded border border-border bg-surface p-2 font-mono">
+              {Object.entries(dc.components).map(([k, v]) => (
+                <div key={k} className="flex justify-between">
+                  <span className="text-muted">
+                    {k === "gross" ? "" : "− "}
+                    {k}
+                  </span>
+                  <span>{rupees(Math.abs(v))}</span>
+                </div>
+              ))}
+              <div className="mt-1 flex justify-between border-t border-border pt-1">
+                <span className="text-muted">= expected</span>
+                <span>{rupees(dc.expected_minor)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">actual (bank)</span>
+                <span>{rupees(dc.actual_minor)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">residual</span>
+                <span
+                  className={
+                    dc.residual_minor === 0 ? "text-positive" : "text-attention"
+                  }
+                >
+                  {rupees(dc.residual_minor)}
+                </span>
+              </div>
+              {dc.settlement_utr && (
+                <div className="mt-1 text-[10px] text-muted">
+                  source: {dc.settlement_utr} · ledger crosscheck{" "}
+                  {dc.ledger_crosscheck_ok ? "✓" : "✗"}
+                </div>
+              )}
+            </div>
+          </details>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -611,15 +656,52 @@ function DrawerPanel({
         </div>
       ))}
 
+      {d.agent_investigation && d.agent_investigation.steps.length > 0 ? (
+        <>
+          {d.agent_investigation.outcome === "escalate" &&
+            d.agent_investigation.decision && (
+              <WhyNotResolved inv={d.agent_investigation} />
+            )}
+          <InvestigationChain inv={d.agent_investigation} />
+        </>
+      ) : (
+        <>
+          {d.agent_proposal && <ProposalPanel p={d.agent_proposal} />}
+          {d.agent_escalation && (
+            <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
+              <div className="font-semibold text-accent">escalated by Arbiter</div>
+              <p className="mt-1">
+                <strong>knows:</strong> {String(d.agent_escalation.what_i_know)}
+              </p>
+              <p>
+                <strong>missing:</strong>{" "}
+                {String(d.agent_escalation.what_is_missing)}
+              </p>
+              <p className="mt-1 font-medium">
+                {String(d.agent_escalation.question)}
+              </p>
+            </div>
+          )}
+        </>
+      )}
       {d.agent_trace && d.agent_trace.length > 0 && (
-        <details className="rounded border border-border bg-surface p-2 text-xs">
+        <details className="rounded border border-border bg-surface p-2 text-[11px]">
           <summary className="cursor-pointer font-medium text-muted">
-            investigation trace · {d.agent_trace.length} turns
+            Technical detail · {d.agent_trace.length} raw turns
           </summary>
           <ol className="mt-2 space-y-1.5">
             {d.agent_trace.map((t, i) => (
-              <li key={i} className="border-l-2 border-accent/40 pl-2">
-                {t.text && <p>{t.text}</p>}
+              <li key={i} className="border-l-2 border-border pl-2">
+                {t.role === "verifier" && (
+                  <span className="mr-1 rounded bg-border px-1 text-muted">
+                    verifier
+                  </span>
+                )}
+                {t.text && (
+                  <p className="whitespace-pre-wrap break-words font-mono">
+                    {t.text}
+                  </p>
+                )}
                 {t.tool_calls.length > 0 && (
                   <p className="font-mono text-muted">
                     → {t.tool_calls.join(", ")}
@@ -629,22 +711,6 @@ function DrawerPanel({
             ))}
           </ol>
         </details>
-      )}
-      {d.agent_proposal && <ProposalPanel p={d.agent_proposal} />}
-      {d.agent_escalation && (
-        <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
-          <div className="font-semibold text-accent">escalated by Arbiter</div>
-          <p className="mt-1">
-            <strong>knows:</strong> {String(d.agent_escalation.what_i_know)}
-          </p>
-          <p>
-            <strong>missing:</strong>{" "}
-            {String(d.agent_escalation.what_is_missing)}
-          </p>
-          <p className="mt-1 font-medium">
-            {String(d.agent_escalation.question)}
-          </p>
-        </div>
       )}
 
       {e.resolution ? (
@@ -721,6 +787,168 @@ function ProposalPanel({ p }: { p: Record<string, unknown> }) {
         g.category_note.length > 0 && (
           <div className="mt-2 text-attention">⚠ {g.category_note}</div>
         )}
+    </div>
+  );
+}
+
+const ACTION_KEY: Record<string, string> = {
+  SAFE: "text-positive",
+  PROPOSE: "text-accent",
+  ESCALATE: "text-attention",
+  QUARANTINE: "text-critical",
+};
+const STEP_LABEL: Record<InvestigationStep["kind"], string> = {
+  plan: "Plan",
+  evidence: "Evidence",
+  reason: "Reason",
+  proposal: "Proposal",
+  escalation: "Escalation",
+  safety: "Safety",
+};
+
+function InvestigationChain({ inv }: { inv: AgentInvestigation }) {
+  return (
+    <div className="rounded border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted">
+        <span>investigation</span>
+        <span className="font-mono">
+          {inv.tool_calls} tool calls · {inv.tokens_in + inv.tokens_out} tok
+        </span>
+      </div>
+      <ol className="divide-y divide-border">
+        {inv.steps.map((s, i) => (
+          <li key={i} className="px-3 py-2 text-xs">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-[10px] text-muted">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="font-semibold">
+                {s.title || STEP_LABEL[s.kind]}
+              </span>
+              {s.kind === "safety" && s.action && (
+                <span
+                  className={`ml-auto font-mono ${ACTION_KEY[s.action] ?? ""}`}
+                >
+                  {s.risk} · {s.action}
+                </span>
+              )}
+              {s.kind === "proposal" && s.category && (
+                <span
+                  className={`ml-auto font-mono ${CAT_COLOR[s.category] ?? ""}`}
+                >
+                  {s.category}
+                </span>
+              )}
+            </div>
+            {s.body && <p className="mt-1 text-text">{s.body}</p>}
+            {s.tools && s.tools.length > 0 && (
+              <p className="mt-1 font-mono text-muted">
+                → {s.tools.map((t) => t.name).join(", ")}
+              </p>
+            )}
+            {s.kind === "proposal" && (
+              <div className="mt-1 space-y-0.5 text-muted">
+                {typeof s.grounded_confidence === "number" && (
+                  <div>
+                    grounded confidence{" "}
+                    <span
+                      className={`font-mono ${
+                        s.grounded_confidence >= 0.8
+                          ? "text-positive"
+                          : s.grounded_confidence >= 0.55
+                            ? "text-attention"
+                            : "text-critical"
+                      }`}
+                    >
+                      {pct(s.grounded_confidence)}
+                    </span>
+                    {typeof s.stated_confidence === "number" &&
+                      s.stated_confidence !== s.grounded_confidence &&
+                      ` (model said ${pct(s.stated_confidence)})`}
+                  </div>
+                )}
+                {s.citations_resolved && (
+                  <div>citations resolved {s.citations_resolved}</div>
+                )}
+                {s.fabricated && s.fabricated.length > 0 && (
+                  <div className="text-critical">
+                    ⚠ fabricated: {s.fabricated.join(", ")}
+                  </div>
+                )}
+                {s.suggested_action && (
+                  <div>suggested action: {s.suggested_action}</div>
+                )}
+              </div>
+            )}
+            {s.kind === "safety" && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(s.reasons ?? []).map((r) => (
+                  <span
+                    key={r}
+                    className="rounded bg-border px-1 font-mono text-[10px] text-muted"
+                  >
+                    {r}
+                  </span>
+                ))}
+              </div>
+            )}
+            {s.kind === "escalation" && s.reason && (
+              <p className="mt-1 font-mono text-attention">{s.reason}</p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+const NOT_RESOLVED_REASON: Record<string, string> = {
+  contradictory: "a citation pointed at a record that does not exist in this run",
+  evidence_exhausted: "the cited evidence did not support the conclusion strongly enough",
+  counterfactual_contradicted:
+    "the deterministic arithmetic check refuted the proposed cause",
+  verifier_rejected: "an independent model disagreed the evidence supports the claim",
+  material_risk:
+    "the amount is material and the conclusion was plausible, not confident",
+  inconsistent: "repeated investigations did not agree on a category",
+  budget: "the investigation ran out of turns before a confident conclusion",
+  provider_unavailable: "the model was unavailable",
+};
+
+function WhyNotResolved({ inv }: { inv: AgentInvestigation }) {
+  const esc = inv.steps.find((s) => s.kind === "escalation");
+  const dec = inv.decision;
+  const reason = esc?.reason ?? dec?.escalation_reason ?? "";
+  return (
+    <div className="rounded border border-attention/40 bg-attention/5 p-3 text-xs">
+      <div className="font-semibold text-attention">
+        Why didn&apos;t Arbiter resolve this?
+      </div>
+      <p className="mt-1">
+        {NOT_RESOLVED_REASON[reason] ?? "the evidence did not support a confident conclusion"}.
+      </p>
+      <ul className="mt-2 space-y-0.5 text-muted">
+        {dec && (
+          <li>
+            risk tier{" "}
+            <span className="font-mono">
+              {dec.risk} {dec.risk_label ? `(${dec.risk_label})` : ""}
+            </span>
+          </li>
+        )}
+        {typeof dec?.grounded_confidence === "number" && (
+          <li>
+            grounded confidence{" "}
+            <span className="font-mono">{pct(dec.grounded_confidence)}</span>
+          </li>
+        )}
+        {esc?.what_is_missing && <li>missing: {esc.what_is_missing}</li>}
+      </ul>
+      {esc?.body && <p className="mt-2 font-medium">{esc.body}</p>}
+      <p className="mt-2 font-mono text-[10px] text-muted">
+        final: {dec?.action ?? "ESCALATE"}
+        {dec?.policy_version ? ` · ${dec.policy_version}` : ""}
+      </p>
     </div>
   );
 }

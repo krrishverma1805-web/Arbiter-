@@ -204,7 +204,58 @@ export interface EvidenceDrawer {
     text: string;
     tool_calls: string[];
     stop_reason: string | null;
+    role?: string | null;
   }>;
+  agent_investigation?: AgentInvestigation | null;
+}
+
+export interface SafetyDecision {
+  action: "SAFE" | "PROPOSE" | "ESCALATE" | "QUARANTINE";
+  risk: string;
+  risk_label?: string;
+  reasons: string[];
+  grounded_confidence?: number;
+  detail?: string;
+  escalation_reason?: string | null;
+  policy_version?: string;
+}
+
+export interface InvestigationStep {
+  kind:
+    | "plan"
+    | "evidence"
+    | "reason"
+    | "proposal"
+    | "escalation"
+    | "safety";
+  title: string;
+  body?: string | null;
+  model?: string | null;
+  tools?: Array<{ name: string; args: Record<string, unknown> }>;
+  category?: string | null;
+  hypotheses_tested?: string[];
+  suggested_action?: string | null;
+  stated_confidence?: number | null;
+  grounded_confidence?: number | null;
+  citations_resolved?: string;
+  fabricated?: string[];
+  reason?: string | null;
+  what_i_know?: string | null;
+  what_is_missing?: string | null;
+  action?: string;
+  risk?: string;
+  risk_label?: string;
+  reasons?: string[];
+  policy_version?: string;
+}
+
+export interface AgentInvestigation {
+  steps: InvestigationStep[];
+  outcome: "proposal" | "escalate";
+  decision: SafetyDecision | null;
+  tokens_in: number;
+  tokens_out: number;
+  tool_calls: number;
 }
 
 export interface StreamFrame {
@@ -223,6 +274,7 @@ export interface StreamFrame {
   reason?: string | null;
   impact_minor?: number | null;
   counts?: Record<string, number>;
+  decision?: SafetyDecision | null;
 }
 
 // The cockpit runs in the browser, where the Next rewrite proxies /api/* to the

@@ -1,1 +1,1774 @@
-{"exc_a3f0061b0a1b": {"exception": {"id": "exc_a3f0061b0a1b", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["054441eeee02f0f7", "0b1727f2c1e8f1e7", "0b2ab7f830e28c83", "0d8c4044f3f1af58", "0ea5c8ad81e0ddc5", "10d8c09b5db8a6c3", "27b8a87478b85886", "27ff3c6d12263212", "3da4a7cff073bd84", "42e39c345d33a44c", "50a9080b7fdf5e01", "550ff30082920fa2", "5bf2ce9dcc575d7f", "67d241d12c253166", "7176fed71c3789cc", "73c571a23a37de2b", "7a08c6cfe7d3b91a", "7c7ae51a4d96e916", "7edc03631903463d", "84473f80df833ec2", "8be0f89cdb0c52c2", "8cc058b811b24201", "959292540c680f5c", "9e90ad498691167c", "9f15023940be14e1", "9fc239e9afe17af3", "b1e0379a7da5f4d7", "b34304e573f9b5ab", "be6246747a265cec", "c4428e537cbde213", "c4ae0221a0690c04", "c51add7260f07279", "ca56b623d40e1a64", "cc78b6f625236a6a", "ce89c1bdbccfa11a", "d6b2e2446cd5f670", "d7ec385f8553be04", "da2c292e07f5713a", "ea6d9c2783642bb1", "f4f3ea8cf0d3a9f8"], "category": "TIMING", "classified_by": "rule:r_timing_period_boundary", "amount_impact_minor": 5841309, "confidence": 0.7, "candidates": [], "agent_proposal": null, "agent_escalation": null, "resolution": null, "note": null, "status": "open"}, "records": [{"counterparty": null, "settled_at": "2026-09-01", "id": "054441eeee02f0f7", "amount_display": "\u20b91,961.31", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 196131, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00269", "payment_id": "pay_00269"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "0b1727f2c1e8f1e7", "amount_display": "\u20b91,974.03", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 197403, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00541", "payment_id": "pay_00541"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "0b2ab7f830e28c83", "amount_display": "\u20b92,070.41", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 207041, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00076", "payment_id": "pay_00076"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "0d8c4044f3f1af58", "amount_display": "\u20b9621.69", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 62169, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00734", "payment_id": "pay_00734"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "0ea5c8ad81e0ddc5", "amount_display": "\u20b92,921.05", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 292105, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00022", "payment_id": "pay_00022"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "10d8c09b5db8a6c3", "amount_display": "\u20b91,357.85", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 135785, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00146", "payment_id": "pay_00146"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "27b8a87478b85886", "amount_display": "\u20b92,092.54", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 209254, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00562", "payment_id": "pay_00562"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "27ff3c6d12263212", "amount_display": "\u20b9487.54", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 48754, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00733", "payment_id": "pay_00733"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "3da4a7cff073bd84", "amount_display": "\u20b91,612.79", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 161279, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00090", "payment_id": "pay_00090"}}, {"counterparty": null, "settled_at": "2026-09-01", "id": "42e39c345d33a44c", "amount_display": "\u20b9950.93", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 95093, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260826847B1806", "order_id": "ord_00061", "payment_id": "pay_00061"}}], "decompositions": [], "candidates": [], "agent_proposal": null, "agent_escalation": null, "agent_trace": [], "_record_total": 40}, "exc_726d15473678": {"exception": {"id": "exc_726d15473678", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["05c89601f2dd85df", "05e0844891c6b7c8", "14139661de20645e", "1ac439a750a88b8c", "2a5398c3916ac355", "30659ee99a269c34", "332188df92db08fa", "3486ad820a0379b7", "38c7e76761936906", "3ff3daef79e84419", "444147678f1df5db", "46f13c63970b9816", "51ca2853ac028fb9", "5554111b34446649", "56f2bf6b34942da9", "5a1a729d743896cc", "62e6e774c373240e", "7885658dd7c124e2", "8a2cd6ff05b51b04", "8d4290051b2140b1", "a5c1aa60536d9241", "b0d0343dff2b1936", "b14ae56ab802d4c4", "bee9de27294af647", "c3ac01622f51839e", "c7a5e4d882adf9be", "d045999c512317fd", "d5376e61c8839788", "d669d4ebbfa81644", "da3e254f43baa7d0", "e80ab0323730c3c6", "f509f987d961aaeb", "f565e7115808e7a1"], "category": "WRONG_ACCOUNT", "classified_by": "rule:r_wrong_account", "amount_impact_minor": 5608407, "confidence": 0.7, "candidates": [], "agent_proposal": null, "agent_escalation": null, "resolution": null, "note": null, "status": "open"}, "records": [{"counterparty": null, "settled_at": "2026-08-05", "id": "05c89601f2dd85df", "amount_display": "\u20b91,833.95", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 183395, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00048", "payment_id": "pay_00048"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "05e0844891c6b7c8", "amount_display": "\u20b91,019.74", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 101974, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00029", "payment_id": "pay_00029"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "14139661de20645e", "amount_display": "\u20b91,853.96", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 185396, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00327", "payment_id": "pay_00327"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "1ac439a750a88b8c", "amount_display": "\u20b9475.46", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 47546, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00384", "payment_id": "pay_00384"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "2a5398c3916ac355", "amount_display": "\u20b97,176.49", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 717649, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00205", "payment_id": "pay_00205"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "30659ee99a269c34", "amount_display": "\u20b93,064.12", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 306412, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00764", "payment_id": "pay_00764"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "332188df92db08fa", "amount_display": "-\u20b91,556.22", "reference": null, "value_date": null, "currency": "INR", "amount_minor": -155622, "posted_date": null, "source": "razorpay_recon", "kind": "refund", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00776", "payment_id": "pay_00776"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "3486ad820a0379b7", "amount_display": "\u20b91,777.39", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 177739, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00641", "payment_id": "pay_00641"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "38c7e76761936906", "amount_display": "\u20b93,511.74", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 351174, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00659", "payment_id": "pay_00659"}}, {"counterparty": null, "settled_at": "2026-08-05", "id": "3ff3daef79e84419", "amount_display": "\u20b91,890.77", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 189077, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608069753C796", "order_id": "ord_00710", "payment_id": "pay_00710"}}], "decompositions": [], "candidates": [], "agent_proposal": null, "agent_escalation": null, "agent_trace": [], "_record_total": 33}, "exc_7d97f0cd828c": {"exception": {"id": "exc_7d97f0cd828c", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["083ba561aaaafe1c", "0962f7cffbfd28f0", "0f9d7d9f39f44251", "100d7e1b024fa3a9", "2bae2a1166bc5016", "2ea8ac593db9e342", "2f5a15d242965cba", "321613272c7676ad", "393d2e9e4d69eba5", "3e9f3eeb8d9d5ba5", "4ffd908a15dd85c6", "556d217d4246182d", "570d088bcb1ac28a", "57d81b40f8c96536", "5da04a0d39885279", "71e3d13b8efad8fe", "76b8b868c519dd7d", "77a97bebb3cb2878", "7e4fd3ff937bd042", "869d9b07c288c765", "a495e87fa1802264", "aef6b4757cc88c86", "b116d49cc8e677c4", "bcef9dfcde765a65", "bf2a45ba12269df8", "c68cc7056266e2b5", "c7ee5feb5b76d630", "d76f892921bec3f4", "d9a493b1ee22f2c5", "e1b62810109d2fd5", "e888befcac1a4dd0", "e8de82e9a87a8041", "f24033525dee27fc", "f30849f99090e9c2", "f3d5885d40e85fa3", "f8bd0b97325cb4bc", "f9b99c1711184400", "ff8ba0f7b13af156"], "category": "DUPLICATE", "classified_by": "rule:r_duplicate_payment", "amount_impact_minor": 5271600, "confidence": 0.9, "candidates": [], "agent_proposal": null, "agent_escalation": null, "resolution": null, "note": null, "status": "open"}, "records": [{"counterparty": null, "settled_at": "2026-08-27", "id": "083ba561aaaafe1c", "amount_display": "-\u20b91,224.48", "reference": null, "value_date": null, "currency": "INR", "amount_minor": -122448, "posted_date": null, "source": "razorpay_recon", "kind": "refund", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00498", "payment_id": "pay_00498"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "0962f7cffbfd28f0", "amount_display": "\u20b91,104.81", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 110481, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00528", "payment_id": "pay_00528"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "0f9d7d9f39f44251", "amount_display": "\u20b94,245.04", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 424504, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00224", "payment_id": "pay_00224"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "100d7e1b024fa3a9", "amount_display": "\u20b9596.36", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 59636, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00607", "payment_id": "pay_00607"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "2bae2a1166bc5016", "amount_display": "\u20b92,266.93", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 226693, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00722", "payment_id": "pay_00722"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "2ea8ac593db9e342", "amount_display": "\u20b92,889.99", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 288999, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00489", "payment_id": "pay_00489"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "2f5a15d242965cba", "amount_display": "\u20b94,816.56", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 481656, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00119", "payment_id": "pay_00119"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "321613272c7676ad", "amount_display": "\u20b9522.74", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 52274, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00110", "payment_id": "pay_00110"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "393d2e9e4d69eba5", "amount_display": "\u20b91,158.59", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 115859, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00084", "payment_id": "pay_00084"}}, {"counterparty": null, "settled_at": "2026-08-27", "id": "3e9f3eeb8d9d5ba5", "amount_display": "\u20b9639.39", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 63939, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260828FB99DCA8", "order_id": "ord_00344", "payment_id": "pay_00344"}}], "decompositions": [{"group_id": "grp_RZP20260828FB99DCA8", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "settlement_utr": "RZP20260828FB99DCA8", "expected_minor": 5271600, "actual_minor": 5002444, "residual_minor": -269156, "ledger_crosscheck_ok": false, "components": {"adjustment_credits": 0, "adjustment_debits": 0, "gross": 5677662, "gst_on_mdr": 9173, "mdr": 50971, "refunds": 345918}}], "candidates": [], "agent_proposal": null, "agent_escalation": null, "agent_trace": [], "_record_total": 38}, "exc_7d8e2852c725": {"exception": {"id": "exc_7d8e2852c725", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["0230ddb032a5b678", "11830813132573e2", "13b47066924b829a", "1d725d5f2979c19c", "1f1fe59771a767ea", "20953d66e4bf4fb7", "32be893f0674f436", "45c1e2594bb86549", "49edf931afb38cb4", "58425d8f1c205a35", "6c2ba275f13c9e00", "6ea09554be510cf4", "763fd505b3c61935", "76501af4793a4c07", "83d49e7a8db18aeb", "849148b8ab812899", "88344cf62ee7990a", "941401db0f1e352e", "a2a5593635c79aa1", "a8685c4fd82c77ec", "a8f743596f2a958c", "be95af5a43ea83fa", "c5437fc242d369f8", "cbc05f602151a4d3", "de9c6633114e7a0f", "e292c9a8e846e972", "f6c7ec40db3da6c5", "f82cadb9c22173df"], "category": "UNEXPLAINED", "classified_by": "unclassified", "amount_impact_minor": -277396, "confidence": null, "candidates": [], "agent_proposal": null, "agent_escalation": {"exception_id": "exc_7d8e2852c725", "kind": "escalate", "question": "A human should review this exception directly.", "reason": "verifier_rejected", "what_i_know": "Investigation did not reach a confident conclusion.", "what_is_missing": "The settlement date is listed as 2026-08-10, which does not support the proposal's claim of 2026-08-09."}, "resolution": null, "note": null, "status": "escalated"}, "records": [{"counterparty": null, "settled_at": "2026-08-06", "id": "0230ddb032a5b678", "amount_display": "\u20b91,931.47", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 193147, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00087", "payment_id": "pay_00087"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "11830813132573e2", "amount_display": "\u20b92,679.19", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 267919, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00449", "payment_id": "pay_00449"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "13b47066924b829a", "amount_display": "\u20b9509.21", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 50921, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00527", "payment_id": "pay_00527"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "1d725d5f2979c19c", "amount_display": "\u20b91,481.06", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 148106, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00756", "payment_id": "pay_00756"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "1f1fe59771a767ea", "amount_display": "\u20b9462.69", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 46269, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00574", "payment_id": "pay_00574"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "20953d66e4bf4fb7", "amount_display": "\u20b91,064.31", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 106431, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00518", "payment_id": "pay_00518"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "32be893f0674f436", "amount_display": "\u20b9965.80", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 96580, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00540", "payment_id": "pay_00540"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "45c1e2594bb86549", "amount_display": "-\u20b94,344.44", "reference": null, "value_date": null, "currency": "INR", "amount_minor": -434444, "posted_date": null, "source": "razorpay_recon", "kind": "refund", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00778", "payment_id": "pay_00778"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "49edf931afb38cb4", "amount_display": "\u20b9498.82", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 49882, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00640", "payment_id": "pay_00640"}}, {"counterparty": null, "settled_at": "2026-08-06", "id": "58425d8f1c205a35", "amount_display": "\u20b91,907.07", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 190707, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP20260807021769B5", "order_id": "ord_00229", "payment_id": "pay_00229"}}], "decompositions": [{"group_id": "grp_RZP20260807021769B5", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "settlement_utr": "RZP20260807021769B5", "expected_minor": 4007145, "actual_minor": 3729749, "residual_minor": -277396, "ledger_crosscheck_ok": true, "components": {"adjustment_credits": 0, "adjustment_debits": 0, "gross": 4661003, "gst_on_mdr": 2918, "mdr": 16204, "refunds": 634736}}], "candidates": [], "agent_proposal": null, "agent_escalation": {"exception_id": "exc_7d8e2852c725", "kind": "escalate", "question": "A human should review this exception directly.", "reason": "verifier_rejected", "what_i_know": "Investigation did not reach a confident conclusion.", "what_is_missing": "The settlement date is listed as 2026-08-10, which does not support the proposal's claim of 2026-08-09."}, "agent_trace": [{"turn": 0, "text": "**PLAN:**  \nThe goal is to understand why there's an unexplained residual of -\u20b92,773.96 in the reconciliation for the settlement UTR RZP20260807021769B5. The charges and credits in the records must add up to the total actual amount, and identify any missing, duplicated, or otherwise impacted payments/refunds.\n\n**INVESTIGATE:**  \n1. The records reveal multiple payments and two refunds. Especially relevant is the payment of \u20b92,773.96 recorded on 2026-08-09 for order id 'ord_00798' as this matches the amount of the unexplained residual.\n2. Looking for potential timing differences or mismatches, since the settled_at date for this payment is after the date for the rest of the records which are on 2026-08-06.\n3. Fetch decomposition details for the settlement group ID to gain clarity on how the amounts break down.\n4. Query for any prior exceptions similar to a missing transaction to see how those were resolved.\n\n**ACTIONS:**\n\n1. Use the decomposition detail tool to understand the line-by-line reconciliation math for settlement UTR RZP20260807021769B5.\n2. Fetch past similar exceptions to see how unmatched deductions were handled.\n\nLet's execute these steps using the appropriate tools.", "tool_calls": ["decomposition_detail", "similar_exceptions"], "stop_reason": "tool_use"}, {"turn": 1, "text": "**ANALYSIS:**\n\n1. **Decomposition Details:** The reconciliation shows:\n   - Gross amount: \u20b946,610.03\n   - Refunds amount: \u20b96,347.36\n   - MDR (Merchant Discount Rate): \u20b9162.04\n   - GST on MDR: \u20b929.18\n\n   The gross amount minus refunds, MDR, and GST on MDR should match the expected amount of \u20b940,071.45, which it does not due to a residual of -\u20b92,773.96.\n\n2. **Decompostion Breakdown:** The actual amount shown is \u20b937,297.49, which means there is indeed a shortfall of \u20b92,773.96. This is exact to the payment recorded on 2026-08-09 (record id: a8685c4fd82c77ec) for order id 'ord_00798'.\n\n3. **Resolution History:** There are no previously resolved exceptions in this format suggesting this might be a one-time mismatch potentially due to timing issues or missing entries not due to any systemic issue.\n\n**HYPOTHESES TESTED:**\n\n- Hypothesis: The discrepancy was due to a timing issue where a payment scheduled for settlement on 2026-08-09 was recorded in reconciliation for 2026-08-06, hence appearing as an unexplained residual. \n  - This appears plausible, as both the residual and the amount of record id a8685c4fd82c77ec match exactly, and the settlement dates are different.\n\n- Checked for other missing or duplicated transactions: none apparent in the current records.\n\n**DECISION:**\n\nSince the hypothesis is supported by:\n- Matching timing differential and residual amounts,\n- No contradictory evidence or similar resolved cases earlier,\n  \nIt seems likely to categorize this as a **TIMING** issue where a payment meant for future settlement was included out-of-schedule in the reconciliation.\n\n**PROPOSAL:**\n\n```json\n{\n  \"exception_id\": \"exc_7d8e2852c725\",\n  \"category\": \"TIMING\",\n  \"resolution\": \"Reconcile the payment for ord_00798 to correct this timing discrepancy.\"\n}\n```", "tool_calls": [], "stop_reason": "end_turn"}, {"turn": 2, "text": "{\"kind\": \"proposal\", \"category\": \"TIMING\", \"confidence\": 0.85, \"explanation\": \"The discrepancy of -\\u20b92,773.96 results from a timing difference where a payment (record ID a8685c4fd82c77ec) was settled on 2026-08-09, but included in the reconciliation for the period ending 2026-08-06. Both the payment amount and the unexplained residual match exactly, indicating it was incorrectly accounted for due to the timing mismatch.\", \"evidence_refs\": [{\"claim\": \"Payment amount matches residual\", \"record_id\": \"a8685c4fd82c77ec\", \"field\": \"amount\"}, {\"claim\": \"Payment settled later than reconciliation period\", \"record_id\": \"a8685c4fd82c77ec\", \"field\": \"settled_at\"}], \"suggested_action\": {\"action\": \"accept_variance\", \"detail\": \"Exception is caused by timing mismatch, accept as already explained.\"}}", "tool_calls": [], "stop_reason": "end_turn"}, {"turn": 3, "text": "{\"supported\":false,\"reason\":\"The settlement date is listed as 2026-08-10, which does not support the proposal's claim of 2026-08-09.\"}", "tool_calls": [], "stop_reason": "end_turn"}], "_record_total": 28}, "exc_ee38d61da480": {"exception": {"id": "exc_ee38d61da480", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["08eac96584fb2e10"], "category": "CHARGEBACK", "classified_by": "rule:r_chargeback", "amount_impact_minor": 52976, "confidence": 0.85, "candidates": [], "agent_proposal": null, "agent_escalation": null, "resolution": null, "note": null, "status": "open"}, "records": [{"counterparty": null, "settled_at": "2026-08-17", "id": "08eac96584fb2e10", "amount_display": "-\u20b9529.76", "reference": null, "value_date": null, "currency": "INR", "amount_minor": -52976, "posted_date": null, "source": "razorpay_recon", "kind": "adjustment", "external_ids": {"settlement_utr": "RZP20260831EC900B8D", "order_id": "ord_00020", "payment_id": "pay_00020"}}], "decompositions": [{"group_id": "grp_RZP20260831EC900B8D", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "settlement_utr": "RZP20260831EC900B8D", "expected_minor": 2444919, "actual_minor": 2444919, "residual_minor": 0, "ledger_crosscheck_ok": true, "components": {"adjustment_credits": 0, "adjustment_debits": 52976, "gross": 3247762, "gst_on_mdr": 3585, "mdr": 19919, "refunds": 726363}}], "candidates": [], "agent_proposal": null, "agent_escalation": null, "agent_trace": [], "_record_total": 1}, "exc_b654aa1d55c3": {"exception": {"id": "exc_b654aa1d55c3", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["65cc4c5d703a0e10"], "category": "SECURITY_REVIEW", "classified_by": "rule:r_security_scan", "amount_impact_minor": 48945, "confidence": 1.0, "candidates": [], "agent_proposal": null, "agent_escalation": null, "resolution": null, "note": null, "status": "security_review"}, "records": [{"counterparty": null, "settled_at": "2026-08-11", "id": "65cc4c5d703a0e10", "amount_display": "\u20b9489.45", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 48945, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202608125F11EFF2", "order_id": "ord_00060", "payment_id": "pay_00060"}}], "decompositions": [{"group_id": "grp_RZP202608125F11EFF2", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "settlement_utr": "RZP202608125F11EFF2", "expected_minor": 3372381, "actual_minor": 3372381, "residual_minor": 0, "ledger_crosscheck_ok": true, "components": {"adjustment_credits": 0, "adjustment_debits": 0, "gross": 3757291, "gst_on_mdr": 2980, "mdr": 16560, "refunds": 365370}}], "candidates": [], "agent_proposal": null, "agent_escalation": null, "agent_trace": [], "_record_total": 1}, "exc_28a7db98860b": {"exception": {"id": "exc_28a7db98860b", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["04a3b33c513fb1c4", "0ab01f6d10d642d7", "0c440c7dc64bf015", "1cbceff49ef3de32", "22dfd40b2e4bdf41", "46571aa99de5fbf1", "53c3f7d9b29bf0ec", "552f23a45ad656b6", "55da9dfdd8c6ca52", "5a452a67a23400a8", "6681090baba619bf", "7163502e664761d9", "71c5ffde56c37ccd", "7345d64af1b75a47", "75e8234a29a6386b", "76f4ad6578145255", "8c16b348612d8893", "9428e6d709a5984c", "963bfc09dc808704", "9921eaa5db5eef11", "c06bf6aa0378a471", "d3129910641595c4", "d534884c2a79c951", "d57ced5e35d1b01a", "d5c8937c48c45651", "d614409c0a5bedbd", "e2091f90c8fda9b8", "ee767f08982ff442", "f133f644392f557f", "f60b4f21358919e9", "f9f9fc32761c491a"], "category": "FEE_DEDUCTION", "classified_by": "rule:r_fee_drift", "amount_impact_minor": 442, "confidence": 0.9, "candidates": [], "agent_proposal": null, "agent_escalation": null, "resolution": {"action": "flag_overcharge"}, "note": null, "status": "open"}, "records": [{"counterparty": null, "settled_at": "2026-08-31", "id": "04a3b33c513fb1c4", "amount_display": "\u20b9501.53", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 50153, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00478", "payment_id": "pay_00478"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "0ab01f6d10d642d7", "amount_display": "\u20b9639.62", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 63962, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00433", "payment_id": "pay_00433"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "0c440c7dc64bf015", "amount_display": "\u20b94,334.30", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 433430, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00223", "payment_id": "pay_00223"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "1cbceff49ef3de32", "amount_display": "\u20b93,014.42", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 301442, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00471", "payment_id": "pay_00471"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "22dfd40b2e4bdf41", "amount_display": "\u20b9786.80", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 78680, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00244", "payment_id": "pay_00244"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "46571aa99de5fbf1", "amount_display": "\u20b93,708.72", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 370872, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00690", "payment_id": "pay_00690"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "53c3f7d9b29bf0ec", "amount_display": "\u20b91,445.32", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 144532, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00754", "payment_id": "pay_00754"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "552f23a45ad656b6", "amount_display": "\u20b9744.28", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 74428, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00302", "payment_id": "pay_00302"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "55da9dfdd8c6ca52", "amount_display": "\u20b91,560.74", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 156074, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00740", "payment_id": "pay_00740"}}, {"counterparty": null, "settled_at": "2026-08-31", "id": "5a452a67a23400a8", "amount_display": "\u20b93,398.02", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 339802, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP202609012D9FF95F", "order_id": "ord_00079", "payment_id": "pay_00079"}}], "decompositions": [{"group_id": "grp_RZP202609012D9FF95F", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "settlement_utr": "RZP202609012D9FF95F", "expected_minor": 4941992, "actual_minor": 4942434, "residual_minor": 442, "ledger_crosscheck_ok": true, "components": {"adjustment_credits": 0, "adjustment_debits": 0, "gross": 5103170, "gst_on_mdr": 6162, "mdr": 34238, "refunds": 120778}}], "candidates": [], "agent_proposal": null, "agent_escalation": null, "agent_trace": [], "_record_total": 31}, "exc_dcb53c04c2b7": {"exception": {"id": "exc_dcb53c04c2b7", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "record_ids": ["05f431d7e5d6f35f", "11cad8ffe10060b0", "1743df4543b8f629", "174f8c4a34a64782", "20c1ff282af08d3d", "25dcdc5d2cec9dca", "281a0dbc8454f97c", "2be6d2cb9392ff8a", "3a2e2800355a061f", "3e77bcf6f0b1d2e2", "43a6c41767331d03", "498845c5e58a3dd1", "5fb64f237560b8f1", "7891858139b9602d", "7b3a9ecb3be39b95", "801b56939f54b052", "8b08ce1478de236e", "92b8ecc34df91a90", "a1f8868c6b7174df", "a4487e11b8182cb2", "a5a1bd7475e4bdf2", "a6ff298472301b6b", "ad2ac0b90791a811", "ae4e84a22b20fb56", "b68388210c8b91dc", "b9b9d6162eeef9e5", "b9c0ca1091b29b9b", "ba90a0071d8c7c4f", "bb5b9083f82a6186", "c0d18e2cd5bd2a6f", "cb40995965569694", "d13f2a2cebbc5c31", "e272589f86006c5b", "f209db0626aafc37", "f4e49fcd532a7063", "fe110de85d6887f2"], "category": "FEE_DEDUCTION", "classified_by": "rule:r_fee_drift", "amount_impact_minor": 288, "confidence": 0.9, "candidates": [], "agent_proposal": null, "agent_escalation": null, "resolution": {"action": "flag_overcharge"}, "note": null, "status": "open"}, "records": [{"counterparty": null, "settled_at": "2026-08-19", "id": "05f431d7e5d6f35f", "amount_display": "\u20b91,246.80", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 124680, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00017", "payment_id": "pay_00017"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "11cad8ffe10060b0", "amount_display": "\u20b9849.91", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 84991, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00221", "payment_id": "pay_00221"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "1743df4543b8f629", "amount_display": "\u20b91,839.18", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 183918, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00575", "payment_id": "pay_00575"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "174f8c4a34a64782", "amount_display": "\u20b9981.72", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 98172, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00662", "payment_id": "pay_00662"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "20c1ff282af08d3d", "amount_display": "-\u20b94,794.40", "reference": null, "value_date": null, "currency": "INR", "amount_minor": -479440, "posted_date": null, "source": "razorpay_recon", "kind": "refund", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00426", "payment_id": "pay_00426"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "25dcdc5d2cec9dca", "amount_display": "\u20b91,180.69", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 118069, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00460", "payment_id": "pay_00460"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "281a0dbc8454f97c", "amount_display": "\u20b91,884.55", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 188455, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00436", "payment_id": "pay_00436"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "2be6d2cb9392ff8a", "amount_display": "\u20b9447.19", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 44719, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00132", "payment_id": "pay_00132"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "3a2e2800355a061f", "amount_display": "\u20b93,249.52", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 324952, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00136", "payment_id": "pay_00136"}}, {"counterparty": null, "settled_at": "2026-08-19", "id": "3e77bcf6f0b1d2e2", "amount_display": "\u20b92,015.98", "reference": null, "value_date": null, "currency": "INR", "amount_minor": 201598, "posted_date": null, "source": "razorpay_recon", "kind": "payment", "external_ids": {"settlement_utr": "RZP2026082087F24E91", "order_id": "ord_00549", "payment_id": "pay_00549"}}], "decompositions": [{"group_id": "grp_RZP2026082087F24E91", "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0", "settlement_utr": "RZP2026082087F24E91", "expected_minor": 6067157, "actual_minor": 6067445, "residual_minor": 288, "ledger_crosscheck_ok": true, "components": {"adjustment_credits": 0, "adjustment_debits": 0, "gross": 6659785, "gst_on_mdr": 14749, "mdr": 81937, "refunds": 495942}}], "candidates": [], "agent_proposal": null, "agent_escalation": null, "agent_trace": [], "_record_total": 36}}
+{
+ "exc_a3f0061b0a1b": {
+  "exception": {
+   "id": "exc_a3f0061b0a1b",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "054441eeee02f0f7",
+    "0b1727f2c1e8f1e7",
+    "0b2ab7f830e28c83",
+    "0d8c4044f3f1af58",
+    "0ea5c8ad81e0ddc5",
+    "10d8c09b5db8a6c3",
+    "27b8a87478b85886",
+    "27ff3c6d12263212",
+    "3da4a7cff073bd84",
+    "42e39c345d33a44c",
+    "50a9080b7fdf5e01",
+    "550ff30082920fa2",
+    "5bf2ce9dcc575d7f",
+    "67d241d12c253166",
+    "7176fed71c3789cc",
+    "73c571a23a37de2b",
+    "7a08c6cfe7d3b91a",
+    "7c7ae51a4d96e916",
+    "7edc03631903463d",
+    "84473f80df833ec2",
+    "8be0f89cdb0c52c2",
+    "8cc058b811b24201",
+    "959292540c680f5c",
+    "9e90ad498691167c",
+    "9f15023940be14e1",
+    "9fc239e9afe17af3",
+    "b1e0379a7da5f4d7",
+    "b34304e573f9b5ab",
+    "be6246747a265cec",
+    "c4428e537cbde213",
+    "c4ae0221a0690c04",
+    "c51add7260f07279",
+    "ca56b623d40e1a64",
+    "cc78b6f625236a6a",
+    "ce89c1bdbccfa11a",
+    "d6b2e2446cd5f670",
+    "d7ec385f8553be04",
+    "da2c292e07f5713a",
+    "ea6d9c2783642bb1",
+    "f4f3ea8cf0d3a9f8"
+   ],
+   "category": "TIMING",
+   "classified_by": "rule:r_timing_period_boundary",
+   "amount_impact_minor": 5841309,
+   "confidence": 0.7,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": null,
+   "resolution": null,
+   "note": null,
+   "status": "open"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "054441eeee02f0f7",
+    "amount_display": "\u20b91,961.31",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 196131,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00269",
+     "payment_id": "pay_00269"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "0b1727f2c1e8f1e7",
+    "amount_display": "\u20b91,974.03",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 197403,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00541",
+     "payment_id": "pay_00541"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "0b2ab7f830e28c83",
+    "amount_display": "\u20b92,070.41",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 207041,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00076",
+     "payment_id": "pay_00076"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "0d8c4044f3f1af58",
+    "amount_display": "\u20b9621.69",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 62169,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00734",
+     "payment_id": "pay_00734"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "0ea5c8ad81e0ddc5",
+    "amount_display": "\u20b92,921.05",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 292105,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00022",
+     "payment_id": "pay_00022"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "10d8c09b5db8a6c3",
+    "amount_display": "\u20b91,357.85",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 135785,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00146",
+     "payment_id": "pay_00146"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "27b8a87478b85886",
+    "amount_display": "\u20b92,092.54",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 209254,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00562",
+     "payment_id": "pay_00562"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "27ff3c6d12263212",
+    "amount_display": "\u20b9487.54",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 48754,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00733",
+     "payment_id": "pay_00733"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "3da4a7cff073bd84",
+    "amount_display": "\u20b91,612.79",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 161279,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00090",
+     "payment_id": "pay_00090"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-09-01",
+    "id": "42e39c345d33a44c",
+    "amount_display": "\u20b9950.93",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 95093,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260826847B1806",
+     "order_id": "ord_00061",
+     "payment_id": "pay_00061"
+    }
+   }
+  ],
+  "decompositions": [],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": null,
+  "agent_trace": [],
+  "_record_total": 40
+ },
+ "exc_726d15473678": {
+  "exception": {
+   "id": "exc_726d15473678",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "05c89601f2dd85df",
+    "05e0844891c6b7c8",
+    "14139661de20645e",
+    "1ac439a750a88b8c",
+    "2a5398c3916ac355",
+    "30659ee99a269c34",
+    "332188df92db08fa",
+    "3486ad820a0379b7",
+    "38c7e76761936906",
+    "3ff3daef79e84419",
+    "444147678f1df5db",
+    "46f13c63970b9816",
+    "51ca2853ac028fb9",
+    "5554111b34446649",
+    "56f2bf6b34942da9",
+    "5a1a729d743896cc",
+    "62e6e774c373240e",
+    "7885658dd7c124e2",
+    "8a2cd6ff05b51b04",
+    "8d4290051b2140b1",
+    "a5c1aa60536d9241",
+    "b0d0343dff2b1936",
+    "b14ae56ab802d4c4",
+    "bee9de27294af647",
+    "c3ac01622f51839e",
+    "c7a5e4d882adf9be",
+    "d045999c512317fd",
+    "d5376e61c8839788",
+    "d669d4ebbfa81644",
+    "da3e254f43baa7d0",
+    "e80ab0323730c3c6",
+    "f509f987d961aaeb",
+    "f565e7115808e7a1"
+   ],
+   "category": "WRONG_ACCOUNT",
+   "classified_by": "rule:r_wrong_account",
+   "amount_impact_minor": 5608407,
+   "confidence": 0.7,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": null,
+   "resolution": null,
+   "note": null,
+   "status": "open"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "05c89601f2dd85df",
+    "amount_display": "\u20b91,833.95",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 183395,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00048",
+     "payment_id": "pay_00048"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "05e0844891c6b7c8",
+    "amount_display": "\u20b91,019.74",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 101974,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00029",
+     "payment_id": "pay_00029"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "14139661de20645e",
+    "amount_display": "\u20b91,853.96",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 185396,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00327",
+     "payment_id": "pay_00327"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "1ac439a750a88b8c",
+    "amount_display": "\u20b9475.46",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 47546,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00384",
+     "payment_id": "pay_00384"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "2a5398c3916ac355",
+    "amount_display": "\u20b97,176.49",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 717649,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00205",
+     "payment_id": "pay_00205"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "30659ee99a269c34",
+    "amount_display": "\u20b93,064.12",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 306412,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00764",
+     "payment_id": "pay_00764"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "332188df92db08fa",
+    "amount_display": "-\u20b91,556.22",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": -155622,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "refund",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00776",
+     "payment_id": "pay_00776"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "3486ad820a0379b7",
+    "amount_display": "\u20b91,777.39",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 177739,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00641",
+     "payment_id": "pay_00641"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "38c7e76761936906",
+    "amount_display": "\u20b93,511.74",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 351174,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00659",
+     "payment_id": "pay_00659"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-05",
+    "id": "3ff3daef79e84419",
+    "amount_display": "\u20b91,890.77",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 189077,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608069753C796",
+     "order_id": "ord_00710",
+     "payment_id": "pay_00710"
+    }
+   }
+  ],
+  "decompositions": [],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": null,
+  "agent_trace": [],
+  "_record_total": 33
+ },
+ "exc_7d97f0cd828c": {
+  "exception": {
+   "id": "exc_7d97f0cd828c",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "083ba561aaaafe1c",
+    "0962f7cffbfd28f0",
+    "0f9d7d9f39f44251",
+    "100d7e1b024fa3a9",
+    "2bae2a1166bc5016",
+    "2ea8ac593db9e342",
+    "2f5a15d242965cba",
+    "321613272c7676ad",
+    "393d2e9e4d69eba5",
+    "3e9f3eeb8d9d5ba5",
+    "4ffd908a15dd85c6",
+    "556d217d4246182d",
+    "570d088bcb1ac28a",
+    "57d81b40f8c96536",
+    "5da04a0d39885279",
+    "71e3d13b8efad8fe",
+    "76b8b868c519dd7d",
+    "77a97bebb3cb2878",
+    "7e4fd3ff937bd042",
+    "869d9b07c288c765",
+    "a495e87fa1802264",
+    "aef6b4757cc88c86",
+    "b116d49cc8e677c4",
+    "bcef9dfcde765a65",
+    "bf2a45ba12269df8",
+    "c68cc7056266e2b5",
+    "c7ee5feb5b76d630",
+    "d76f892921bec3f4",
+    "d9a493b1ee22f2c5",
+    "e1b62810109d2fd5",
+    "e888befcac1a4dd0",
+    "e8de82e9a87a8041",
+    "f24033525dee27fc",
+    "f30849f99090e9c2",
+    "f3d5885d40e85fa3",
+    "f8bd0b97325cb4bc",
+    "f9b99c1711184400",
+    "ff8ba0f7b13af156"
+   ],
+   "category": "DUPLICATE",
+   "classified_by": "rule:r_duplicate_payment",
+   "amount_impact_minor": 5271600,
+   "confidence": 0.9,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": null,
+   "resolution": null,
+   "note": null,
+   "status": "open"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "083ba561aaaafe1c",
+    "amount_display": "-\u20b91,224.48",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": -122448,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "refund",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00498",
+     "payment_id": "pay_00498"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "0962f7cffbfd28f0",
+    "amount_display": "\u20b91,104.81",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 110481,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00528",
+     "payment_id": "pay_00528"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "0f9d7d9f39f44251",
+    "amount_display": "\u20b94,245.04",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 424504,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00224",
+     "payment_id": "pay_00224"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "100d7e1b024fa3a9",
+    "amount_display": "\u20b9596.36",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 59636,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00607",
+     "payment_id": "pay_00607"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "2bae2a1166bc5016",
+    "amount_display": "\u20b92,266.93",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 226693,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00722",
+     "payment_id": "pay_00722"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "2ea8ac593db9e342",
+    "amount_display": "\u20b92,889.99",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 288999,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00489",
+     "payment_id": "pay_00489"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "2f5a15d242965cba",
+    "amount_display": "\u20b94,816.56",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 481656,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00119",
+     "payment_id": "pay_00119"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "321613272c7676ad",
+    "amount_display": "\u20b9522.74",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 52274,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00110",
+     "payment_id": "pay_00110"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "393d2e9e4d69eba5",
+    "amount_display": "\u20b91,158.59",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 115859,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00084",
+     "payment_id": "pay_00084"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-27",
+    "id": "3e9f3eeb8d9d5ba5",
+    "amount_display": "\u20b9639.39",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 63939,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260828FB99DCA8",
+     "order_id": "ord_00344",
+     "payment_id": "pay_00344"
+    }
+   }
+  ],
+  "decompositions": [
+   {
+    "group_id": "grp_RZP20260828FB99DCA8",
+    "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+    "settlement_utr": "RZP20260828FB99DCA8",
+    "expected_minor": 5271600,
+    "actual_minor": 5002444,
+    "residual_minor": -269156,
+    "ledger_crosscheck_ok": false,
+    "components": {
+     "adjustment_credits": 0,
+     "adjustment_debits": 0,
+     "gross": 5677662,
+     "gst_on_mdr": 9173,
+     "mdr": 50971,
+     "refunds": 345918
+    }
+   }
+  ],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": null,
+  "agent_trace": [],
+  "_record_total": 38
+ },
+ "exc_7d8e2852c725": {
+  "exception": {
+   "id": "exc_7d8e2852c725",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "0230ddb032a5b678",
+    "11830813132573e2",
+    "13b47066924b829a",
+    "1d725d5f2979c19c",
+    "1f1fe59771a767ea",
+    "20953d66e4bf4fb7",
+    "32be893f0674f436",
+    "45c1e2594bb86549",
+    "49edf931afb38cb4",
+    "58425d8f1c205a35",
+    "6c2ba275f13c9e00",
+    "6ea09554be510cf4",
+    "763fd505b3c61935",
+    "76501af4793a4c07",
+    "83d49e7a8db18aeb",
+    "849148b8ab812899",
+    "88344cf62ee7990a",
+    "941401db0f1e352e",
+    "a2a5593635c79aa1",
+    "a8685c4fd82c77ec",
+    "a8f743596f2a958c",
+    "be95af5a43ea83fa",
+    "c5437fc242d369f8",
+    "cbc05f602151a4d3",
+    "de9c6633114e7a0f",
+    "e292c9a8e846e972",
+    "f6c7ec40db3da6c5",
+    "f82cadb9c22173df"
+   ],
+   "category": "UNEXPLAINED",
+   "classified_by": "unclassified",
+   "amount_impact_minor": -277396,
+   "confidence": null,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": {
+    "exception_id": "exc_7d8e2852c725",
+    "kind": "escalate",
+    "question": "A human should review this exception directly.",
+    "reason": "verifier_rejected",
+    "what_i_know": "Investigation did not reach a confident conclusion.",
+    "what_is_missing": "The settlement date is listed as 2026-08-10, which does not support the proposal's claim of 2026-08-09."
+   },
+   "resolution": null,
+   "note": null,
+   "status": "escalated"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "0230ddb032a5b678",
+    "amount_display": "\u20b91,931.47",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 193147,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00087",
+     "payment_id": "pay_00087"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "11830813132573e2",
+    "amount_display": "\u20b92,679.19",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 267919,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00449",
+     "payment_id": "pay_00449"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "13b47066924b829a",
+    "amount_display": "\u20b9509.21",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 50921,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00527",
+     "payment_id": "pay_00527"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "1d725d5f2979c19c",
+    "amount_display": "\u20b91,481.06",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 148106,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00756",
+     "payment_id": "pay_00756"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "1f1fe59771a767ea",
+    "amount_display": "\u20b9462.69",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 46269,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00574",
+     "payment_id": "pay_00574"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "20953d66e4bf4fb7",
+    "amount_display": "\u20b91,064.31",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 106431,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00518",
+     "payment_id": "pay_00518"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "32be893f0674f436",
+    "amount_display": "\u20b9965.80",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 96580,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00540",
+     "payment_id": "pay_00540"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "45c1e2594bb86549",
+    "amount_display": "-\u20b94,344.44",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": -434444,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "refund",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00778",
+     "payment_id": "pay_00778"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "49edf931afb38cb4",
+    "amount_display": "\u20b9498.82",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 49882,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00640",
+     "payment_id": "pay_00640"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-06",
+    "id": "58425d8f1c205a35",
+    "amount_display": "\u20b91,907.07",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 190707,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP20260807021769B5",
+     "order_id": "ord_00229",
+     "payment_id": "pay_00229"
+    }
+   }
+  ],
+  "decompositions": [
+   {
+    "group_id": "grp_RZP20260807021769B5",
+    "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+    "settlement_utr": "RZP20260807021769B5",
+    "expected_minor": 4007145,
+    "actual_minor": 3729749,
+    "residual_minor": -277396,
+    "ledger_crosscheck_ok": true,
+    "components": {
+     "adjustment_credits": 0,
+     "adjustment_debits": 0,
+     "gross": 4661003,
+     "gst_on_mdr": 2918,
+     "mdr": 16204,
+     "refunds": 634736
+    }
+   }
+  ],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": {
+   "exception_id": "exc_7d8e2852c725",
+   "kind": "escalate",
+   "question": "A human should review this exception directly.",
+   "reason": "verifier_rejected",
+   "what_i_know": "Investigation did not reach a confident conclusion.",
+   "what_is_missing": "The settlement date is listed as 2026-08-10, which does not support the proposal's claim of 2026-08-09."
+  },
+  "agent_trace": [
+   {
+    "turn": 0,
+    "text": "**PLAN:**  \nThe goal is to understand why there's an unexplained residual of -\u20b92,773.96 in the reconciliation for the settlement UTR RZP20260807021769B5. The charges and credits in the records must add up to the total actual amount, and identify any missing, duplicated, or otherwise impacted payments/refunds.\n\n**INVESTIGATE:**  \n1. The records reveal multiple payments and two refunds. Especially relevant is the payment of \u20b92,773.96 recorded on 2026-08-09 for order id 'ord_00798' as this matches the amount of the unexplained residual.\n2. Looking for potential timing differences or mismatches, since the settled_at date for this payment is after the date for the rest of the records which are on 2026-08-06.\n3. Fetch decomposition details for the settlement group ID to gain clarity on how the amounts break down.\n4. Query for any prior exceptions similar to a missing transaction to see how those were resolved.\n\n**ACTIONS:**\n\n1. Use the decomposition detail tool to understand the line-by-line reconciliation math for settlement UTR RZP20260807021769B5.\n2. Fetch past similar exceptions to see how unmatched deductions were handled.\n\nLet's execute these steps using the appropriate tools.",
+    "tool_calls": [
+     "decomposition_detail",
+     "similar_exceptions"
+    ],
+    "stop_reason": "tool_use"
+   },
+   {
+    "turn": 1,
+    "text": "**ANALYSIS:**\n\n1. **Decomposition Details:** The reconciliation shows:\n   - Gross amount: \u20b946,610.03\n   - Refunds amount: \u20b96,347.36\n   - MDR (Merchant Discount Rate): \u20b9162.04\n   - GST on MDR: \u20b929.18\n\n   The gross amount minus refunds, MDR, and GST on MDR should match the expected amount of \u20b940,071.45, which it does not due to a residual of -\u20b92,773.96.\n\n2. **Decompostion Breakdown:** The actual amount shown is \u20b937,297.49, which means there is indeed a shortfall of \u20b92,773.96. This is exact to the payment recorded on 2026-08-09 (record id: a8685c4fd82c77ec) for order id 'ord_00798'.\n\n3. **Resolution History:** There are no previously resolved exceptions in this format suggesting this might be a one-time mismatch potentially due to timing issues or missing entries not due to any systemic issue.\n\n**HYPOTHESES TESTED:**\n\n- Hypothesis: The discrepancy was due to a timing issue where a payment scheduled for settlement on 2026-08-09 was recorded in reconciliation for 2026-08-06, hence appearing as an unexplained residual. \n  - This appears plausible, as both the residual and the amount of record id a8685c4fd82c77ec match exactly, and the settlement dates are different.\n\n- Checked for other missing or duplicated transactions: none apparent in the current records.\n\n**DECISION:**\n\nSince the hypothesis is supported by:\n- Matching timing differential and residual amounts,\n- No contradictory evidence or similar resolved cases earlier,\n  \nIt seems likely to categorize this as a **TIMING** issue where a payment meant for future settlement was included out-of-schedule in the reconciliation.\n\n**PROPOSAL:**\n\n```json\n{\n  \"exception_id\": \"exc_7d8e2852c725\",\n  \"category\": \"TIMING\",\n  \"resolution\": \"Reconcile the payment for ord_00798 to correct this timing discrepancy.\"\n}\n```",
+    "tool_calls": [],
+    "stop_reason": "end_turn"
+   },
+   {
+    "turn": 2,
+    "text": "{\"kind\": \"proposal\", \"category\": \"TIMING\", \"confidence\": 0.85, \"explanation\": \"The discrepancy of -\\u20b92,773.96 results from a timing difference where a payment (record ID a8685c4fd82c77ec) was settled on 2026-08-09, but included in the reconciliation for the period ending 2026-08-06. Both the payment amount and the unexplained residual match exactly, indicating it was incorrectly accounted for due to the timing mismatch.\", \"evidence_refs\": [{\"claim\": \"Payment amount matches residual\", \"record_id\": \"a8685c4fd82c77ec\", \"field\": \"amount\"}, {\"claim\": \"Payment settled later than reconciliation period\", \"record_id\": \"a8685c4fd82c77ec\", \"field\": \"settled_at\"}], \"suggested_action\": {\"action\": \"accept_variance\", \"detail\": \"Exception is caused by timing mismatch, accept as already explained.\"}}",
+    "tool_calls": [],
+    "stop_reason": "end_turn"
+   },
+   {
+    "turn": 3,
+    "text": "{\"supported\":false,\"reason\":\"The settlement date is listed as 2026-08-10, which does not support the proposal's claim of 2026-08-09.\"}",
+    "tool_calls": [],
+    "stop_reason": "end_turn",
+    "role": "verifier"
+   }
+  ],
+  "_record_total": 28,
+  "agent_investigation": {
+   "steps": [
+    {
+     "kind": "plan",
+     "title": "Plan",
+     "body": "Determine why settlement RZP20260807021769B5 shows an unexplained residual of -\u20b92,773.96.",
+     "model": "gpt-4o"
+    },
+    {
+     "kind": "evidence",
+     "title": "Gather evidence",
+     "body": "Pull the line-by-line settlement decomposition and look for prior exceptions of the same shape.",
+     "tools": [
+      {
+       "name": "decomposition_detail",
+       "args": {}
+      },
+      {
+       "name": "similar_exceptions",
+       "args": {}
+      }
+     ]
+    },
+    {
+     "kind": "reason",
+     "title": "Reason",
+     "body": "The \u20b92,773.96 shortfall matches a payment (a8685c4fd82c77ec) whose settled_at is later than the rest of the batch \u2014 looks like a period-straddle timing difference."
+    },
+    {
+     "kind": "proposal",
+     "title": "Proposed conclusion",
+     "category": "TIMING",
+     "body": "The discrepancy results from a payment settled on 2026-08-09 but included in the period ending 2026-08-06; the amount and the residual match exactly.",
+     "hypotheses_tested": [
+      "timing straddle",
+      "duplicate payment",
+      "missing refund"
+     ],
+     "suggested_action": "accept_variance",
+     "stated_confidence": 0.85,
+     "grounded_confidence": 0.78,
+     "citations_resolved": "2/2",
+     "fabricated": []
+    },
+    {
+     "kind": "safety",
+     "title": "Safety Kernel decision",
+     "action": "ESCALATE",
+     "risk": "R3",
+     "risk_label": "ambiguous",
+     "reasons": [
+      "verifier_rejected",
+      "confidence_in_uncertain_band"
+     ],
+     "grounded_confidence": 0.78,
+     "body": "the independent verifier found the cited settled_at date does not prove a late settlement",
+     "policy_version": "safety-policy-v1"
+    },
+    {
+     "kind": "escalation",
+     "title": "Escalated to a human",
+     "reason": "verifier_rejected",
+     "what_i_know": "The residual matches one payment's amount exactly.",
+     "what_is_missing": "The cited settlement date (2026-08-10) does not support the proposal's claim of 2026-08-09.",
+     "body": "A human should confirm whether this payment belongs in the next period's settlement."
+    }
+   ],
+   "outcome": "escalate",
+   "decision": {
+    "action": "ESCALATE",
+    "risk": "R3",
+    "risk_label": "ambiguous",
+    "reasons": [
+     "verifier_rejected",
+     "confidence_in_uncertain_band"
+    ],
+    "grounded_confidence": 0.78,
+    "detail": "the verifier rejected the cited evidence",
+    "escalation_reason": "verifier_rejected",
+    "policy_version": "safety-policy-v1"
+   },
+   "tokens_in": 18932,
+   "tokens_out": 1075,
+   "tool_calls": 2
+  }
+ },
+ "exc_ee38d61da480": {
+  "exception": {
+   "id": "exc_ee38d61da480",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "08eac96584fb2e10"
+   ],
+   "category": "CHARGEBACK",
+   "classified_by": "rule:r_chargeback",
+   "amount_impact_minor": 52976,
+   "confidence": 0.85,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": null,
+   "resolution": null,
+   "note": null,
+   "status": "open"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-17",
+    "id": "08eac96584fb2e10",
+    "amount_display": "-\u20b9529.76",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": -52976,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "adjustment",
+    "external_ids": {
+     "settlement_utr": "RZP20260831EC900B8D",
+     "order_id": "ord_00020",
+     "payment_id": "pay_00020"
+    }
+   }
+  ],
+  "decompositions": [
+   {
+    "group_id": "grp_RZP20260831EC900B8D",
+    "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+    "settlement_utr": "RZP20260831EC900B8D",
+    "expected_minor": 2444919,
+    "actual_minor": 2444919,
+    "residual_minor": 0,
+    "ledger_crosscheck_ok": true,
+    "components": {
+     "adjustment_credits": 0,
+     "adjustment_debits": 52976,
+     "gross": 3247762,
+     "gst_on_mdr": 3585,
+     "mdr": 19919,
+     "refunds": 726363
+    }
+   }
+  ],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": null,
+  "agent_trace": [],
+  "_record_total": 1
+ },
+ "exc_b654aa1d55c3": {
+  "exception": {
+   "id": "exc_b654aa1d55c3",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "65cc4c5d703a0e10"
+   ],
+   "category": "SECURITY_REVIEW",
+   "classified_by": "rule:r_security_scan",
+   "amount_impact_minor": 48945,
+   "confidence": 1.0,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": null,
+   "resolution": null,
+   "note": null,
+   "status": "security_review"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-11",
+    "id": "65cc4c5d703a0e10",
+    "amount_display": "\u20b9489.45",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 48945,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202608125F11EFF2",
+     "order_id": "ord_00060",
+     "payment_id": "pay_00060"
+    }
+   }
+  ],
+  "decompositions": [
+   {
+    "group_id": "grp_RZP202608125F11EFF2",
+    "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+    "settlement_utr": "RZP202608125F11EFF2",
+    "expected_minor": 3372381,
+    "actual_minor": 3372381,
+    "residual_minor": 0,
+    "ledger_crosscheck_ok": true,
+    "components": {
+     "adjustment_credits": 0,
+     "adjustment_debits": 0,
+     "gross": 3757291,
+     "gst_on_mdr": 2980,
+     "mdr": 16560,
+     "refunds": 365370
+    }
+   }
+  ],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": null,
+  "agent_trace": [],
+  "_record_total": 1
+ },
+ "exc_28a7db98860b": {
+  "exception": {
+   "id": "exc_28a7db98860b",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "04a3b33c513fb1c4",
+    "0ab01f6d10d642d7",
+    "0c440c7dc64bf015",
+    "1cbceff49ef3de32",
+    "22dfd40b2e4bdf41",
+    "46571aa99de5fbf1",
+    "53c3f7d9b29bf0ec",
+    "552f23a45ad656b6",
+    "55da9dfdd8c6ca52",
+    "5a452a67a23400a8",
+    "6681090baba619bf",
+    "7163502e664761d9",
+    "71c5ffde56c37ccd",
+    "7345d64af1b75a47",
+    "75e8234a29a6386b",
+    "76f4ad6578145255",
+    "8c16b348612d8893",
+    "9428e6d709a5984c",
+    "963bfc09dc808704",
+    "9921eaa5db5eef11",
+    "c06bf6aa0378a471",
+    "d3129910641595c4",
+    "d534884c2a79c951",
+    "d57ced5e35d1b01a",
+    "d5c8937c48c45651",
+    "d614409c0a5bedbd",
+    "e2091f90c8fda9b8",
+    "ee767f08982ff442",
+    "f133f644392f557f",
+    "f60b4f21358919e9",
+    "f9f9fc32761c491a"
+   ],
+   "category": "FEE_DEDUCTION",
+   "classified_by": "rule:r_fee_drift",
+   "amount_impact_minor": 442,
+   "confidence": 0.9,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": null,
+   "resolution": {
+    "action": "flag_overcharge"
+   },
+   "note": null,
+   "status": "open"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "04a3b33c513fb1c4",
+    "amount_display": "\u20b9501.53",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 50153,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00478",
+     "payment_id": "pay_00478"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "0ab01f6d10d642d7",
+    "amount_display": "\u20b9639.62",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 63962,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00433",
+     "payment_id": "pay_00433"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "0c440c7dc64bf015",
+    "amount_display": "\u20b94,334.30",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 433430,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00223",
+     "payment_id": "pay_00223"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "1cbceff49ef3de32",
+    "amount_display": "\u20b93,014.42",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 301442,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00471",
+     "payment_id": "pay_00471"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "22dfd40b2e4bdf41",
+    "amount_display": "\u20b9786.80",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 78680,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00244",
+     "payment_id": "pay_00244"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "46571aa99de5fbf1",
+    "amount_display": "\u20b93,708.72",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 370872,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00690",
+     "payment_id": "pay_00690"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "53c3f7d9b29bf0ec",
+    "amount_display": "\u20b91,445.32",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 144532,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00754",
+     "payment_id": "pay_00754"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "552f23a45ad656b6",
+    "amount_display": "\u20b9744.28",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 74428,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00302",
+     "payment_id": "pay_00302"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "55da9dfdd8c6ca52",
+    "amount_display": "\u20b91,560.74",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 156074,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00740",
+     "payment_id": "pay_00740"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-31",
+    "id": "5a452a67a23400a8",
+    "amount_display": "\u20b93,398.02",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 339802,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP202609012D9FF95F",
+     "order_id": "ord_00079",
+     "payment_id": "pay_00079"
+    }
+   }
+  ],
+  "decompositions": [
+   {
+    "group_id": "grp_RZP202609012D9FF95F",
+    "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+    "settlement_utr": "RZP202609012D9FF95F",
+    "expected_minor": 4941992,
+    "actual_minor": 4942434,
+    "residual_minor": 442,
+    "ledger_crosscheck_ok": true,
+    "components": {
+     "adjustment_credits": 0,
+     "adjustment_debits": 0,
+     "gross": 5103170,
+     "gst_on_mdr": 6162,
+     "mdr": 34238,
+     "refunds": 120778
+    }
+   }
+  ],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": null,
+  "agent_trace": [],
+  "_record_total": 31
+ },
+ "exc_dcb53c04c2b7": {
+  "exception": {
+   "id": "exc_dcb53c04c2b7",
+   "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+   "record_ids": [
+    "05f431d7e5d6f35f",
+    "11cad8ffe10060b0",
+    "1743df4543b8f629",
+    "174f8c4a34a64782",
+    "20c1ff282af08d3d",
+    "25dcdc5d2cec9dca",
+    "281a0dbc8454f97c",
+    "2be6d2cb9392ff8a",
+    "3a2e2800355a061f",
+    "3e77bcf6f0b1d2e2",
+    "43a6c41767331d03",
+    "498845c5e58a3dd1",
+    "5fb64f237560b8f1",
+    "7891858139b9602d",
+    "7b3a9ecb3be39b95",
+    "801b56939f54b052",
+    "8b08ce1478de236e",
+    "92b8ecc34df91a90",
+    "a1f8868c6b7174df",
+    "a4487e11b8182cb2",
+    "a5a1bd7475e4bdf2",
+    "a6ff298472301b6b",
+    "ad2ac0b90791a811",
+    "ae4e84a22b20fb56",
+    "b68388210c8b91dc",
+    "b9b9d6162eeef9e5",
+    "b9c0ca1091b29b9b",
+    "ba90a0071d8c7c4f",
+    "bb5b9083f82a6186",
+    "c0d18e2cd5bd2a6f",
+    "cb40995965569694",
+    "d13f2a2cebbc5c31",
+    "e272589f86006c5b",
+    "f209db0626aafc37",
+    "f4e49fcd532a7063",
+    "fe110de85d6887f2"
+   ],
+   "category": "FEE_DEDUCTION",
+   "classified_by": "rule:r_fee_drift",
+   "amount_impact_minor": 288,
+   "confidence": 0.9,
+   "candidates": [],
+   "agent_proposal": null,
+   "agent_escalation": null,
+   "resolution": {
+    "action": "flag_overcharge"
+   },
+   "note": null,
+   "status": "open"
+  },
+  "records": [
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "05f431d7e5d6f35f",
+    "amount_display": "\u20b91,246.80",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 124680,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00017",
+     "payment_id": "pay_00017"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "11cad8ffe10060b0",
+    "amount_display": "\u20b9849.91",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 84991,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00221",
+     "payment_id": "pay_00221"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "1743df4543b8f629",
+    "amount_display": "\u20b91,839.18",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 183918,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00575",
+     "payment_id": "pay_00575"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "174f8c4a34a64782",
+    "amount_display": "\u20b9981.72",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 98172,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00662",
+     "payment_id": "pay_00662"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "20c1ff282af08d3d",
+    "amount_display": "-\u20b94,794.40",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": -479440,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "refund",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00426",
+     "payment_id": "pay_00426"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "25dcdc5d2cec9dca",
+    "amount_display": "\u20b91,180.69",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 118069,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00460",
+     "payment_id": "pay_00460"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "281a0dbc8454f97c",
+    "amount_display": "\u20b91,884.55",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 188455,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00436",
+     "payment_id": "pay_00436"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "2be6d2cb9392ff8a",
+    "amount_display": "\u20b9447.19",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 44719,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00132",
+     "payment_id": "pay_00132"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "3a2e2800355a061f",
+    "amount_display": "\u20b93,249.52",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 324952,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00136",
+     "payment_id": "pay_00136"
+    }
+   },
+   {
+    "counterparty": null,
+    "settled_at": "2026-08-19",
+    "id": "3e77bcf6f0b1d2e2",
+    "amount_display": "\u20b92,015.98",
+    "reference": null,
+    "value_date": null,
+    "currency": "INR",
+    "amount_minor": 201598,
+    "posted_date": null,
+    "source": "razorpay_recon",
+    "kind": "payment",
+    "external_ids": {
+     "settlement_utr": "RZP2026082087F24E91",
+     "order_id": "ord_00549",
+     "payment_id": "pay_00549"
+    }
+   }
+  ],
+  "decompositions": [
+   {
+    "group_id": "grp_RZP2026082087F24E91",
+    "run_id": "f7e810ba-bce8-1d48-a7cc-198a216e6eb0",
+    "settlement_utr": "RZP2026082087F24E91",
+    "expected_minor": 6067157,
+    "actual_minor": 6067445,
+    "residual_minor": 288,
+    "ledger_crosscheck_ok": true,
+    "components": {
+     "adjustment_credits": 0,
+     "adjustment_debits": 0,
+     "gross": 6659785,
+     "gst_on_mdr": 14749,
+     "mdr": 81937,
+     "refunds": 495942
+    }
+   }
+  ],
+  "candidates": [],
+  "agent_proposal": null,
+  "agent_escalation": null,
+  "agent_trace": [],
+  "_record_total": 36
+ }
+}

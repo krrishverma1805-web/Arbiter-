@@ -184,6 +184,38 @@ def test_attack_suite_contains_every_scenario(client):
     assert bad.status_code == 422
 
 
+def test_exception_detail_folds_a_readable_investigation(client):
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+    excs = c.get(f"/v1/runs/{run_id}/exceptions").json()["exceptions"]
+    # find one the agent actually investigated (status proposed/escalated)
+    target = next(
+        (e for e in excs if e["status"] in ("proposed", "escalated")),
+        None,
+    )
+    if target is None:
+        pytest.skip("no exception was investigated in this run")
+
+    d = c.get(f"/v1/exceptions/{run_id}/{target['id']}").json()
+    inv = d["agent_investigation"]
+    assert inv is not None
+    assert inv["outcome"] in ("proposal", "escalate")
+    kinds = [s["kind"] for s in inv["steps"]]
+    assert "plan" in kinds
+    # the folded steps never leak a raw terminal-JSON blob as a body
+    for s in inv["steps"]:
+        body = s.get("body") or ""
+        assert not (body.startswith("{") and body.endswith("}")), body
+    # the Safety Kernel decision is surfaced, not buried in the raw trace
+    if any(k == "safety" for k in kinds):
+        safety = next(s for s in inv["steps"] if s["kind"] == "safety")
+        assert safety["action"] in ("SAFE", "PROPOSE", "ESCALATE", "QUARANTINE")
+    # raw turns are still available for the technical disclosure
+    assert isinstance(d["agent_trace"], list)
+
+
 def test_run_clusters_groups_open_exceptions(client):
     c, ds = client
     run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[

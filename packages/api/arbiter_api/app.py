@@ -473,12 +473,14 @@ def _stream_frame(ev: Any) -> dict[str, Any]:
         }
     if ev.type == EventType.AGENT_PROPOSAL_CREATED:
         g = p.get("grounding") or {}
+        prop = p.get("proposal") or {}
         return {
             **base,
             "exception_id": p.get("exception_id"),
-            "category": p.get("category"),
-            "explanation": p.get("explanation", ""),
+            "category": prop.get("category") or p.get("category"),
+            "explanation": prop.get("explanation") or p.get("explanation", ""),
             "grounded_confidence": g.get("grounded_confidence"),
+            "decision": p.get("decision"),
         }
     if ev.type == EventType.AGENT_ESCALATED:
         esc = p.get("escalation", {}) or {}
@@ -488,6 +490,7 @@ def _stream_frame(ev: Any) -> dict[str, Any]:
             "question": esc.get("question") or p.get("question", ""),
             "reason": esc.get("reason") or p.get("reason"),
             "what_is_missing": esc.get("what_is_missing", ""),
+            "decision": p.get("decision"),
         }
     if ev.type == EventType.EXCEPTION_OPENED:
         exc = p.get("exception", {})
@@ -593,10 +596,11 @@ def exception_detail(run_id: str, exception_id: str) -> dict[str, Any]:
     }
     decomps = [d.model_dump(mode="json") for d in proj.decompositions if d.settlement_utr in utrs]
 
-    # the agent's step-by-step trace for this exception, for the cockpit's
-    # streaming investigation view (docs/28 §5)
+    # the agent's raw turns (kept for the "Technical detail" disclosure) and a
+    # folded, human-readable step chain (PLAN → EVIDENCE → … → DECISION)
     trace: list[dict[str, Any]] = []
-    for t, p in get_store().iter_payloads(run_id):
+    payloads = list(get_store().iter_payloads(run_id))
+    for t, p in payloads:
         if t == EventType.AGENT_INTERACTION and p.get("exception_id") == exception_id:
             trace.append(
                 {
@@ -604,6 +608,7 @@ def exception_detail(run_id: str, exception_id: str) -> dict[str, Any]:
                     "text": p.get("text", ""),
                     "tool_calls": [tc.get("name") for tc in p.get("tool_calls", [])],
                     "stop_reason": p.get("stop_reason"),
+                    "role": p.get("role"),
                 }
             )
 
@@ -615,7 +620,125 @@ def exception_detail(run_id: str, exception_id: str) -> dict[str, Any]:
         "agent_proposal": exc.agent_proposal,
         "agent_escalation": exc.agent_escalation,
         "agent_trace": trace,
+        "agent_investigation": _fold_agent_investigation(payloads, exception_id),
     }
+
+
+def _fold_agent_investigation(
+    payloads: list[tuple[str, dict[str, Any]]], exception_id: str
+) -> dict[str, Any] | None:
+    """Turn the AGENT_* events for one exception into a readable step chain the
+    cockpit renders as cards: PLAN → EVIDENCE → TEST → PROPOSAL → VERIFICATION →
+    SAFETY DECISION → OUTCOME. Raw JSON stays in `agent_trace` behind a
+    disclosure; this is what a controller reads."""
+    ev = [
+        (t, p)
+        for t, p in payloads
+        if p.get("exception_id") == exception_id and str(t).startswith("AGENT_")
+    ]
+    if not ev:
+        return None
+
+    steps: list[dict[str, Any]] = []
+    tokens_in = tokens_out = tool_calls = 0
+    decision: dict[str, Any] | None = None
+
+    for t, p in ev:
+        if t == EventType.AGENT_INVESTIGATION_STARTED:
+            steps.append(
+                {
+                    "kind": "plan",
+                    "title": "Plan",
+                    "body": f"Investigate the {p.get('category_in') or 'unresolved'} exception.",
+                    "model": p.get("model"),
+                }
+            )
+        elif t == EventType.AGENT_INTERACTION:
+            tokens_in += int(p.get("tokens_in", 0) or 0)
+            tokens_out += int(p.get("tokens_out", 0) or 0)
+            calls = p.get("tool_calls") or []
+            tool_calls += len(calls)
+            text = _strip_json((p.get("text") or "").strip())
+            if p.get("role") == "verifier":
+                continue  # the verdict is folded from the escalation/proposal event
+            if calls:
+                steps.append(
+                    {
+                        "kind": "evidence",
+                        "title": "Gather evidence",
+                        "body": text or None,
+                        "tools": [
+                            {"name": c.get("name"), "args": c.get("arguments", {})} for c in calls
+                        ],
+                    }
+                )
+            elif text:
+                steps.append({"kind": "reason", "title": "Reason", "body": text})
+        elif t == EventType.AGENT_PROPOSAL_CREATED:
+            prop = p.get("proposal") or {}
+            g = p.get("grounding") or {}
+            decision = p.get("decision")
+            steps.append(
+                {
+                    "kind": "proposal",
+                    "title": "Proposed conclusion",
+                    "category": prop.get("category"),
+                    "body": prop.get("explanation"),
+                    "hypotheses_tested": prop.get("hypotheses_tested") or [],
+                    "suggested_action": (prop.get("suggested_action") or {}).get("action"),
+                    "stated_confidence": prop.get("confidence"),
+                    "grounded_confidence": g.get("grounded_confidence"),
+                    "citations_resolved": f"{g.get('refs_resolved', 0)}/{g.get('refs_total', 0)}",
+                    "fabricated": g.get("fabricated") or [],
+                }
+            )
+        elif t == EventType.AGENT_ESCALATED:
+            esc = p.get("escalation") or {}
+            decision = p.get("decision")
+            steps.append(
+                {
+                    "kind": "escalation",
+                    "title": "Escalated to a human",
+                    "reason": esc.get("reason") or p.get("reason"),
+                    "what_i_know": esc.get("what_i_know"),
+                    "what_is_missing": esc.get("what_is_missing"),
+                    "body": esc.get("question") or p.get("question"),
+                }
+            )
+
+    if decision:
+        steps.append(
+            {
+                "kind": "safety",
+                "title": "Safety Kernel decision",
+                "action": decision.get("action"),
+                "risk": decision.get("risk"),
+                "risk_label": decision.get("risk_label"),
+                "reasons": decision.get("reasons") or [],
+                "grounded_confidence": decision.get("grounded_confidence"),
+                "body": decision.get("detail"),
+                "policy_version": decision.get("policy_version"),
+            }
+        )
+
+    outcome = "escalate" if any(s["kind"] == "escalation" for s in steps) else "proposal"
+    return {
+        "steps": steps,
+        "outcome": outcome,
+        "decision": decision,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "tool_calls": tool_calls,
+    }
+
+
+def _strip_json(text: str) -> str:
+    """Drop a trailing terminal-JSON blob from a reasoning turn so it renders as
+    prose, not a raw object."""
+    if text.startswith("{") and text.endswith("}"):
+        return ""
+    i = text.find("\n{")
+    return text[:i].strip() if i > 0 else text
 
 
 class ResolveRequest(BaseModel):
