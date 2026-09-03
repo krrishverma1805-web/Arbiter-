@@ -9,6 +9,9 @@ export default async function Home() {
   let specs: { name: string; path: string }[] = [];
   let datasets: { name: string; path: string }[] = [];
   let apiUp = true;
+  // No configured backend → this is the hosted demo serving a frozen snapshot
+  // of a real run (the investigation agent was pointed at gpt-4o).
+  const isDemo = !process.env.ARBITER_API_URL;
   try {
     [runs, specs, datasets] = await Promise.all([
       api.listRuns().then((r) => r.runs),
@@ -33,14 +36,25 @@ export default async function Home() {
         </kbd>
       </div>
 
-      {!apiUp && (
+      {isDemo && (
+        <div className="mt-6 rounded border border-accent/30 bg-accent/5 p-3 text-sm">
+          <strong>Hosted demo.</strong> This is the real cockpit serving a frozen
+          snapshot of one <code className="font-mono">arbiter run</code> — 1,672
+          records, the investigation agent pointed at <code className="font-mono">gpt-4o</code>.
+          Open the run below to see the full agent investigation; “reconcile”
+          replays it live. Run the whole stack yourself with{" "}
+          <code className="font-mono">make up</code>.
+        </div>
+      )}
+
+      {!apiUp && !isDemo && (
         <div className="mt-6 rounded border border-attention/40 bg-attention/10 p-3 text-sm">
           The API isn&apos;t reachable. Start it with{" "}
           <code className="font-mono">uv run arbiter-api</code>.
         </div>
       )}
 
-      {apiUp && <NewRun specs={specs} datasets={datasets} />}
+      {(apiUp || isDemo) && <NewRun specs={specs} datasets={datasets} />}
 
       <h2 className="mt-10 text-sm font-semibold uppercase tracking-wide text-muted">
         Runs

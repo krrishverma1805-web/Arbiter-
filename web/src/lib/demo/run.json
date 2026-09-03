@@ -1,0 +1,1 @@
+{"run_id":"f7e810ba-bce8-1d48-a7cc-198a216e6eb0","status":"completed","records":1672,"by_source":{"ledger":800,"razorpay_recon":849,"bank":23},"matches":19,"matched_records":1273,"exceptions":8,"quarantined":0,"pii_dropped":0,"events":1739,"terminal_hash":"44902b54be71e3762337b59e54803c31f4878e514a21034d1165f4993143a833"}

@@ -2,8 +2,11 @@
 const nextConfig = {
   output: "standalone",
   async rewrites() {
-    const api = process.env.ARBITER_API_URL || "http://127.0.0.1:8000";
-    return [{ source: "/api/:path*", destination: `${api}/:path*` }];
+    // When a real API is configured, proxy /api/* to it. Otherwise the built-in
+    // route handlers under src/app/api serve a frozen snapshot of a real run
+    // (the hosted demo).
+    const api = process.env.ARBITER_API_URL;
+    return api ? [{ source: "/api/:path*", destination: `${api}/:path*` }] : [];
   },
 };
 export default nextConfig;

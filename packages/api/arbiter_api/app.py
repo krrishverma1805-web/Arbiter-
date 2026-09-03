@@ -427,11 +427,13 @@ def _stream_frame(ev: Any) -> dict[str, Any]:
             "grounded_confidence": g.get("grounded_confidence"),
         }
     if ev.type == EventType.AGENT_ESCALATED:
+        esc = p.get("escalation", {}) or {}
         return {
             **base,
             "exception_id": p.get("exception_id"),
-            "question": p.get("question", ""),
-            "reason": p.get("reason"),
+            "question": esc.get("question") or p.get("question", ""),
+            "reason": esc.get("reason") or p.get("reason"),
+            "what_is_missing": esc.get("what_is_missing", ""),
         }
     if ev.type == EventType.EXCEPTION_OPENED:
         exc = p.get("exception", {})

@@ -45,7 +45,25 @@ interface Investigation {
     explanation: string;
     grounded: number | null;
   };
+  verifier?: { supported: boolean; reason: string };
   escalation?: { question: string; reason: string | null };
+}
+
+// the agent's terminal turns arrive as JSON text; pull them out so they render
+// as cards, not raw blobs. Also strips ```json fences from a reasoning turn.
+function readJsonTurn(raw: string): Record<string, unknown> | null {
+  const s = raw.trim();
+  const m = s.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    const o = JSON.parse(m[0]) as Record<string, unknown>;
+    return o && typeof o === "object" ? o : null;
+  } catch {
+    return null;
+  }
+}
+function stripFences(t: string): string {
+  return t.replace(/```json[\s\S]*?```/g, "").replace(/```[\s\S]*?```/g, "").trim();
 }
 
 const KEEP = new Set([
@@ -237,6 +255,30 @@ export function LiveRun({ runId }: { runId: string }) {
                     )}
                   </div>
                   <p className="mt-1">{inv.proposal.explanation}</p>
+                  {inv.proposal.grounded != null && (
+                    <p className="mt-1 text-[11px] text-muted">
+                      model self-confidence — Arbiter re-derives its own from how the citations hold up
+                    </p>
+                  )}
+                </motion.div>
+              )}
+              {inv.verifier && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={spring}
+                  className={`border-t px-4 py-3 text-xs ${
+                    inv.verifier.supported
+                      ? "border-positive/20 bg-positive/5"
+                      : "border-critical/25 bg-critical/5"
+                  }`}
+                >
+                  <span
+                    className={`font-semibold ${inv.verifier.supported ? "text-positive" : "text-critical"}`}
+                  >
+                    verifier · {inv.verifier.supported ? "citations supported" : "citations rejected"}
+                  </span>
+                  <p className="mt-1">{inv.verifier.reason}</p>
                 </motion.div>
               )}
               {inv.escalation && (
@@ -374,8 +416,20 @@ function foldInvestigations(frames: StreamFrame[]): Investigation[] {
       ensure(id).category = f.category ?? ensure(id).category;
     } else if (f.type === "AGENT_INTERACTION" && id) {
       const inv = ensure(id);
-      if ((f.text && f.text.trim()) || (f.tool_calls && f.tool_calls.length))
-        inv.turns.push({ text: f.text ?? "", tools: f.tool_calls ?? [] });
+      const j = f.text ? readJsonTurn(f.text) : null;
+      if (j && j.kind === "proposal") {
+        inv.proposal = {
+          category: (j.category as string) ?? null,
+          explanation: (j.explanation as string) ?? "",
+          grounded: typeof j.confidence === "number" ? (j.confidence as number) : null,
+        };
+      } else if (j && typeof j.supported === "boolean") {
+        inv.verifier = { supported: j.supported as boolean, reason: (j.reason as string) ?? "" };
+      } else {
+        const clean = stripFences(f.text ?? "");
+        if (clean || (f.tool_calls && f.tool_calls.length))
+          inv.turns.push({ text: clean, tools: f.tool_calls ?? [] });
+      }
     } else if (f.type === "AGENT_PROPOSAL_CREATED" && id) {
       ensure(id).proposal = {
         category: f.category ?? null,
@@ -392,6 +446,9 @@ function foldInvestigations(frames: StreamFrame[]): Investigation[] {
   // only show exceptions the agent actually looked at, most recent first
   return order
     .map((id) => byId.get(id)!)
-    .filter((inv) => inv.turns.length > 0 || inv.proposal || inv.escalation)
+    .filter(
+      (inv) =>
+        inv.turns.length > 0 || inv.proposal || inv.verifier || inv.escalation,
+    )
     .reverse();
 }

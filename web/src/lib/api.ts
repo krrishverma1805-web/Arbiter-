@@ -4,7 +4,12 @@
 // Computed per call so the runtime environment (not the bundle-time one) decides.
 function base(): string {
   if (typeof window !== "undefined") return "/api";
-  return process.env.ARBITER_API_URL ?? "http://127.0.0.1:8000";
+  // Server components can't use a relative URL. Prefer a configured API, else
+  // hit this same deployment's route handlers (Vercel sets VERCEL_URL), else
+  // localhost for `make up`.
+  if (process.env.ARBITER_API_URL) return process.env.ARBITER_API_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/api`;
+  return "http://127.0.0.1:8000";
 }
 
 // The cockpit's API key (prod). Dev (`ARBITER_ENV=dev`) needs none. Set it via
