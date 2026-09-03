@@ -92,7 +92,7 @@ def plan(records: int, difficulty: str) -> dict[str, int]:
     if difficulty == "easy":
         return {}
     n_batches = max(1, records // 6)
-    frac = {"normal": 0.08, "hard": 0.18}.get(difficulty, 0.08)
+    frac = {"normal": 0.08, "hard": 0.18, "adversarial": 0.22}.get(difficulty, 0.08)
     budget = max(6, round(n_batches * frac))
 
     total_weight = sum(_MIX.values())

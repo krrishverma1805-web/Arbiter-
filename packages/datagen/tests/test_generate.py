@@ -69,3 +69,27 @@ def test_scenarios_shape(tmp_path: Path):
         assert m["records"] == 40
         gt = json.loads((out / "ground_truth.json").read_text())
         assert gt["true_matches"]
+
+
+def test_adversarial_difficulty_still_produces_matchable_batches(tmp_path: Path):
+    """The `adversarial` distribution mangles / drops the UTR label on most
+    batches and appends a totals row — but a batch's amount + date must still
+    let the matcher recover it, so `true_matches` is non-empty and identity
+    holds for the clean ones."""
+    from arbiter_engine.events.store import EventStore
+    from arbiter_engine.run import RunInputs, execute
+
+    generate_dataset(
+        scenario="d2c", records=300, seed=7, out_dir=tmp_path, difficulty="adversarial"
+    )
+    gt = json.loads((tmp_path / "ground_truth.json").read_text())
+    assert gt["true_matches"]
+
+    spec = Path(__file__).resolve().parents[3] / "specs/razorpay-settlement.yaml"
+    store = EventStore("sqlite://")
+    proj = execute(store, RunInputs(spec_path=spec, dataset_dir=tmp_path, no_ai=True))
+    matched = proj.matched_record_ids
+    # every ground-truth true match's records are auto-tied despite the garbling
+    bank_ids = {r.id for r in proj.records if r.source == "bank"}
+    tied = len(bank_ids & matched)
+    assert tied >= len(gt["true_matches"]) * 0.85

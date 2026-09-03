@@ -98,6 +98,20 @@ jobs:
           assert s["determinism"]["replay_hash_match"], "non-deterministic run"
           print("absolute floor passed:", m)
           EOF
+      - name: adversarial distribution — the matcher must still hold up
+        run: |
+          uv run arbiter-datagen gen --scenario d2c --records 800 --seed 7 \
+            --difficulty adversarial --out /tmp/adv
+          uv run arbiter bench --spec specs/razorpay-settlement.yaml --dataset /tmp/adv \
+            --out adv.json
+          python - <<'EOF'
+          import json
+          m = json.load(open("adv.json"))["matching"]
+          # 35% mangled UTRs + 25% label-drops + a totals row + 22% anomalies
+          assert m["false_match_rate"] <= 0.02, f"adversarial false-match {m['false_match_rate']}"
+          assert m["auto_match_rate"] >= 0.85, f"adversarial auto-match {m['auto_match_rate']}"
+          print("adversarial floor passed:", m)
+          EOF
       - uses: actions/upload-artifact@v4
         with:
           name: scorecard

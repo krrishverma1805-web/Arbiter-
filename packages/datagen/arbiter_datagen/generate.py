@@ -74,8 +74,8 @@ def generate_dataset(
 ) -> dict[str, Any]:
     if scenario not in SCENARIOS:
         raise ValueError(f"unknown scenario {scenario!r}; choose from {sorted(SCENARIOS)}")
-    if difficulty not in ("easy", "normal", "hard"):
-        raise ValueError("difficulty must be easy | normal | hard")
+    if difficulty not in ("easy", "normal", "hard", "adversarial"):
+        raise ValueError("difficulty must be easy | normal | hard | adversarial")
     sc = SCENARIOS[scenario]
     rng = random.Random(seed)  # noqa: S311 - deterministic synthetic data, not crypto
     out = Path(out_dir)
@@ -198,9 +198,16 @@ def generate_dataset(
     # matcher's amount+date blocking pass) — they stay in true_matches.
     clean_utrs = [u for u in sorted(batches) if u not in anomaly_utrs and u not in dropped_batches]
     mangled_utrs: set[str] = set()
-    if difficulty == "hard" and clean_utrs:
-        k = max(1, round(len(clean_utrs) * 0.15))
+    _garble = {"hard": 0.15, "adversarial": 0.35}.get(difficulty, 0.0)
+    if _garble and clean_utrs:
+        k = max(1, round(len(clean_utrs) * _garble))
         mangled_utrs = set(rng.sample(clean_utrs, min(k, len(clean_utrs))))
+    # adversarial: also drop the UTR label entirely on a further slice, and add a
+    # trailing-total junk row the ingester must strip — these still must auto-tie.
+    label_dropped: set[str] = set()
+    if difficulty == "adversarial" and clean_utrs:
+        rest = [u for u in clean_utrs if u not in mangled_utrs]
+        label_dropped = set(rng.sample(rest, min(max(1, round(len(rest) * 0.25)), len(rest))))
 
     for utr in sorted(batches):
         b = batches[utr]
@@ -209,7 +216,7 @@ def generate_dataset(
         # FEE_DRIFT/GST_ROUND/DUP_EXPORT: the bank paid the pre-anomaly amount
         net = b.get("bank_override", _net_minor(b["items"]))
         vd: date = b["settled"]
-        if utr in masked_utrs:
+        if utr in masked_utrs or utr in label_dropped:
             narration = "NEFT CR RAZORPAY SOFTWARE PVT LTD"
         elif utr in mangled_utrs:
             narration = f"NEFT CR RAZORPAY SOFTWARE PVT LTD REF {utr[:-4]}{utr[-4:][::-1]}"
@@ -256,6 +263,15 @@ def generate_dataset(
         )
 
     bank_rows.sort(key=lambda r: (r["value_date"], r["amount"]))
+    if difficulty == "adversarial" and bank_rows:
+        # a trailing totals row the ingester's junk-row detector must strip
+        keys = list(bank_rows[0].keys())
+        total = sum(float(r["amount"]) for r in bank_rows)
+        junk = dict.fromkeys(keys, "")
+        junk[keys[0]] = f"{total:.2f}"
+        if "narration" in junk:
+            junk["narration"] = "Closing Balance"
+        bank_rows.append(junk)
 
     _write_csv(out / "razorpay_recon.csv", recon_rows)
     _write_csv(out / "bank.csv", bank_rows)

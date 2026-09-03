@@ -19,7 +19,9 @@ def gen(
     scenario: str = typer.Option("d2c", "--scenario", help="d2c | marketplace | saas"),
     records: int = typer.Option(120, "--records"),
     seed: int = typer.Option(42, "--seed"),
-    difficulty: str = typer.Option("normal", "--difficulty", help="easy | normal | hard"),
+    difficulty: str = typer.Option(
+        "normal", "--difficulty", help="easy | normal | hard | adversarial"
+    ),
     out: Path = typer.Option(..., "--out"),
 ) -> None:
     """Generate a seeded reconciliation dataset with labeled ground truth."""

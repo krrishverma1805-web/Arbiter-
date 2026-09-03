@@ -8,6 +8,18 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 1: adversarial synthetic distribution
+
+`generate_dataset(difficulty="adversarial")` — on top of `hard`: ~35% of clean
+batches get a mangled UTR (was 15%), a further ~25% lose the `UTR` label
+entirely (only "NEFT CR RAZORPAY SOFTWARE PVT LTD" in the narration), a
+"Closing Balance" totals row is appended to `bank.csv`, and anomaly density
+climbs to ~22%. The CI `bench` job now generates one and asserts the matcher
+still clears ≥ 85% auto-match / ≤ 2% false-match — so a regression that only
+bites under stress also reddens CI. Locally the matcher holds **100% / 0% /
+100% coverage** on it (passes 2b/2c + the junk-row detector carry it). 1
+datagen test, 181 total.
+
 ## 2026-09-03 — Phase 2: access audit log + pinned OpenAPI surface
 
 `auth.AccessLog` table (migration `90589883`) + `auth.audit(principal, method,
