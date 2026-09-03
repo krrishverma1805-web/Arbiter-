@@ -8,6 +8,18 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 4: agent escalation-threshold tuning
+
+`learn/agent_tune.py`. Every proposal carries a `grounded_confidence`; the human
+then either kept its suggested action or changed it. `_feedback_pairs` folds
+those `(confidence, accepted?)` pairs from `AGENT_PROPOSAL_CREATED` →
+`RESOLUTION_APPLIED` per spec; `tune_escalation_threshold` sweeps every observed
+confidence as a cut point and keeps the one that maximises `accepted-above +
+overridden-below` (clamped to [0.45, 0.9]). Written as `AGENT_THRESHOLD_TUNED`
+on `__learn__<org>`; `orchestrate.run_investigations` loads it over the spec's
+`stopping.theta_escalate`. `arbiter retrain` now runs the FS retrain **and**
+this in one command. 3 tests, 178 total, gate green.
+
 ## 2026-09-03 — Phase 3/5: Alertmanager + cockpit motion
 
 `deploy/monitoring/alertmanager.yml` — a `page`/default route split, an inhibit

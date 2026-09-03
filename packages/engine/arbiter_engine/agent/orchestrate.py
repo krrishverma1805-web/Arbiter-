@@ -189,7 +189,19 @@ def run_investigations(
     turn_budget = int(adj.get("turn_budget", 6))
     token_budget = int(adj.get("per_exception_token_budget", 12000))
     cost_ceiling = float(adj.get("per_run_cost_ceiling_usd", 2.0))
-    thresholds = adj.get("stopping", {"theta_conclude": 0.8, "theta_escalate": 0.55})
+    thresholds = dict(adj.get("stopping", {"theta_conclude": 0.8, "theta_escalate": 0.55}))
+
+    # a per-tenant escalation threshold re-fitted from human accept/override
+    # history (docs/28 §3 item 14) overrides the spec default
+    try:
+        from arbiter_engine.learn.agent_tune import load_escalation_threshold
+        from arbiter_engine.specs import spec_hash
+
+        tuned = load_escalation_threshold(store, spec_hash(spec))
+        if tuned is not None:
+            thresholds["theta_escalate"] = tuned
+    except Exception:  # noqa: BLE001 - a tuning read must never break a run
+        pass
 
     already = {
         p["exception_id"]

@@ -612,20 +612,36 @@ def retrain(
     actor: str = typer.Option("cli", "--actor"),
     db: str | None = typer.Option(None, "--db"),
 ) -> None:
-    """Retrain this tenant's Fellegi–Sunter m/u table from its confirmed matches,
-    behind an eval gate (docs/28 §3 item 14). Promotes only if the candidate
-    beats the incumbent on a held-out ROC-AUC; the decision is written to the
-    event log and the next run loads any promoted table."""
+    """Retrain this tenant's learned artifacts (docs/28 §3 item 14): the
+    Fellegi–Sunter m/u table from confirmed matches (behind a held-out ROC-AUC
+    eval gate) and the agent's escalation threshold from human accept/override
+    history. Both decisions are written to the event log; the next run loads
+    them."""
+    from arbiter_engine.learn.agent_tune import tune_escalation_threshold
     from arbiter_engine.learn.retrain import retrain as _retrain
     from arbiter_engine.specs import load_spec
 
-    res = _retrain(_store(db), load_spec(spec), trained_by=actor)
+    store = _store(db)
+    parsed = load_spec(spec)
+    res = _retrain(store, parsed, trained_by=actor)
     colour = typer.colors.GREEN if res.promoted else typer.colors.YELLOW
     typer.secho(
-        f"{res.reason}: AUC {res.auc_before:.3f} -> {res.auc_after:.3f} "
+        f"fs-model: {res.reason} — AUC {res.auc_before:.3f} -> {res.auc_after:.3f} "
         f"over {res.n_pairs} labelled pairs",
         fg=colour,
     )
+    tr = tune_escalation_threshold(store, parsed, trained_by=actor)
+    if tr.tuned:
+        typer.secho(
+            f"threshold: theta_escalate -> {tr.theta_escalate} "
+            f"({tr.accepted} accepted / {tr.overridden} overridden)",
+            fg=typer.colors.GREEN,
+        )
+    else:
+        typer.secho(
+            f"threshold: unchanged ({tr.accepted}+{tr.overridden} feedback pairs, need 20)",
+            fg=typer.colors.YELLOW,
+        )
 
 
 @app.command()

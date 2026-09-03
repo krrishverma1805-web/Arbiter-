@@ -36,6 +36,7 @@ class EventType(StrEnum):
     FS_MODEL_PROMOTED = "FS_MODEL_PROMOTED"
     FS_MODEL_REJECTED = "FS_MODEL_REJECTED"
     INPUT_DRIFT_DETECTED = "INPUT_DRIFT_DETECTED"
+    AGENT_THRESHOLD_TUNED = "AGENT_THRESHOLD_TUNED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_PURGED = "RUN_PURGED"
 
@@ -209,6 +210,18 @@ class InputDriftDetected(BaseModel):
     profile: dict[str, float]
 
 
+class AgentThresholdTuned(BaseModel):
+    """The agent's escalation threshold, re-fitted from how humans acted on its
+    past proposals for this spec (docs/28 §3 item 14). The next run loads
+    `theta_escalate` from here."""
+
+    spec_hash: str
+    theta_escalate: float
+    accepted: int  # proposals whose action the human kept
+    overridden: int  # proposals the human changed / rejected
+    trained_by: str
+
+
 class RunCompleted(BaseModel):
     status: str  # "completed" | "failed"
     counts: dict[str, int]
@@ -242,6 +255,7 @@ EVENT_PAYLOADS: dict[EventType, type[BaseModel]] = {
     EventType.FS_MODEL_PROMOTED: FSModelPromoted,
     EventType.FS_MODEL_REJECTED: FSModelRejected,
     EventType.INPUT_DRIFT_DETECTED: InputDriftDetected,
+    EventType.AGENT_THRESHOLD_TUNED: AgentThresholdTuned,
     EventType.RUN_COMPLETED: RunCompleted,
     EventType.RUN_PURGED: RunPurged,
 }
