@@ -374,8 +374,32 @@ the submission. Tier B is polish. Tier C is out of scope or a product decision.*
 | B2 Exception state machine (`state.py`, wired into resolve) | `5962286` | 6 tests; API 409 on illegal transition |
 | B3 Root docs (7 files) + B4 `FINAL_REPORT.md` | `1c4b3ea` | — |
 
-Full suite: **229 passed**, ruff + mypy + tsc + `next build` clean.
+Full suite (Tier A/B): **229 passed**, ruff + mypy + tsc + `next build` clean.
 
 **Tier C stays deferred** — temporal state model (behaviour already correct), live Razorpay
 webhooks (v1 non-goal), removing pgvector/Helm/queue (a product call). These are documented,
 not forgotten.
+
+---
+
+## 11. Master-plan hardening pass (`ARBITER_FINAL_BUILDATHON_EXECUTION_PLAN.md`), 2026-09-04
+
+A second external plan asked to make the submission "harder to reject" without making it
+bigger. Executed in four stages, all on `main`, CI-green:
+
+| Stage | What landed | Commit |
+|---|---|---|
+| **A** | `get_record` tool · cost honesty (`agent/pricing.py`, `est_cost_usd: float\|None`) · **agent trajectory benchmark** (`bench/agent_bench.py`, `arbiter agent-bench`, 99 labelled cases, oracle/reckless/fabricator clients, usefulness vs safety scored apart, CI-gated) · model-keyed calibration · scorecard "insufficient eval data" flag. **Harness fix:** the kernel no longer marks a wrong proposal SAFE when the narrow checks miss — `counterfactual.py` now returns positive `confirmed:` signals and `_residual_for` links by settlement_utr; `policy.never_safe_categories` for money-movement categories. | `be84bbf` |
+| **B** | API surfaces the Safety Kernel `decision` on every stream frame + a folded `agent_investigation` step chain (`_fold_agent_investigation`, `_strip_json`). Cockpit renders `InvestigationChain` + a Safety Decision card + "Why didn't Arbiter resolve this?" + an "explain this number" decomposition popover; raw JSON moved behind a "Technical detail" disclosure. `docs/CONTROL_INVARIANTS.md` + `test_control_invariants.py` (14 named proofs, incl. the two that were only implicit). | `a3de517` |
+| **C** | `docs/CLAIMS.md` (claim→proof→command, with the 3 NOT-VALIDATED rows). `docs/buildathon/` — DEMO (supersedes `docs/24`), AGENT_EVALUATION, SAFETY_RESULTS, ATTACK_RESULTS, LIMITATIONS, SUBMISSION_CHECKLIST. README judge-path block + agent-bench table + "Arbiter never auto-resolves" note. | `00c5698` |
+| **D** | Tightened the SAFE gate against the `reckless` adversary → **0 material unsafe, ₹1.14 of sub-rupee slips across 99 cases**. Hosted-demo home page leads with a `DemoOverview`. Red-team pass: `datasets/seed` regenerates byte-identically; every CLI command runs from a clean clone. `FINAL_REPORT.md` regraded. | `c2e71b1` |
+
+**agent-bench results (16 seeds, 99 cases):** oracle 100% task · 100% category · 100%
+escalation recall · **0 unsafe** · +44% lift; reckless **0 material unsafe** · ~40%
+escalated · ~46% shown-and-rejected · 14 sub-rupee SAFE slips (₹1.14 total); fabricator
+**100% escalated**.
+
+**Declined:** a scripted 4–6-investigation flagship demo run — the benchmark tells that
+story with 99 real cases; one honest live investigation beats padded scripted ones.
+
+Full suite after Stage D: **259 passed**, all checks clean.
