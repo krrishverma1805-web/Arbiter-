@@ -10,6 +10,8 @@ Routes:
   GET  /v1/runs/{id}/scorecard           matching + agent scorecard
   GET  /v1/runs/{id}/matches             paginated
   GET  /v1/runs/{id}/exceptions          ranked by $ impact
+  GET  /v1/runs/{id}/clusters            open exceptions grouped into root causes
+  POST /v1/attack                        {spec, dataset, scenario?} -> Attack Arbiter report
   GET  /v1/runs/{id}/verify              recompute the hash chain
   GET  /v1/runs/{id}/replay              reproduce from the event log
   GET  /v1/runs/{id}/stream              SSE progress (tail of the event log)
@@ -154,6 +156,12 @@ class RunRequest(BaseModel):
     no_ai: bool = False
     model: str | None = None
     rerun: bool = False
+
+
+class AttackRequest(BaseModel):
+    spec: str
+    dataset: str
+    scenario: str | None = None  # omit to run the whole suite
 
 
 @app.get("/v1/me")
@@ -385,6 +393,43 @@ def run_clusters(run_id: str) -> dict[str, Any]:
 
     proj = _proj_or_404(run_id)
     return summarize(proj.exceptions)
+
+
+@app.post("/v1/attack")
+def run_attack_suite(req: AttackRequest) -> dict[str, Any]:
+    """Attack Arbiter (spec §29/§70/§88) — mutate a clean dataset with a known
+    tampering, reconcile, and report whether Arbiter contained it. Synchronous;
+    the full suite takes a few seconds per scenario."""
+    _require("analyst")
+    import tempfile
+
+    from arbiter_engine.attack import ATTACKS, run_all, run_attack
+
+    from arbiter_api.resolve import resolve_dataset, resolve_spec
+
+    spec_path = resolve_spec(req.spec)
+    if spec_path is None:
+        raise _problem(404, "spec not found", req.spec)
+    dataset_dir = resolve_dataset(current_principal().org_id, req.dataset)
+    if dataset_dir is None:
+        raise _problem(404, "dataset not found", req.dataset)
+    if req.scenario and req.scenario not in ATTACKS:
+        raise _problem(422, "unknown scenario", f"{req.scenario!r} is not a known attack")
+
+    with tempfile.TemporaryDirectory(prefix="arbiter-attack-") as tmp:
+        work = Path(tmp)
+        results = (
+            [run_attack(spec_path, dataset_dir, req.scenario, work)]
+            if req.scenario
+            else run_all(spec_path, dataset_dir, work)
+        )
+    rows = [r.as_dict() for r in results]
+    return {
+        "scenarios": rows,
+        "contained": sum(1 for r in rows if r["verdict"] == "CONTAINED"),
+        "unsafe": sum(1 for r in rows if r["verdict"] == "UNSAFE"),
+        "rupees_unaccounted_minor": sum(r["rupees_unaccounted_minor"] for r in rows),
+    }
 
 
 @app.get("/v1/runs/{run_id}/verify")

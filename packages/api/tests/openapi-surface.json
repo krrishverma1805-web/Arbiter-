@@ -10,6 +10,9 @@
     "/readyz": [
       "GET"
     ],
+    "/v1/attack": [
+      "POST"
+    ],
     "/v1/audit": [
       "GET"
     ],

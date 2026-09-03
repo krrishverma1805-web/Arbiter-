@@ -162,6 +162,28 @@ def test_exception_detail_and_resolve(client):
     assert "transition" in again.json()["detail"]["title"]
 
 
+def test_attack_suite_contains_every_scenario(client):
+    c, ds = client
+    body = c.post(
+        "/v1/attack",
+        json={
+            "spec": "razorpay-settlement",
+            "dataset": str(ds),
+            "scenario": "altered_settlement_amount",
+        },
+    )
+    assert body.status_code == 200
+    j = body.json()
+    assert len(j["scenarios"]) == 1
+    assert j["unsafe"] == 0
+    assert j["scenarios"][0]["scenario"] == "altered_settlement_amount"
+
+    bad = c.post(
+        "/v1/attack", json={"spec": "razorpay-settlement", "dataset": str(ds), "scenario": "nope"}
+    )
+    assert bad.status_code == 422
+
+
 def test_run_clusters_groups_open_exceptions(client):
     c, ds = client
     run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   api,
   rupees,
+  type AttackReport,
   type EvidenceDrawer,
   type ReconException,
   type RunSummary,
@@ -158,6 +159,7 @@ export function Cockpit({
               setTab("evidence");
             }
           }} />
+          <AttackPanel />
         </aside>
 
         {/* ② queue */}
@@ -457,6 +459,80 @@ function ClustersPanel({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function AttackPanel() {
+  const [report, setReport] = useState<AttackReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      setReport(await api.attack("razorpay-settlement", "seed"));
+    } catch {
+      setReport(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-6 border-t border-border pt-5">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+        attack arbiter
+      </div>
+      <p className="mt-1 text-xs text-muted">
+        Tamper with a clean dataset and watch Arbiter refuse to be fooled.
+      </p>
+      <button
+        onClick={run}
+        disabled={busy}
+        className="mt-2 rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium hover:border-accent disabled:opacity-50"
+      >
+        {busy ? "running…" : "Run the attack suite"}
+      </button>
+      {report && (
+        <div className="mt-3">
+          <div className="text-xs">
+            <span className="font-semibold text-positive">
+              {report.contained} contained
+            </span>
+            {" · "}
+            <span
+              className={
+                report.unsafe > 0 ? "font-semibold text-critical" : "text-muted"
+              }
+            >
+              {report.unsafe} unsafe
+            </span>
+            {" · "}
+            <span className="text-muted">
+              {rupees(report.rupees_unaccounted_minor)} unaccounted
+            </span>
+          </div>
+          <ul className="mt-2 space-y-1">
+            {report.scenarios.map((s) => (
+              <li
+                key={s.scenario}
+                className="flex items-baseline justify-between gap-2 text-[11px]"
+              >
+                <span className="truncate text-muted">{s.scenario}</span>
+                <span
+                  className={
+                    s.verdict === "CONTAINED"
+                      ? "text-positive"
+                      : s.verdict === "UNSAFE"
+                        ? "text-critical"
+                        : "text-attention"
+                  }
+                >
+                  {s.verdict}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

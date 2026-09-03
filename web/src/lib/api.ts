@@ -254,7 +254,42 @@ export const api = {
     get<{ intact: boolean; events: number; terminal_hash: string }>(
       `/v1/runs/${id}/verify`,
     ),
+  clusters: (id: string) => get<ClusterReport>(`/v1/runs/${id}/clusters`),
+  attack: (spec: string, dataset: string, scenario?: string) =>
+    post<AttackReport>("/v1/attack", { spec, dataset, scenario }),
 };
+
+export interface ClusterReport {
+  cluster_count: number;
+  total_gross_minor: number;
+  total_net_minor: number;
+  clusters: Array<{
+    headline: string;
+    count: number;
+    gross_impact_minor: number;
+    net_impact_minor: number;
+    example_id: string;
+    exception_ids: string[];
+  }>;
+}
+
+export interface AttackScenario {
+  scenario: string;
+  description: string;
+  attack_impact_minor: number;
+  detected: boolean;
+  rupees_unaccounted_minor: number;
+  unsafe_auto_resolution: boolean;
+  what_arbiter_did: string;
+  verdict: "CONTAINED" | "PARTIAL" | "MISSED" | "UNSAFE";
+}
+
+export interface AttackReport {
+  scenarios: AttackScenario[];
+  contained: number;
+  unsafe: number;
+  rupees_unaccounted_minor: number;
+}
 
 export function rupees(minor: number): string {
   const sign = minor < 0 ? "-" : "";

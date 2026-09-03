@@ -2,6 +2,7 @@
 // investigation agent pointed at gpt-4o. The hosted demo serves this so anyone
 // can open the cockpit and see the complete agent working without a backend.
 // Regenerate with `scripts/snapshot.sh` against a live API.
+import attack from "./attack.json";
 import datasets from "./datasets.json";
 import drawers from "./drawers.json";
 import exceptions from "./exceptions.json";
@@ -21,6 +22,7 @@ export const demo = {
   run,
   scorecard,
   exceptions,
+  attack,
   verify,
   stream: stream as { records: number; frames: Array<Record<string, unknown>> },
   drawer: (id: string) =>
