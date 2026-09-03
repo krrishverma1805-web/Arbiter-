@@ -151,6 +151,31 @@ def test_exception_detail_and_resolve(client):
     assert resolved["status"] == "resolved"
     assert resolved["resolution"]["action"] == "carry_forward"
 
+    # a second resolve with a different action is an illegal transition off a
+    # terminal state — rejected, not silently double-applied
+    again = c.post(
+        f"/v1/exceptions/{run_id}/{exc_id}/resolve",
+        json={"action": "wont_fix"},
+        headers={"Idempotency-Key": "second-different"},
+    )
+    assert again.status_code == 409
+    assert "transition" in again.json()["detail"]["title"]
+
+
+def test_run_clusters_groups_open_exceptions(client):
+    c, ds = client
+    run_id = c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}).json()[
+        "run_id"
+    ]
+    body = c.get(f"/v1/runs/{run_id}/clusters").json()
+    assert body["cluster_count"] == len(body["clusters"]) >= 1
+    grosses = [cl["gross_impact_minor"] for cl in body["clusters"]]
+    assert grosses == sorted(grosses, reverse=True)
+    assert body["total_gross_minor"] == sum(grosses)
+    for cl in body["clusters"]:
+        assert cl["example_id"] in cl["exception_ids"]
+        assert cl["count"] == len(cl["exception_ids"])
+
 
 def test_resolving_a_generalisable_exception_drafts_a_pending_rule(client):
     c, ds = client

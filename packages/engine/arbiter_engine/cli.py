@@ -526,6 +526,42 @@ def explain(
 
 
 @app.command()
+def clusters(
+    run_id: str = typer.Argument(..., help="run id (or 'last')"),
+    db: str | None = typer.Option(None, "--db"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Group a run's open exceptions into root causes — "5 causes, ₹X each",
+    not 87 rows (spec §24). Deterministic; largest ₹ first."""
+    from arbiter_engine.events.fold import fold_run
+    from arbiter_engine.exceptions.cluster import summarize
+    from arbiter_engine.money import format_minor
+
+    store = _store(db)
+    rid = store.runs()[-1] if run_id == "last" else run_id
+    proj = fold_run(store, rid)
+    result = summarize(proj.exceptions)
+
+    if as_json:
+        typer.echo(json.dumps(result, indent=2))
+        return
+
+    typer.secho(
+        f"\n{result['cluster_count']} root cause(s) · "
+        f"{format_minor(result['total_gross_minor'])} at stake "
+        f"({format_minor(result['total_net_minor'])} net)\n",
+        bold=True,
+    )
+    for c in result["clusters"]:
+        typer.secho(f"  {format_minor(c['gross_impact_minor']):>14}  ", nl=False, bold=True)
+        typer.echo(f"{c['count']:>3}×  {c['headline']}")
+        typer.secho(
+            f"                  net {format_minor(c['net_impact_minor'])} · e.g. {c['example_id']}",
+            fg=typer.colors.BRIGHT_BLACK,
+        )
+
+
+@app.command()
 def resolve(
     run_id: str = typer.Argument(...),
     exception_id: str = typer.Argument(...),
@@ -547,6 +583,17 @@ def resolve(
     if exc is None:
         typer.secho("exception not found", fg=typer.colors.RED)
         raise typer.Exit(1)
+    from arbiter_engine.exceptions.state import (
+        IllegalTransition,
+        check_transition,
+        resolution_target,
+    )
+
+    try:
+        check_transition(exc.status, resolution_target(action))
+    except IllegalTransition as e:
+        typer.secho(str(e), fg=typer.colors.RED)
+        raise typer.Exit(1) from e
     store.append(
         run_id,
         EventType.RESOLUTION_APPLIED,

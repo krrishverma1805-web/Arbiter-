@@ -314,10 +314,10 @@ step. Do not advance past a red state.
 | A4 | G7 — headline safety metrics in the scorecard + gate | makes the safety story a *number*, not a claim | ✅ **DONE** — `SafetyScore` in `bench/scorecard.py` (`unsafe_resolution_rate`, `rupees_protected` / `rupees_at_risk`, `replay_divergence`, `fabricated_citations`, `injection_quarantined`), 4 gate entries (`unsafe_resolution_rate` + `replay_divergence` + `fabricated_citations` at tol 0.0), baseline regenerated, surfaced in `arbiter bench` output + cockpit `ScorecardPanel` + `LiveRun` completion strip. 4 new tests. Seed run: **0 unsafe / 2 human-only items, ₹53,245 protected (100%), 0 divergence** |
 
 **Tier B — worth it if time allows:**
-| B1 | G5 — root-cause clustering + panel | strong finance UX; "5 causes not 87 rows" | ~0.5 day |
-| B2 | G4 — exception state machine | cheap correctness hardening | ~2h |
-| B3 | G8 — consolidated root docs (thin pointers) | spec deliverable; low effort | ~2h |
-| B4 | `FINAL_REPORT.md` (§91) | honest graded self-assessment; a deliverable | ~1h |
+| B1 | G5 — root-cause clustering + panel | strong finance UX; "5 causes not 87 rows" | ✅ **DONE** — `exceptions/cluster.py` (deterministic key `(category, rule_id, direction, band)`, ₹ sums), `arbiter clusters <run>` CLI, `GET /v1/runs/{id}/clusters`, cockpit `ClustersPanel` (client-side mirror `web/src/lib/clusters.ts`), 4 engine tests + 1 API test |
+| B2 | G4 — exception state machine | cheap correctness hardening | ✅ **DONE** — `exceptions/state.py` (`can_transition` / `check_transition` / `transition`, terminal states `resolved`/`wont_fix` are final), wired into the CLI + API resolve paths (409 on an illegal transition), 6 tests |
+| B3 | G8 — consolidated root docs (thin pointers) | spec deliverable; low effort | ✅ **DONE** — `ARCHITECTURE.md`, `SECURITY.md`, `THREAT_MODEL.md`, `AI_SAFETY.md`, `BENCHMARK.md`, `FAILURE_RECOVERY.md`, `REPLAY.md` at the repo root, each a summary that points into `docs/` |
+| B4 | `FINAL_REPORT.md` (§91) | honest graded self-assessment; a deliverable | ✅ **DONE** — graded against the four Buildathon criteria + the spec's acceptance groups, with what is *not* done stated |
 
 **Tier C — defer / decline:**
 - G9 temporal state model — behavior is already correct; modelling change only.
@@ -353,8 +353,8 @@ Per §84/§85 and plain judgement:
 | Safety (fail-closed, no unauthorized action, ambiguous/high-risk escalate, immutable audit, human approval) | ✅ · **tighten `_verify` fail-open: A1** |
 | Reliability (dup-event, out-of-order, retries, timeout, recovery, replay) | ✅ |
 | Evaluation (benchmark, adversarial, ablation, financial + safety + perf metrics) | ✅ · **attack suite: A2 DONE** · **safety metrics: A4 DONE** |
-| Product (control room, evidence, exception workflow, agent activity, attack mode, replay, benchmark dash, close memo, arch viz) | ✅ · **attack CLI: A2 DONE** · except **attack-mode UI panel: A2-wiring**, **root-cause clusters: B1** |
-| Documentation | ✅ in `docs/` · **root-level consolidation: B3**, **final report: B4** |
+| Product (control room, evidence, exception workflow, agent activity, attack mode, replay, benchmark dash, close memo, arch viz) | ✅ · **attack CLI: A2 DONE** · **root-cause clusters: B1 DONE** · except **attack-mode UI panel: A2-wiring** |
+| Documentation | ✅ in `docs/` · **root-level consolidation: B3 DONE** · **final report: B4 DONE** |
 
 **Overall: the system already meets most of §89. Tier A closes the gaps that matter for
 the submission. Tier B is polish. Tier C is out of scope or a product decision.**

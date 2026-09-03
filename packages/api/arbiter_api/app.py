@@ -378,6 +378,15 @@ def run_exceptions(
     }
 
 
+@app.get("/v1/runs/{run_id}/clusters")
+def run_clusters(run_id: str) -> dict[str, Any]:
+    """Open exceptions grouped into deterministic root causes (spec §24)."""
+    from arbiter_engine.exceptions.cluster import summarize
+
+    proj = _proj_or_404(run_id)
+    return summarize(proj.exceptions)
+
+
 @app.get("/v1/runs/{run_id}/verify")
 def run_verify(run_id: str) -> dict[str, Any]:
     try:
@@ -591,6 +600,16 @@ def resolve_exception(run_id: str, exception_id: str, req: ResolveRequest, reque
     exc = next((e for e in proj.exceptions if e.id == exception_id), None)
     if exc is None:
         raise _problem(404, "exception not found", exception_id)
+    from arbiter_engine.exceptions.state import (
+        IllegalTransition,
+        check_transition,
+        resolution_target,
+    )
+
+    try:
+        check_transition(exc.status, resolution_target(req.action))
+    except IllegalTransition as e:
+        raise _problem(409, "illegal transition", str(e)) from e
     store.append(
         run_id,
         EventType.RESOLUTION_APPLIED,

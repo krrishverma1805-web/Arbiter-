@@ -12,6 +12,7 @@ import {
   type Scorecard,
 } from "@/lib/api";
 import { usePresence } from "@/lib/presence";
+import { clusterExceptions } from "@/lib/clusters";
 
 const CAT_COLOR: Record<string, string> = {
   TIMING: "text-accent",
@@ -149,6 +150,14 @@ export function Cockpit({
           ) : (
             <p className="text-sm text-muted">no scorecard</p>
           )}
+          <ClustersPanel exceptions={exceptions} onPick={(id) => {
+            const i = exceptions.findIndex((e) => e.id === id);
+            if (i >= 0) {
+              setSel(i);
+              setOpen(true);
+              setTab("evidence");
+            }
+          }} />
         </aside>
 
         {/* ② queue */}
@@ -404,6 +413,50 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
         bad={!s.determinism.replay_hash_match}
       />
       <Row label="throughput" v={`${s.throughput.records_per_sec} rec/s`} />
+    </div>
+  );
+}
+
+function ClustersPanel({
+  exceptions,
+  onPick,
+}: {
+  exceptions: ReconException[];
+  onPick: (id: string) => void;
+}) {
+  const clusters = clusterExceptions(exceptions);
+  if (clusters.length === 0) return null;
+  const total = clusters.reduce((s, c) => s + c.grossMinor, 0);
+  return (
+    <div className="mt-6 border-t border-border pt-5">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+        root causes · {clusters.length}
+      </div>
+      <p className="mt-1 text-xs text-muted">
+        {rupees(total)} across {exceptions.length} exceptions
+      </p>
+      <ul className="mt-3 space-y-2">
+        {clusters.map((c) => (
+          <li key={c.headline}>
+            <button
+              onClick={() => onPick(c.exampleId)}
+              className="w-full rounded border border-border bg-surface p-2 text-left hover:border-accent"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span
+                  className={`text-xs font-medium ${CAT_COLOR[c.category] ?? ""}`}
+                >
+                  {c.category}
+                </span>
+                <span className="font-mono text-xs">{rupees(c.grossMinor)}</span>
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted">
+                {c.count}× · {c.headline.split(" · ").slice(1).join(" · ")}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
