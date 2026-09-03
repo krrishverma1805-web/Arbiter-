@@ -8,7 +8,9 @@ function base(): string {
   // hit this same deployment's route handlers (Vercel sets VERCEL_URL), else
   // localhost for `make up`.
   if (process.env.ARBITER_API_URL) return process.env.ARBITER_API_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/api`;
+  // the stable production alias isn't behind deployment protection; VERCEL_URL is
+  const v = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (v) return `https://${v}/api`;
   return "http://127.0.0.1:8000";
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { NewRun } from "@/components/NewRun";
+import { demo } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,14 +13,20 @@ export default async function Home() {
   // No configured backend → this is the hosted demo serving a frozen snapshot
   // of a real run (the investigation agent was pointed at gpt-4o).
   const isDemo = !process.env.ARBITER_API_URL;
-  try {
-    [runs, specs, datasets] = await Promise.all([
-      api.listRuns().then((r) => r.runs),
-      api.listSpecs().then((r) => r.specs),
-      api.listDatasets().then((r) => r.datasets),
-    ]);
-  } catch {
-    apiUp = false;
+  if (isDemo) {
+    runs = demo.runs.runs;
+    specs = demo.specs.specs;
+    datasets = demo.datasets.datasets;
+  } else {
+    try {
+      [runs, specs, datasets] = await Promise.all([
+        api.listRuns().then((r) => r.runs),
+        api.listSpecs().then((r) => r.specs),
+        api.listDatasets().then((r) => r.datasets),
+      ]);
+    } catch {
+      apiUp = false;
+    }
   }
 
   return (
