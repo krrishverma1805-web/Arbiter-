@@ -127,6 +127,17 @@ export interface Scorecard {
   };
   throughput: { records_per_sec: number };
   determinism: { replay_hash_match: boolean };
+  safety?: {
+    replay_divergence: boolean;
+    unsafe_auto_resolutions: number;
+    items_needing_human: number;
+    unsafe_resolution_rate: number;
+    rupees_protected_minor: number;
+    rupees_at_risk_minor: number;
+    rupees_protected_rate: number;
+    fabricated_citations: number;
+    injection_quarantined: number;
+  };
   agent: {
     enabled: boolean;
     model: string;

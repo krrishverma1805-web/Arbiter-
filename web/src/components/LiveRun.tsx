@@ -332,6 +332,14 @@ export function LiveRun({ runId }: { runId: string }) {
                 {scorecard.determinism.replay_hash_match ? "✓" : "✗"}{" "}
                 deterministic
               </span>
+              {scorecard.safety && (
+                <span>
+                  <span className="font-mono text-text">
+                    {scorecard.safety.unsafe_auto_resolutions}
+                  </span>{" "}
+                  unsafe auto-res
+                </span>
+              )}
             </div>
           )}
           <Link

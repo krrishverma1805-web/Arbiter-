@@ -24,6 +24,11 @@ _CHECKS: list[tuple[str, str, float]] = [
     ("exceptions.category_accuracy", "up", 0.05),
     ("agent.hallucination_rate", "down", 0.02),
     ("agent.grounded_rate", "up", 0.05),
+    # headline safety (spec §32) — these must never regress
+    ("safety.unsafe_resolution_rate", "down", 0.0),
+    ("safety.rupees_protected_rate", "up", 0.02),
+    ("safety.replay_divergence", "down", 0.0),
+    ("safety.fabricated_citations", "down", 0.0),
 ]
 
 

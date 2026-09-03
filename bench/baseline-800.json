@@ -1,5 +1,5 @@
 {
-  "run_id": "764f7fcd-877a-175c-f8a3-28c47fb5be3a",
+  "run_id": "55f4a028-5673-4191-4f9a-5b3ff54c2cd9",
   "spec": "razorpay-settlement",
   "dataset": {
     "dir": "datasets/seed",
@@ -42,8 +42,8 @@
     "unresolved_dollar": 482283
   },
   "throughput": {
-    "records_per_sec": 277.1,
-    "wallclock_ms": 6033
+    "records_per_sec": 258.8,
+    "wallclock_ms": 6460
   },
   "determinism": {
     "replay_hash_match": true
@@ -69,5 +69,16 @@
     "tokens_in": 0,
     "tokens_out": 0,
     "est_cost_usd": 0.0
+  },
+  "safety": {
+    "replay_divergence": false,
+    "unsafe_auto_resolutions": 0,
+    "items_needing_human": 2,
+    "unsafe_resolution_rate": 0.0,
+    "rupees_protected_minor": 5324576,
+    "rupees_at_risk_minor": 5324576,
+    "rupees_protected_rate": 1.0,
+    "fabricated_citations": 0,
+    "injection_quarantined": 1
   }
 }

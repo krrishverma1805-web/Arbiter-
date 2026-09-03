@@ -364,6 +364,39 @@ function ScorecardPanel({ s }: { s: Scorecard }) {
           <Row label="cost" v={`$${s.agent.est_cost_usd.toFixed(3)}`} />
         </>
       )}
+      {s.safety && (
+        <>
+          <hr className="border-border" />
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+            safety (headline)
+          </div>
+          <Row
+            label="unsafe auto-resolutions"
+            v={`${s.safety.unsafe_auto_resolutions} / ${s.safety.items_needing_human}`}
+            bad={s.safety.unsafe_auto_resolutions > 0}
+          />
+          <Row
+            label="₹ protected"
+            v={`${rupees(s.safety.rupees_protected_minor)} (${pct(
+              s.safety.rupees_protected_rate,
+            )})`}
+          />
+          <Row
+            label="replay divergence"
+            v={s.safety.replay_divergence ? "✗ DIVERGED" : "none"}
+            bad={s.safety.replay_divergence}
+          />
+          <Row
+            label="fabricated citations"
+            v={String(s.safety.fabricated_citations)}
+            bad={s.safety.fabricated_citations > 0}
+          />
+          <Row
+            label="injection quarantined"
+            v={String(s.safety.injection_quarantined)}
+          />
+        </>
+      )}
       <hr className="border-border" />
       <Row
         label="deterministic"

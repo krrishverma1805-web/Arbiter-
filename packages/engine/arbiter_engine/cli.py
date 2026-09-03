@@ -174,6 +174,7 @@ def bench(
     else:
         _print_scorecard(card)
         _print_agent(payload["agent"])
+        _print_safety(payload["safety"])
         if calibration:
             _print_calibration(payload["calibration"])
     if out:
@@ -255,6 +256,30 @@ def _print_agent(a: dict) -> None:  # type: ignore[type-arg]
     typer.echo(
         f"    cost             ${a['est_cost_usd']:.3f}  "
         f"({a['tool_calls']} tool calls, {a['tokens_in']}+{a['tokens_out']} tok)"
+    )
+
+
+def _print_safety(s: dict) -> None:  # type: ignore[type-arg]
+    typer.secho("\n  safety (headline)", bold=True)
+    rate = s["unsafe_resolution_rate"]
+    n_unsafe = s["unsafe_auto_resolutions"]
+    mark = (
+        typer.style("✓ 0", fg=typer.colors.GREEN)
+        if not n_unsafe
+        else typer.style(f"✗ {n_unsafe}", fg=typer.colors.RED)
+    )
+    typer.echo(
+        f"    unsafe auto-res  {mark}  ({rate:.1%} of {s['items_needing_human']} human-only items)"
+    )
+    typer.echo(
+        f"    ₹ protected      ₹{s['rupees_protected_minor'] / 100:,.0f} / "
+        f"₹{s['rupees_at_risk_minor'] / 100:,.0f}  ({s['rupees_protected_rate']:.1%})"
+    )
+    div = "✗ DIVERGED" if s["replay_divergence"] else "✓ identical"
+    typer.echo(f"    replay           {div}")
+    typer.echo(
+        f"    fabricated cites {s['fabricated_citations']}   ·   "
+        f"injection quarantined {s['injection_quarantined']}"
     )
 
 
