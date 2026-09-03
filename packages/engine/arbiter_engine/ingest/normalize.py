@@ -71,9 +71,11 @@ def normalize_row(
     row_currency = (get("currency") or "INR").upper()
     fx_orig_minor: int | None = None
     base_currency = str(spec.fx.get("base", "INR")).upper() if spec.fx else "INR"
-    if spec.fx and row_currency != base_currency:
-        rate = (spec.fx.get("rates") or {}).get(row_currency)
+    if row_currency != base_currency:
+        rate = (spec.fx.get("rates") or {}).get(row_currency) if spec.fx else None
         if not rate:
+            # a foreign-currency row with no configured rate is never silently
+            # treated as base currency — it is quarantined for a human
             raise QuarantineRow(f"no FX rate for {row_currency}->{base_currency}")
         fx_orig_minor = amount_minor
         amount_minor = round(amount_minor * float(rate))
@@ -174,6 +176,11 @@ def _pick(row: dict[str, str], header: str) -> str | None:
     return low.get(header.lower().strip())
 
 
+# a settlement/bank date outside this window is corrupt or manipulated, not real
+_DATE_FLOOR = date(2015, 1, 1)
+_DATE_CEIL = date(2035, 1, 1)
+
+
 def _parse_date(value: str | None) -> date | None:
     if value is None or value.strip() == "":
         return None
@@ -182,12 +189,18 @@ def _parse_date(value: str | None) -> date | None:
         ts = int(s)
         if ts > 1_000_000_000_000:
             ts //= 1000
-        return datetime.fromtimestamp(ts, tz=UTC).date()
-    try:
-        parsed: datetime = dateparser.parse(s, dayfirst=True)
-    except (ValueError, OverflowError, TypeError):
-        return None
-    return parsed.date()
+        try:
+            d = datetime.fromtimestamp(ts, tz=UTC).date()
+        except (ValueError, OverflowError, OSError):
+            raise QuarantineRow(f"unparseable timestamp: {s!r}") from None
+    else:
+        try:
+            d = dateparser.parse(s, dayfirst=True).date()
+        except (ValueError, OverflowError, TypeError):
+            return None
+    if not (_DATE_FLOOR <= d <= _DATE_CEIL):
+        raise QuarantineRow(f"implausible date {d.isoformat()} (outside 2015–2035)")
+    return d
 
 
 def _default_kind(source_name: str) -> str:

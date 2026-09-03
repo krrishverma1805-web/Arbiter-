@@ -347,6 +347,68 @@ def replay(
 
 
 @app.command()
+def attack(
+    spec: Path = typer.Option(..., "--spec"),
+    dataset: Path = typer.Option(..., "--dataset"),
+    scenario: str | None = typer.Option(None, "--scenario", help="one attack; omit for all"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Attack Arbiter — mutate a clean dataset with a known tampering, reconcile,
+    and report whether Arbiter detected it, kept the money accounted for, and
+    refused any unsafe auto-resolution (spec §29 / §70 / §88)."""
+    import tempfile
+
+    from arbiter_engine.attack import ATTACKS, run_all, run_attack
+
+    if scenario and scenario not in ATTACKS:
+        typer.secho(f"unknown scenario '{scenario}'. Available:", fg=typer.colors.RED)
+        for n, a in ATTACKS.items():
+            typer.echo(f"  {n:28} {a.description}")
+        raise typer.Exit(2)
+
+    with tempfile.TemporaryDirectory(prefix="arbiter-attack-") as tmp:
+        work = Path(tmp)
+        results = (
+            [run_attack(spec, dataset, scenario, work)]
+            if scenario
+            else run_all(spec, dataset, work)
+        )
+
+    if as_json:
+        typer.echo(json.dumps([r.as_dict() for r in results], indent=2))
+        return
+
+    _COLOUR = {
+        "CONTAINED": typer.colors.GREEN,
+        "PARTIAL": typer.colors.YELLOW,
+        "MISSED": typer.colors.YELLOW,
+        "UNSAFE": typer.colors.RED,
+    }
+    typer.secho("\nAttack Arbiter — the system tries to be fooled\n", bold=True)
+    for r in results:
+        typer.secho(f"  {r.verdict:10}", fg=_COLOUR.get(r.verdict), nl=False)
+        typer.echo(f" {r.scenario}")
+        typer.secho(f"             {r.description}", fg=typer.colors.BRIGHT_BLACK)
+        typer.secho(f"             → {r.what_arbiter_did}", fg=typer.colors.BRIGHT_BLACK)
+    contained = sum(1 for r in results if r.verdict == "CONTAINED")
+    partial = sum(1 for r in results if r.verdict == "PARTIAL")
+    missed = sum(1 for r in results if r.verdict == "MISSED")
+    unsafe = sum(1 for r in results if r.verdict == "UNSAFE")
+    typer.secho(
+        f"\n  {contained} contained · {partial} partial · {missed} missed · {unsafe} UNSAFE",
+        bold=True,
+        fg=typer.colors.RED if unsafe else typer.colors.GREEN,
+    )
+    typer.secho(
+        "  UNSAFE = the matcher asserted a false confident clean tie. "
+        "MISSED = no signal, but no false assertion either.",
+        fg=typer.colors.BRIGHT_BLACK,
+    )
+    if unsafe:
+        raise typer.Exit(1)
+
+
+@app.command()
 def verify(
     run_id: str = typer.Argument(...),
     db: str | None = typer.Option(None, "--db"),

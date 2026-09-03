@@ -262,9 +262,29 @@ def build_exceptions(
                 )
             )
 
-    _ = by_id
-    dedup: dict[str, ReconException] = {}
+    # 5. every batch-level exception should link the bank credit that arrived for
+    #    that settlement, so a controller sees the full picture (cash + claim) and
+    #    no bank credit is ever left neither matched nor visible in an exception.
+    bank_by_utr: dict[str, list[str]] = {}
+    for b in bank:
+        u = b.external_ids.get("utr")
+        if u:
+            bank_by_utr.setdefault(u, []).append(b.id)
+    linked: list[ReconException] = []
     for e in out:
+        utrs: set[str] = set()
+        for i in e.record_ids:
+            rec = by_id.get(i)
+            u = rec.external_ids.get("settlement_utr") if rec else None
+            if u:
+                utrs.add(u)
+        extra = [bid for u in utrs for bid in bank_by_utr.get(u, []) if bid not in e.record_ids]
+        if extra:
+            e = e.model_copy(update={"record_ids": sorted({*e.record_ids, *extra})})
+        linked.append(e)
+
+    dedup: dict[str, ReconException] = {}
+    for e in linked:
         dedup.setdefault(e.id, e)
     return sorted(dedup.values(), key=lambda e: (-abs(e.amount_impact_minor), e.id))
 

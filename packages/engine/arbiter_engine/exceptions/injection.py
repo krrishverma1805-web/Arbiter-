@@ -11,12 +11,24 @@ from __future__ import annotations
 import re
 
 _PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions?", re.I),
+    re.compile(
+        r"(ignore|disregard|forget|override)\s+(all\s+|the\s+)?"
+        r"(previous|prior|above|earlier|these|any)\s+"
+        r"(instructions?|rules?|prompts?|context|messages?|directives?)",
+        re.I,
+    ),
     re.compile(r"disregard\s+(the\s+)?(system|previous|above)", re.I),
-    re.compile(r"you\s+are\s+now\s+", re.I),
-    re.compile(r"\bnew\s+instructions?\b", re.I),
-    re.compile(r"mark\s+(this|every|all).{0,40}\b(reconciled|resolved|matched)\b", re.I),
+    re.compile(r"you\s+are\s+(now|actually|really)\s+", re.I),
+    re.compile(r"\bnew\s+(instructions?|task|role|system\s+prompt)\b", re.I),
+    re.compile(
+        r"\b(mark|treat|set|flag|consider)\b.{0,30}\b"
+        r"(as\s+)?(reconciled|resolved|matched|verified|approved|complete|done|clean)\b",
+        re.I,
+    ),
+    re.compile(r"\bapprove\s+(this|all|every|the)\b", re.I),
+    re.compile(r"\b(you|arbiter)\s+(are|is)\s+authori[sz]ed\s+to\b", re.I),
     re.compile(r"</?(system|assistant|user|untrusted[- ]record[- ]data)>", re.I),
+    re.compile(r"^\s{0,4}(system|assistant|developer)\s*[:>]", re.I | re.M),
     re.compile(r"\bprompt\s*injection\b", re.I),
     re.compile(r"[‪-‮⁦-⁩]"),  # unicode bidi / isolate controls
 )

@@ -310,7 +310,7 @@ step. Do not advance past a red state.
 | # | Item | Why | Status |
 |---|---|---|---|
 | A1 | G1 + G2 + G3 — Safety Kernel + explicit R0–R5 tiers + deterministic counterfactual | the spec's centrepiece; serves "AI Judgment" + "Build Quality"; a refactor | ✅ **DONE** — `safety/` package (`kernel.py` / `risk.py` / `counterfactual.py` / `policy.py`), 17 tests, wired through `investigator._finalize_proposal`, `Decision` on every proposal/escalation event, `_verify` fail-open closed, `risk:` block in the spec |
-| A2 | G6 — Attack Arbiter harness + CLI + UI button | strongest "Failure Recovery" demo move; "watch Arbiter refuse to be fooled" | next |
+| A2 | G6 — Attack Arbiter harness + CLI + UI button | strongest "Failure Recovery" demo move; "watch Arbiter refuse to be fooled" | ✅ **DONE** — `attack.py` (12 deterministic dataset-mutation scenarios), `arbiter attack` CLI (`--scenario`/`--json`, exits 1 on any UNSAFE), `test_attacks.py` regression gate. Hardened 3 real gaps found by the harness: injection scanner scope (`injection.py`), foreign-currency quarantine (`normalize.py`), bank-credit linkage (`classify.py`), implausible-date quarantine (`normalize.py`). Result: **12 contained · 0 partial · 0 missed · 0 UNSAFE**, ₹0 unaccounted. UI button: pending A2-wiring |
 | A4 | G7 — headline safety metrics in the scorecard + gate | makes the safety story a *number*, not a claim | next |
 
 **Tier B — worth it if time allows:**
@@ -352,8 +352,8 @@ Per §84/§85 and plain judgement:
 | AI (structured output, bounded loop, typed tools, grounding, injection defense, counterfactual) | ✅ except **counterfactual: A3** |
 | Safety (fail-closed, no unauthorized action, ambiguous/high-risk escalate, immutable audit, human approval) | ✅ · **tighten `_verify` fail-open: A1** |
 | Reliability (dup-event, out-of-order, retries, timeout, recovery, replay) | ✅ |
-| Evaluation (benchmark, adversarial, ablation, financial + safety + perf metrics) | ✅ except **safety metrics: A4**, **attack suite: A2** |
-| Product (control room, evidence, exception workflow, agent activity, attack mode, replay, benchmark dash, close memo, arch viz) | ✅ except **attack mode: A2**, **root-cause clusters: B1** |
+| Evaluation (benchmark, adversarial, ablation, financial + safety + perf metrics) | ✅ · **attack suite: A2 DONE** · except **safety metrics: A4** |
+| Product (control room, evidence, exception workflow, agent activity, attack mode, replay, benchmark dash, close memo, arch viz) | ✅ · **attack CLI: A2 DONE** · except **attack-mode UI panel: A2-wiring**, **root-cause clusters: B1** |
 | Documentation | ✅ in `docs/` · **root-level consolidation: B3**, **final report: B4** |
 
 **Overall: the system already meets most of §89. Tier A closes the gaps that matter for
