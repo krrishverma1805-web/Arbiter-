@@ -8,6 +8,16 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 2: S3/R2 upload storage backend
+
+`storage.S3Storage` (extends `Storage`, `arbiter-api[s3]` = boto3). `save` →
+`put_object`; `path` → downloads the upload's objects into a local cache dir and
+returns that Path, so the filesystem ingest layer is untouched; `list_ids` →
+`list_objects_v2` with a `/` delimiter. `_make_storage()` picks it when
+`ARBITER_S3_BUCKET` is set (`ARBITER_S3_ENDPOINT` for R2 / MinIO). The
+constructor takes an injectable `client` for testing — 4 tests run against an
+in-memory fake S3. 183 tests.
+
 ## 2026-09-03 — Phase 5: live scorecard on the streaming view
 
 `LiveRun.tsx` fetches `api.scorecard(runId)` on the `done` event and renders

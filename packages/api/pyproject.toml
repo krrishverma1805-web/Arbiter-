@@ -26,6 +26,7 @@ observability = [
 ]
 mcp = ["mcp>=1.2,<2"]
 redis = ["redis>=5.0"]
+s3 = ["boto3>=1.35"]
 
 [project.scripts]
 arbiter-api = "arbiter_api.__main__:main"
