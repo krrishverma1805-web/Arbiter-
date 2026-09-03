@@ -1,9 +1,10 @@
 # Arbiter — Full Project DNA (strategy consult brief)
 
-_Last updated 2026-09-03. This file is written for an external strategy advisor (ChatGPT).
-It is the single self-contained document that explains what Arbiter is, what is actually
-built, what the research says, and where the people inside the project already believe the
-plan is weak._
+_Last updated 2026-09-03 (rev. 2 — folds in the first real agent runs against a live model,
+the OpenAI adapter, and the public demo). This file is written for an external strategy
+advisor (ChatGPT). It is the single self-contained document that explains what Arbiter is,
+what is actually built, what the research says, and where the people inside the project
+already believe the plan is weak._
 
 ---
 
@@ -13,6 +14,20 @@ I am the founder / sole builder. Arbiter started as a submission for the **Razor
 Buildathon 2026** (in-person, Bangalore; ₹75k/month student stipend; "code speaks louder
 than your resume"), track **AI Finance Controller**. I want it to become a real product /
 company, not just a hackathon entry.
+
+### 0.5 Reality check — team, timeline, traction (read this before §10)
+
+- **Team:** one person. No co-founder, no employees.
+- **Timeline:** the entire codebase below — ~13k lines, 92 commits, engine + agent + API +
+  cockpit + a full production-hardening roadmap — was built in **roughly 3–4 days** of
+  intense work with heavy AI pair-programming. That speed is real and worth weighing both
+  ways: it shows unusual execution throughput, *and* it means almost nothing has been
+  pressure-tested by time, users, or a second engineer.
+- **Funding:** none. **Revenue:** none. **Users:** zero. **Design partners:** zero.
+- **Validation to date:** synthetic benchmarks the builder wrote, plus one public demo. No
+  customer conversation has happened. No real bank statement has been reconciled.
+- **The forcing function:** the Buildathon submission. Everything after that is a choice
+  (§11 Q1).
 
 **I am not asking you to validate the current plan.** Several people and processes inside
 this project have already tried that and concluded — in specific, evidenced ways — that the
@@ -123,7 +138,10 @@ roughly at parity with a fractional analyst.
 **Unit-economics hypotheses (unvalidated):** ACV ₹3.5L, gross margin ~80% (LLM + hosting is
 the variable line), CAC ₹40k–80k (content + founder-led sales + CA-firm partnerships, no
 paid acquisition), payback 4–8 months, target logo churn < 2%/mo, NRR 115–130% via
-rails + seats + connectors.
+rails + seats + connectors. First real cost data point (§6.1): one agent investigation ≈
+20k tokens ≈ $0.05–0.10; a close with 5–10 hard exceptions is well under $1 in LLM spend,
+so the LLM line is small — *if* the exception count stays bounded, which cold-start (R9)
+works against.
 
 **Sales motion:** OSS top-of-funnel → self-serve Solo → founder-led Team (run their real
 month's export live, hand them the memo + the found-money number) → CA-firm partnerships.
@@ -161,8 +179,8 @@ A reconciliation **run** is the atomic unit. Three surfaces, in workflow order:
 3. **Evidence drawer (the proof)** — the trust surface. Three record cards side by side with
    matching fields aligned; the decomposition rendered as an equation with real numbers and
    the residual called out; the rule trail in plain sentences; the AI proposal badged
-   "proposed by Arbiter · claude-opus-5" with every factual claim linked to an evidence id;
-   Accept / Edit & accept / Reject / Won't fix.
+   "proposed by Arbiter · &lt;model&gt;" (claude-opus-5 or gpt-4o) with every factual claim
+   linked to an evidence id; Accept / Edit & accept / Reject / Won't fix.
 
 Three words govern every screen: **Calm. Legible. Fast.** Muted warm ground, exactly one
 accent, amber-not-red for exceptions (an unreconciled item is *work*, not a *failure*).
@@ -265,6 +283,55 @@ Status legend: **✅ built + tested + in CI** · ◑ partial · ○ roadmap.
 - ✅ `--no-ai` full-determinism mode; deterministic escalation when no API key is set.
 - ✅ Every LLM request/response recorded as an `AGENT_INTERACTION` event → `replay` replays
   recorded turns instead of re-calling the API.
+- ✅ **Provider-pluggable** — an `OpenAIClient` adapter (same `Turn` contract as the
+  Anthropic client) so the loop can run on GPT models; a per-run **bring-your-own-key**
+  path (the cockpit sends provider + key + model as request headers, used for that one run,
+  never persisted).
+
+### 6.1 What actually happened the first time the agent ran against a live model
+
+Until recently the agent path had only ever been exercised offline with scripted/recorded
+turns. It has now been run for real against **`gpt-4o`** (via the adapter, no Anthropic key
+available). One representative investigation, verbatim, is the centrepiece of the public
+demo. What that surfaced — this is real evidence, not speculation:
+
+- **The loop works end to end on a non-Anthropic model.** Plan → two real read-only tool
+  calls (`decomposition_detail`, `similar_exceptions`) → hypothesis → proposal → verifier →
+  decision. Tool-call translation, multi-turn history, token accounting, prompt hashing all
+  intact.
+- **The verifier caught a bad proposal, live.** gpt-4o proposed `TIMING` at a
+  self-reported **0.9 confidence**; the independent verifier model checked the cited records
+  and returned `{"supported": false}` — the citation pointed at a `settled_at` value that
+  didn't actually prove a late settlement. The exception escalated to a human instead of
+  being applied. This is the "AI at the boundary, every output gated" thesis working in
+  real time.
+- **gpt-4o is over-confident and messy.** It self-scored 0.9 on a claim its own verifier
+  rejected. The first (pre-fix) run wrapped proposals in ```` ```json ```` fences with
+  invalid enum values and extra keys, failed the strict schema for four turns, and hit the
+  turn budget — a coercion layer + a `json_schema` response format now clean up after it.
+  Claude's constrained structured-output mode holds this down; GPT needs the guardrails more.
+- **The agent scorecard reads 0.0%** for task-completion / grounded-rate / escalation-recall
+  on a live single-exception run — those metrics need a labelled trajectory set that only
+  the synthetic bench has. So there is still **no benchmarked agent accuracy number**, on
+  any model, on real data.
+- **Observed cost:** one investigation ≈ **18,932 input / 1,075 output tokens** (≈ $0.05–0.10
+  on gpt-4o, more on Opus). The cockpit currently shows `$0.000` because the cost estimate
+  isn't wired for the OpenAI path.
+
+### 6.2 Moat vs. scaffolding (raw material for §11 Q5 / §12.5)
+
+Rough self-assessment of where the defensible value sits:
+
+- **The moat (≈20%):** settlement decomposition as a first-class model · the deterministic
+  matcher + Fellegi–Sunter scoring · the bounded investigation loop with grounding + the
+  verifier · the honest adversarial benchmark · the event-sourced replayable audit trail.
+- **Table stakes (≈30%):** file ingestion, the exception taxonomy, the cockpit UI, `--no-ai`.
+  Necessary, not differentiating.
+- **Premature scaffolding (≈50%):** the multi-tenant platform, Postgres RLS, the async job
+  queue, Helm chart, OpenTelemetry/Sentry/Grafana, the MCP server, the continuous-learning
+  platform (retraining, drift, global patterns, pgvector). All built to spec, all CI-green,
+  **none with a user** — built because a roadmap said to, not because demand pulled it.
+  That this happened is itself a data point about how decisions are being made.
 
 ### Resolution & learning loop
 - ✅ Accept / edit / reject / won't-fix on every exception, recorded as an event.
@@ -449,13 +516,16 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
 
 ### 7.5 SDK boundary (the client / engine / model split)
 
-- **Engine ↔ model:** the `anthropic` Python SDK, `claude-opus-5` (adaptive thinking) for
-  investigation, `claude-haiku-4-5` for triage, a `verify` model for the verifier pass. The
-  loop uses the SDK tool runner with read-only / proposal-only tools. Structured output via
-  a strict schema (`category` = spec taxonomy enum). Frozen prompt as a `cache_control`
-  prefix. `bench` uses the Batch API (−50%). A pluggable `LLMClient` interface —
-  `AnthropicClient` (live) / `RecordedClient` (replay) / `ScriptedClient` (tests) — so the
-  engine has no hard dependency on a network call.
+- **Engine ↔ model:** a pluggable `LLMClient` interface (one method, `complete() -> Turn`).
+  Implementations: `AnthropicClient` (`claude-opus-5` investigate / `claude-haiku-4-5`
+  triage / a `verify` model) · `OpenAIClient` (a real adapter that translates Arbiter's
+  Anthropic-shaped messages, tools and structured-output instruction to OpenAI Chat
+  Completions and normalises the reply back) · `RecordedClient` (replay) · `ScriptedClient`
+  (tests). Structured output via a strict schema (`category` = spec taxonomy enum). Frozen
+  prompt as a `cache_control` prefix. `bench` uses the Anthropic Batch API (−50%).
+  Provider chosen by `ARBITER_LLM_PROVIDER`, or per-run via `X-LLM-Provider` / `X-LLM-Key` /
+  `X-LLM-Model` request headers (applied to the process env for that one inline run under a
+  lock, restored after, never written to the job payload or the event log).
 - **Cockpit ↔ API:** REST/JSON for reads and mutations; **SSE** (`/runs/{id}/stream`) for
   the streaming investigation view; **WebSocket** (`/runs/{id}/ws`) for presence. The
   cockpit stores its API key in `localStorage` and sends `Authorization: Bearer`; SSE/WS
@@ -491,10 +561,12 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
   is derived from documented real-world reconciliation exceptions, not from what the matcher
   happens to handle, and `--no-ai` + sub-100 category accuracy show it isn't gamed — but the
   "I wrote both the generator and the matcher" risk is real and stated.
-- The **agent's own scorecard** (task-completion, hallucination, grounded rate, escalation
-  P/R, AI lift, calibration) has **no real numbers** — there is no `ANTHROPIC_API_KEY` in the
-  dev/CI environment. Offline, the agent path runs with recorded/scripted turns. Real
-  numbers only come from a nightly `-m live` CI job that needs the key set as a repo secret.
+- The **agent has now run live** (against `gpt-4o` — see §6.1), so there is a verbatim trace
+  showing the loop, the tool calls and the verifier working. But there is still **no
+  benchmarked agent accuracy number on any model**: task-completion, hallucination rate,
+  grounded rate, escalation P/R, AI lift and calibration all need a labelled trajectory set
+  that only the synthetic bench has, and the bench needs an API key that isn't in CI. A
+  single live investigation scores 0.0% on those metrics by construction.
 - The learning-curve claim (month 3 auto-match > month 1) is demonstrated on **synthetic
   cycles**, and its *shape* (monotonic up) is enforced by a test — but it has never run on a
   real customer's three real closes.
@@ -506,7 +578,14 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
   bounded heuristic above. Not an ILP solver.
 - Never load-tested at the stated target (500 concurrent orgs, 10k runs/day). The queue +
   worker + HPA architecture is built for it; the evidence that it holds is not.
-- Single Anthropic provider; 429/529 → capped backoff → escalate `provider_unavailable`.
+- Provider errors (bad key, 429/529, network) → capped backoff → the exception escalates
+  with `reason: provider_unavailable`; the run does not fail.
+- Known unbuilt agent gaps (from §6.1): structured rendering of every turn in the live view
+  (raw JSON still leaks through); a graceful agent scorecard that hides label-dependent
+  metrics when there's no eval set; an OpenAI price table; a `get_record(id)` tool so the
+  agent can verify its own citations; per-model calibration (the reliability diagram
+  assumes Claude); token-level streaming; a messier demo dataset that gives the agent
+  3–4 varied exceptions.
 
 ### 7.9 Security & compliance posture
 
@@ -523,9 +602,23 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
 ### 7.10 Build status
 
 M0–M5 milestones complete + the entire `docs/28` production-hardening roadmap (5 phases)
-executed. ~45 commits this session, every one CI-green. ~190 tests, 10 CI jobs (lint-type,
-test, security, determinism, bench + regression gate, docker, helm, web, recovery,
-nightly-live [schedule-only]). ~9,700+ lines, engine is the substance.
+executed. 92 commits over ~3–4 days, every one CI-green. ~190 test functions, 11 CI jobs
+(lint-type, test, security, determinism, bench + regression gate, docker, helm, web,
+recovery, deploy, nightly-live [schedule-only]). ~13k lines, engine is the substance.
+
+### 7.11 What's live right now
+
+- **Public demo: `https://arbiter-cockpit.vercel.app`** — the *real* Next.js cockpit,
+  hosted, no login. It serves a **frozen snapshot** of one real run (`f7e810ba`: 1,672
+  records, agent on `gpt-4o`): the scorecard, the keyboard exception queue, the evidence
+  drawer with the 4-turn investigation trace, and a `/live` view that replays the real
+  event log as SSE so the gpt-4o investigation animates the way it happened
+  (plan → tool calls → proposal → verifier rejects the citations → escalated). Backed by
+  Next.js route handlers reading captured JSON — no Python backend running. Set
+  `ARBITER_API_URL` and it becomes fully live against a real API.
+- **The repo** (Apache-2.0, engine/CLI/bench): `make demo` reproduces every number;
+  `make up` runs the full stack locally.
+- Nothing else. No hosted multi-tenant instance, no customers, no data.
 
 ---
 
@@ -653,7 +746,10 @@ after months of real-usage learning.
 ranked, explained, one-click-to-rule); the learning curve is the differentiator; publish the
 false-match rate. **Honest residual: cold-start is real. A new customer's month 1 looks
 mediocre. The product needs a "here's month 3" story and the patience to get customers
-there.**
+there.** New evidence (§6.1): the one live agent run *escalated* rather than resolving — the
+verifier correctly rejected a weak proposal. That's the safety story working, but it also
+means "the agent handles the last 10%" is not yet demonstrated; so far it demonstrably knows
+when it *can't*.
 
 ### R5 — Finance buyers may want less AI, not more; non-determinism is a liability in audited workflows
 **Severity: Medium · Likelihood: Medium — architecture already addresses it.**
@@ -662,9 +758,14 @@ categorized your reconciliation exceptions" may hear "audit risk." Hallucinated
 categorizations, prompt-injection via a vendor's narration field, model drift between
 closes — all real.
 *Mitigation:* deterministic core, AI only at the boundary, every AI output a gated proposal,
-`--no-ai` always available, prompt + model + evidence hashed. **Honest residual: some buyers
-will say no to any LLM in the close. That's a segmentation reality. It also means the
-deterministic core must be genuinely excellent on its own.**
+`--no-ai` always available, prompt + model + evidence hashed, provider-pluggable (not locked
+to one AI vendor). **Honest residual: some buyers will say no to any LLM in the close.
+That's a segmentation reality. It also means the deterministic core must be genuinely
+excellent on its own.** New evidence (§6.1): running the agent on `gpt-4o` showed a
+non-Anthropic model being over-confident and schema-sloppy, with the deterministic verifier
++ grounding layer catching it. Reads two ways to a skeptical CFO — "see, the guardrails
+work" or "see, you can't trust the model" — and which they hear is a sales problem, not an
+engineering one.
 
 ### R6 — The GTM is an org-change sale (displacing analyst hours), not PLG; cycles are 6–12 months
 **Severity: Medium · Likelihood: High.**
@@ -827,10 +928,11 @@ Specifically:
    *this* market, or do they mean "excellent project, not a company"? Say which.
 4. **Design the cheapest falsification experiment (Q7).** One test, what it costs, what
    result kills the idea vs. greenlights it.
-5. **Tell me what to cut.** The build is broad (multi-tenant platform, Helm, observability,
-   MCP, a learning platform) for something with zero real users. What is premature? What
-   should not have been built yet, and what does that misallocation tell me about how I'm
-   making decisions?
+5. **Tell me what to cut.** §6.2 is my own rough cut at moat (~20%) vs. table stakes
+   (~30%) vs. premature scaffolding (~50%). Pressure-test it. What should not have been
+   built yet, and — the part I actually need — what does the fact that I built a full
+   production platform before talking to one customer tell you about how I'm making
+   decisions, and how do I fix that pattern?
 6. **If the verdict is "portfolio piece, marginal company" — tell me plainly**, and then
    answer Q8.
 
@@ -851,5 +953,6 @@ opportunities here."
   0003 safe-AST rules · 0004 hybrid orchestration · 0005 Fellegi–Sunter matching.
 - `docs/BUILD-LOG.md` — every bug found and fixed, chronologically.
 - `README.md` — the numbers, the quickstart, the honest-limitations section.
-- Run it: `make demo` (SQLite, seeded, no keys) → `make bench` (reproduces the scorecard) →
-  `make up` (API + cockpit).
+- `web/DEPLOY.md` — how the public demo is hosted and refreshed.
+- **See it: `https://arbiter-cockpit.vercel.app`** (the cockpit + the verbatim gpt-4o
+  investigation replay). Run it: `make demo` → `make bench` → `make up`.
