@@ -81,7 +81,7 @@ Backed by the event log: the stream is a tail of new events mapped to these fram
 
 ```
 <RunLayout>
-  <RunHeader>                     spec · period · record count · "97.2% auto-tied · ₹41,900 / 6 open" · re-run · export
+  <RunHeader>                     spec · period · record count · "93.8% auto-tied · ₹1.73L / 9 open" · re-run · export
   <div class="cockpit-grid">      CSS grid: scorecard (left, ~360px) | queue (center, flex) | drawer (right, ~440px, toggles)
     <Scorecard>
       <HeadlineNumber/>           auto-tied %, $ tied / $ open, count-up on improvement

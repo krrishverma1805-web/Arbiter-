@@ -58,7 +58,7 @@ It is deliberately **not** "an AI that does your accounting." It is a machine th
 the set of things a human still has to look at, and proves how much it shrank them.
 
 The demo sentence: _"Here are three files, tell me if the money is right"_ becomes
-_"97.2% tied automatically, ₹41,900 across 6 exceptions still need you — here's each one,
+_"93.8% tied automatically, ₹1.73 lakh across 9 exceptions still need you — here's each one,
 the evidence, and what I think it is."_
 
 ---

@@ -110,15 +110,21 @@ Let the universe be all "true reconciliation units" (a true match, or a true ano
 
 ### 3.4 Cycle metrics (the learning-loop evidence)
 
-Run the same spec across 3 generated "monthly" batches, applying accepted rules between cycles:
+`arbiter cycle-demo` runs the same spec across 3 generated "monthly" batches, scoring each
+close **twice** — the base spec vs. the spec with human-approved rules carried forward — so
+batch noise is separated from the rule's effect. In the seed demo a single approved
+split-settlement rule clears **₹1,498 of settlement residual across the two later closes**
+that the base spec left `UNEXPLAINED`:
 
-| Cycle | Auto-match rate | Human-touch count | Rules in spec |
+| Cycle | Base-spec `UNEXPLAINED` ₹ | With learned rule | ₹ recovered |
 |---|---|---|---|
-| 1 | ~85% | ~30 | 6 (baseline) |
-| 2 | ~93% | ~12 | 11 |
-| 3 | ~97% | ~5 | 15 |
+| 1 | 2,858 | 2,858 | 0 (rule drafted here) |
+| 2 | 9,986 | 8,789 | 1,197 |
+| 3 | 86,900 | 86,599 | 301 |
 
-The exact numbers come from the real run; the _shape_ (monotonic up) is the claim and is enforced by a test.
+The claim is _demonstrated_ improvement from human-approved rules, measured in ₹ against the
+base spec — not a hand-drawn auto-match curve. The shape (rules only ever help) is enforced
+by `test_cycle.py`.
 
 ---
 

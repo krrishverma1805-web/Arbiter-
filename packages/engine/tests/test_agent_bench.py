@@ -9,24 +9,30 @@ cases are all escalated.
 from __future__ import annotations
 
 import pytest
-from arbiter_engine.bench.agent_bench import evaluate
+from arbiter_engine.bench.agent_bench import evaluate_all
 
 _SEEDS = (42, 7, 13, 101, 202, 303)
 
 
 @pytest.fixture(scope="module")
-def oracle():
-    return evaluate(client="oracle", seeds=_SEEDS)
+def reports():
+    # one corpus build (6 reconciliations), all three clients scored against it
+    return evaluate_all(_SEEDS)
 
 
 @pytest.fixture(scope="module")
-def reckless():
-    return evaluate(client="reckless", seeds=_SEEDS)
+def oracle(reports):
+    return reports["oracle"]
 
 
 @pytest.fixture(scope="module")
-def fabricator():
-    return evaluate(client="fabricator", seeds=_SEEDS)
+def reckless(reports):
+    return reports["reckless"]
+
+
+@pytest.fixture(scope="module")
+def fabricator(reports):
+    return reports["fabricator"]
 
 
 def test_corpus_is_a_real_size(oracle):

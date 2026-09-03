@@ -25,7 +25,7 @@ A reconciliation **run** is the atomic unit. Everything is scoped to a run. Thre
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
 │  RUN HEADER   razorpay-settlement · Aug 2026 · 214 records · 2m ago    │
-│  ● 97.2% auto-tied   ₹41,900 across 6 exceptions   ⟳ re-run   ⤓ export │
+│  ● 93.8% auto-tied   ₹1.73L across 9 exceptions     ⟳ re-run   ⤓ export │
 └───────────────────────────────────────────────────────────────────────┘
 
   ①  SCORECARD            ②  EXCEPTION QUEUE            ③  EVIDENCE DRAWER
@@ -69,7 +69,7 @@ The core screen. A dense, keyboard-driven grid. One row per exception.
 **Interactions:**
 - `j` / `k` move; `x` select; `e` expand; `a` accept AI proposal; `r` reject; `w` won't-fix; `/` filter; `g` group-by-type.
 - Bulk: select several `ROUNDING` exceptions → `a` → accept all → one "draft a rule for this?" prompt.
-- Every resolution shows, immediately and inline, the consequence: _"Rule `r_timing_sept` drafted · re-run to apply · projected auto-tied 97.2% → 98.6%"_.
+- Every resolution shows, immediately and inline, the consequence: _"Rule `r_timing_sept` drafted · re-run to apply · projected auto-tied 93.8% → higher"_.
 
 ### 2.3 Surface ③ — Evidence Drawer (the proof)
 

@@ -67,15 +67,15 @@ nightly:
   live-agent:       pytest -m live ; arbiter bench (live, Haiku) ; append to bench-history/
 ```
 
-PR comment (the bot):
+PR comment (the bot) — **schematic; the shape, not the numbers** (the CI `bench` job
+already asserts an absolute floor and a regression gate against `bench/baseline-800.json`):
 ```
-Arbiter bench — seed dataset (120 records, 14 anomalies)
-  auto-match rate   96.7%   (baseline 96.4%,  +0.3)
-  false-match rate  0.6%    ✓ under 1.5% gate
-  $ coverage        99.1%
-  agent: task-completion 84%  ·  hallucination 1.2%  ·  escalation recall 92%  ·  ECE 0.03
-  throughput        640 rec/s (deterministic phase)
-  cost              $0.31 (recorded agent)
+Arbiter bench — seed dataset (800 records, seed 42, --no-ai)
+  auto-match rate   93.8%   vs baseline gate ✓
+  false-match rate  0.0%    ✓ under the 1.5% gate
+  ₹ coverage        100%
+  agent-bench: oracle 100% task · 0 unsafe · +44% lift · reckless 0 material unsafe
+  replay            deterministic ✓
 ```
 
 ---

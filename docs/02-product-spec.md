@@ -16,7 +16,7 @@ _What Arbiter is, what it contains, why it contains each thing, how it works, an
 6. **Learns**: when a human accepts a resolution, Arbiter proposes a durable rule so the same exception auto-resolves next cycle.
 7. **Reports**: an honest scorecard (match rate, precision/recall, false-match rate, $ reconciled vs $ unexplained, throughput, cost) and the exception list.
 
-**One sentence:** _Arbiter turns "here are three files, tell me if the money is right" into "97.2% tied automatically, ₹41,900 across 6 exceptions still need you — here's each one, the evidence, and what I think it is."_
+**One sentence:** _Arbiter turns "here are three files, tell me if the money is right" into "93.8% tied automatically, ₹1.73 lakh across 9 exceptions still need you — here's each one, the evidence, and what I think it is." (the real output of `arbiter bench --dataset datasets/seed`)_
 
 ---
 

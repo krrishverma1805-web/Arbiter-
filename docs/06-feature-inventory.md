@@ -90,7 +90,7 @@ Priority key: **P0** = required for a credible Buildathon submission · **P1** =
 | G1 | Accept / edit / reject / won't-fix on every exception | Human decision, recorded as an event | The human is always in the loop | P0 |
 | G2 | Rule synthesis from an accepted resolution | Draft a durable rule from a one-time fix | Month 3 > month 1 | P1 |
 | G3 | Spec-diff review UI for drafted rules | Human approves the rule before it's live | AI-authored logic must be reviewed | P1 |
-| G4 | Projected-impact preview ("97.2% → 98.6%") | Show the consequence of a resolution before re-run | Makes the loop tangible | P1 |
+| G4 | Projected-impact preview ("current % → projected %") | Show the consequence of a resolution before re-run | Makes the loop tangible | P1 |
 | G5 | Cycle-over-cycle metric history | Track auto-tied % across runs of a spec | The "it gets better" evidence | P0 |
 
 ## H. Event log, replay & audit

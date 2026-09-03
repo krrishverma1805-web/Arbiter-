@@ -16,8 +16,10 @@ proposed fix.
 ## The one sentence
 
 > Arbiter turns _"here are three files, tell me if the money is right"_ into
-> _"97.2% tied automatically, ₹41,900 across 6 exceptions still need you — here's each one,
-> the evidence, and what I think it is."_
+> _"93.8% tied automatically, ₹1.73 lakh across 9 exceptions still need you — here's each
+> one, the evidence, and what I think it is."_
+
+<sub>(the actual output of `arbiter bench --dataset datasets/seed`; see [The numbers](#the-numbers-800-record-adversarial-batch-seed-42---no-ai))</sub>
 
 ## Why this exists
 
@@ -81,8 +83,9 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
   ([`BENCHMARK.md`](BENCHMARK.md)), root-cause clustering, a validated exception state
   machine, and the graded [`FINAL_REPORT.md`](FINAL_REPORT.md).
 
-229 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
-gate (matching **and** safety metrics), a `gitleaks` + `pip-audit` security job, a Postgres
+255 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
+gate (matching **and** safety metrics), the **agent trajectory benchmark** gate
+(`agent-bench --client all`), a `gitleaks` + `pip-audit` security job, a Postgres
 restore-drill job, and a web typecheck/lint/build job.
 
 ## Quickstart
@@ -131,6 +134,8 @@ back onto it and still vetted by the deterministic grounding layer.
 | `specs/` | `razorpay-settlement.yaml` (flagship) · `gst-2b.yaml` (proof the engine is loop-agnostic) |
 
 ## Documentation
+
+**Capability status — the single source of truth:** [`docs/STATUS.md`](docs/STATUS.md)
 
 **For a judge — the 3-minute path:**
 [`docs/buildathon/DEMO.md`](docs/buildathon/DEMO.md) (the script) ·

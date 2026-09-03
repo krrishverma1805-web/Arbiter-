@@ -39,7 +39,7 @@ from principles, not yet from a design partner's pain.
 
 ### Build Quality — A
 
-259 tests, `ruff` + `mypy` + `tsc` + `next build` clean, a CI regression gate on
+255 tests, `ruff` + `mypy` + `tsc` + `next build` clean, a CI regression gate on
 a committed scorecard baseline, deterministic replay with a hash-chained audit
 log, an event-sourced core. The uv workspace splits engine / datagen / api
 cleanly; the engine has no web or API dependencies. Weakest area: the cockpit

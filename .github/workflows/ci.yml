@@ -36,7 +36,9 @@ jobs:
           python-version: "3.12"
       - run: uv sync --all-packages --extra mcp --extra pdf --extra openai
       - name: pytest
-        run: uv run pytest -q -m "not live" --cov=arbiter_engine --cov=arbiter_datagen --cov=arbiter_api --cov-report=term-missing
+        # coverage instrumentation ~doubles the reconciliation-heavy suite and
+        # gates nothing — the coverage run moves to the nightly job.
+        run: uv run pytest -q -m "not live"
 
   security:
     runs-on: ubuntu-latest
@@ -154,11 +156,25 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
-      - run: uv sync --all-packages
+      - run: uv sync --all-packages --extra mcp --extra pdf --extra openai
+      - name: coverage (informational — not a gate)
+        run: uv run pytest -q -m "not live" --cov=arbiter_engine --cov=arbiter_datagen --cov=arbiter_api --cov-report=term-missing
       - name: live agent suite
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: uv run pytest -q -m live
+      - name: live agent trajectory benchmark (real model — informational)
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          uv run arbiter agent-bench --client anthropic --seeds 4 --json > live-agent-bench.json
+          python -c "import json; d=json.load(open('live-agent-bench.json')); print('live agent-bench:', {k: d[k] for k in ('cases','task_completion_rate','category_accuracy','escalation_recall','unsafe_resolutions','material_unsafe_resolutions','avg_turns','avg_tokens')})"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-agent-bench
+          path: live-agent-bench.json
 
   docker:
     runs-on: ubuntu-latest

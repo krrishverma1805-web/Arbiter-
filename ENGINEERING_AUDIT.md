@@ -402,4 +402,4 @@ escalated · ~46% shown-and-rejected · 14 sub-rupee SAFE slips (₹1.14 total);
 **Declined:** a scripted 4–6-investigation flagship demo run — the benchmark tells that
 story with 99 real cases; one honest live investigation beats padded scripted ones.
 
-Full suite after Stage D: **259 passed**, all checks clean.
+Full suite after Stage D: **255 passed**, all checks clean.

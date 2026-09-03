@@ -76,7 +76,7 @@ Status at the close of the master-plan hardening pass (Stages A–D).
 
 ## Build
 
-- [x] 259 tests, `-m "not live"`
+- [x] 255 tests, `-m "not live"`
 - [x] `ruff check` + `ruff format --check` clean
 - [x] `mypy` clean (102 source files)
 - [x] `tsc --noEmit` + `next build` clean
