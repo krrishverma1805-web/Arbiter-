@@ -5,9 +5,15 @@ from "a rigorous, well-tested reconciliation core with a bounded agent" to "a
 multi-tenant product that survives real-world messy data and scales." It is
 honest about what exists, what does not, and the order to build it in._
 
+> **Status 2026-09-03 — the plan is executed.** Every ✅ below is code on `main`
+> with tests and a green CI. §1 is the *starting-point* snapshot, kept for the
+> record; the ✅/"Nothing left" markers in §3 are current. The only items still
+> open are two that need real customer data (a corpus of anonymized bank
+> statements; OCR fixtures for scanned PDFs) — not code.
+
 ---
 
-## 1. Where the code actually is today (no varnish)
+## 1. Where the code actually is today (no varnish) — _snapshot as of 2026-09-02; see §3 for current_
 
 **~9,700 lines.** `packages/engine` (7.1k) is the substance; `datagen` (0.9k),
 `api` (0.5k), `web` (1.0k).
