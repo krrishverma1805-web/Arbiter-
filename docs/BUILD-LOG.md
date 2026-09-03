@@ -8,6 +8,18 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 3/5: Alertmanager + cockpit motion
+
+`deploy/monitoring/alertmanager.yml` — a `page`/default route split, an inhibit
+rule, `send_resolved`; `prometheus.yml` gained the `alerting:` block; an
+`alertmanager` service joins the `monitoring` compose profile. The webhook
+receivers are inert placeholders — set a real Slack/PagerDuty target per env.
+
+Cockpit motion (`Cockpit.tsx`, `framer-motion`): the evidence drawer slides +
+fades on open/close via `AnimatePresence`, its body cross-fades when you change
+selection (`key={current.id}`), and a `layoutId` accent bar springs between
+exception rows. `useReducedMotion` zeroes every transition.
+
 ## 2026-09-03 — Phase 1: multi-currency / FX
 
 `SourceSpec.fx = {"base": "INR", "rates": {"USD": 83.2, …}}`. In `normalize_row`,

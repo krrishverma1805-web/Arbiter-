@@ -1,0 +1,31 @@
+# Alertmanager routing for the SLO alerts in alerts.yml (docs/28 §3 item 11).
+# Set a real receiver (Slack / PagerDuty / email) per environment — the webhook
+# below is an inert placeholder so `docker compose --profile monitoring up` runs.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: ["alertname", "service"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="page"']
+      receiver: pager
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url: http://127.0.0.1:5001/inert
+        send_resolved: true
+  - name: pager
+    webhook_configs:
+      - url: http://127.0.0.1:5001/inert
+        send_resolved: true
+
+inhibit_rules:
+  - source_matchers: ['alertname="ArbiterApiDown"']
+    target_matchers: ['service="arbiter-api"']
+    equal: ["service"]

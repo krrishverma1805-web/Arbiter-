@@ -106,7 +106,7 @@ services:
     deploy:
       replicas: 2
 
-  # Metrics + dashboards. Separate profile: `docker compose --profile monitoring up`.
+  # Metrics + dashboards + alerting. `docker compose --profile monitoring up`.
   prometheus:
     profiles: ["monitoring"]
     image: prom/prometheus:v2.55.1
@@ -114,6 +114,14 @@ services:
       - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./deploy/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
     ports: ["9090:9090"]
+    depends_on: [alertmanager]
+
+  alertmanager:
+    profiles: ["monitoring"]
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./deploy/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports: ["9093:9093"]
 
   grafana:
     profiles: ["monitoring"]

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import {
   api,
@@ -47,6 +48,10 @@ export function Cockpit({
   const [sel, setSel] = useState(0);
   const [drawer, setDrawer] = useState<EvidenceDrawer | null>(null);
   const [open, setOpen] = useState(true);
+  const reduce = useReducedMotion();
+  const t = reduce
+    ? { duration: 0 }
+    : { type: "spring" as const, stiffness: 420, damping: 34 };
 
   const current = exceptions[sel];
 
@@ -161,11 +166,18 @@ export function Cockpit({
                   <tr
                     key={e.id}
                     onClick={() => setSel(i)}
-                    className={`cursor-pointer border-b border-border ${
+                    className={`relative cursor-pointer border-b border-border ${
                       i === sel ? "bg-accent/10" : "hover:bg-accent/5"
                     }`}
                   >
                     <td className="w-40 px-4 py-2">
+                      {i === sel && (
+                        <motion.span
+                          layoutId="row-cursor"
+                          transition={t}
+                          className="absolute inset-y-0 left-0 w-0.5 bg-accent"
+                        />
+                      )}
                       <span
                         className={`font-medium ${CAT_COLOR[e.category ?? ""] ?? ""}`}
                       >
@@ -189,17 +201,32 @@ export function Cockpit({
         </section>
 
         {/* ③ evidence drawer */}
-        {open && (
-          <aside className="border-l border-border p-5">
-            {!current ? (
-              <p className="text-sm text-muted">select an exception</p>
-            ) : !drawer ? (
-              <p className="text-sm text-muted">loading evidence…</p>
-            ) : (
-              <DrawerPanel d={drawer} onResolve={resolve} />
-            )}
-          </aside>
-        )}
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.aside
+              initial={{ opacity: 0, x: reduce ? 0 : 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: reduce ? 0 : 24 }}
+              transition={t}
+              className="border-l border-border p-5"
+            >
+              {!current ? (
+                <p className="text-sm text-muted">select an exception</p>
+              ) : !drawer ? (
+                <p className="text-sm text-muted">loading evidence…</p>
+              ) : (
+                <motion.div
+                  key={current.id}
+                  initial={{ opacity: 0, y: reduce ? 0 : 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={t}
+                >
+                  <DrawerPanel d={drawer} onResolve={resolve} />
+                </motion.div>
+              )}
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
