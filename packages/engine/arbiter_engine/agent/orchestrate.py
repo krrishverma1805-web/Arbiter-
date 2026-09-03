@@ -319,10 +319,30 @@ def run_investigations(
             thresholds=thresholds,
             verifier=use_verifier,
         )
-        if not replay and client is None and impact >= self_consistency_above and sc_samples > 1:
-            inv = _self_consistent(one, sc_samples)
-        else:
-            inv = one()
+        want_sc = (
+            not replay and client is None and impact >= self_consistency_above and sc_samples > 1
+        )
+        try:
+            inv = _self_consistent(one, sc_samples) if want_sc else one()
+        except Exception as e:  # noqa: BLE001 - a provider/network failure must not sink the run
+            store.append(
+                run_id,
+                EventType.AGENT_ESCALATED,
+                {
+                    "exception_id": exc.id,
+                    "tool_calls": 0,
+                    "turns": 0,
+                    "escalation": {
+                        "kind": "escalate",
+                        "what_i_know": "The investigation could not run.",
+                        "what_is_missing": f"a working LLM provider ({type(e).__name__})",
+                        "question": "A human should review this exception.",
+                        "reason": "provider_unavailable",
+                    },
+                },
+                actor=f"agent:{getattr(active, 'model', '?')}@{INVESTIGATOR_V1_HASH}",
+            )
+            continue
         for rec in inv.interactions:
             store.append(
                 run_id,

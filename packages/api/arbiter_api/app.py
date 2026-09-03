@@ -214,10 +214,18 @@ def list_uploads() -> dict[str, Any]:
 @app.post("/v1/runs", status_code=202)
 def start_run(req: RunRequest, request: Request) -> Any:
     _require("analyst")
-    from arbiter_api import idempotency, jobs
+    from arbiter_api import idempotency, jobs, llm_ctx
     from arbiter_api.resolve import resolve_dataset, resolve_spec
 
     org = current_principal().org_id
+    llm_env = llm_ctx.from_headers(request.headers)
+    if llm_env and jobs.ASYNC:
+        raise _problem(
+            400,
+            "bring-your-own key needs sync mode",
+            "Per-request LLM keys aren't supported for async runs — set the key "
+            "in the worker's environment instead.",
+        )
     idem = request.headers.get("idempotency-key", "")
     try:
         cached = idempotency.lookup(org, idem, req.model_dump())
@@ -238,7 +246,8 @@ def start_run(req: RunRequest, request: Request) -> Any:
         return body
     job = jobs.get(job_id, org)
     assert job is not None
-    jobs.run_one(job)
+    with llm_ctx.applied(llm_env):
+        jobs.run_one(job)
     done = jobs.get(job_id, org)
     if done is None or done.status != "done" or done.run_id is None:
         raise _problem(500, "run failed", (done.error if done else "") or "unknown error")

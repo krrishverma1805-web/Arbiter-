@@ -31,6 +31,40 @@ function authHeaders(): Record<string, string> {
   return k ? { authorization: `Bearer ${k}` } : {};
 }
 
+// Bring-your-own LLM key: provider + key + model, stored only in this browser and
+// sent as headers on POST /v1/runs — used for that one run, never persisted.
+export interface LlmConfig {
+  provider: "openai" | "anthropic";
+  key: string;
+  model?: string;
+}
+export function llmConfig(): LlmConfig | null {
+  try {
+    const raw = localStorage.getItem("arbiter-llm");
+    return raw ? (JSON.parse(raw) as LlmConfig) : null;
+  } catch {
+    return null;
+  }
+}
+export function setLlmConfig(c: LlmConfig | null): void {
+  try {
+    if (c && c.key) localStorage.setItem("arbiter-llm", JSON.stringify(c));
+    else localStorage.removeItem("arbiter-llm");
+  } catch {
+    /* private mode */
+  }
+}
+function llmHeaders(): Record<string, string> {
+  const c = llmConfig();
+  if (!c || !c.key) return {};
+  const h: Record<string, string> = {
+    "x-llm-provider": c.provider,
+    "x-llm-key": c.key,
+  };
+  if (c.model) h["x-llm-model"] = c.model;
+  return h;
+}
+
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${base()}${path}`, {
     cache: "no-store",
@@ -40,10 +74,14 @@ async function get<T>(path: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(
+  path: string,
+  body: unknown,
+  extra: Record<string, string> = {},
+): Promise<T> {
   const r = await fetch(`${base()}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...authHeaders() },
+    headers: { "content-type": "application/json", ...authHeaders(), ...extra },
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${r.status} ${path}`);
@@ -180,7 +218,7 @@ export const api = {
   listDatasets: () =>
     get<{ datasets: { name: string; path: string }[] }>("/v1/datasets"),
   startRun: (spec: string, dataset: string, no_ai = false) =>
-    post<RunSummary>("/v1/runs", { spec, dataset, no_ai }),
+    post<RunSummary>("/v1/runs", { spec, dataset, no_ai }, llmHeaders()),
   run: (id: string) => get<RunSummary>(`/v1/runs/${id}`),
   scorecard: (id: string) => get<Scorecard>(`/v1/runs/${id}/scorecard`),
   exceptions: (id: string) =>

@@ -305,6 +305,23 @@ def test_async_run_is_queued_then_processed_by_the_worker(client, monkeypatch):
     assert detail["status"] == "completed"
 
 
+def test_byo_llm_key_runs_inline_and_is_rejected_for_async(client, monkeypatch):
+    c, ds = client
+    import arbiter_api.jobs as jobs
+
+    hdr = {"X-LLM-Key": "sk-test", "X-LLM-Provider": "openai"}
+    body = {"spec": "razorpay-settlement", "dataset": str(ds), "no_ai": True}
+
+    # inline (default): the key is accepted; the run completes
+    r = c.post("/v1/runs", json=body, headers=hdr)
+    assert r.status_code == 202 and r.json()["status"] == "completed"
+
+    # async: a per-request key can't reach the worker → refused up front
+    monkeypatch.setattr(jobs, "ASYNC", True)
+    r2 = c.post("/v1/runs", json=body, headers=hdr)
+    assert r2.status_code == 400 and "sync mode" in r2.json()["detail"]["title"]
+
+
 def test_job_failure_is_recorded_not_raised(client, monkeypatch):
     c, _ = client
     import arbiter_api.jobs as jobs
