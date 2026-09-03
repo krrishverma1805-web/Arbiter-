@@ -8,6 +8,21 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 1: counterparty entity resolution
+
+`match/entity.py`: `canonical_entity(name)` folds a counterparty to a stable key
+— lowercases, strips bank-narration prefixes (`NEFT CR `, `RTGS DR `, …),
+drops legal-form / honorific noise (`PVT`, `LTD`, `PRIVATE`, `M/S`, `GMBH`, …)
+and punctuation, so "ACME SOFTWARE PVT LTD" / "Acme Software Private Limited" /
+"M/S Acme Software" all become `acme software`. `same_entity` additionally
+matches an abbreviation against its longer legal name (token-subset).
+
+Wired in three places: the fuzzy matcher (a +1-bit tiebreak when a bank
+narration's party resolves to the settlement batch's party), the resolution
+memory's feature bag (`cp:` tokens are canonical), and `counterparty_history` —
+which `orchestrate` now actually populates from the tenant's earlier completed
+runs, keyed on the canonical entity. 4 tests, 171 total, gate green.
+
 ## 2026-09-03 — Phase 1: 2nd-model verifier + tiered triage + self-consistency
 
 Three agent-accuracy layers, all gated so `--no-ai` / no-key / the offline

@@ -57,12 +57,14 @@ def features(exc: ReconException, records: list[Record]) -> Counter[str]:
     f[f"cat:{exc.category or 'UNEXPLAINED'}"] += 3
     f[f"resid:{_band(exc.amount_impact_minor, (100, 500, 2000, 10000, 100000))}"] += 2
     f[f"nrec:{_band(len(records), (1, 3, 8, 20))}"] += 1
+    from arbiter_engine.match.entity import canonical_entity
+
     for r in records:
         f[f"src:{r.source}"] += 1
         f[f"kind:{r.kind}"] += 1
         for tok in _tokens(r.reference)[:6]:
             f[f"ref:{tok}"] += 1
-        for tok in _tokens(r.counterparty)[:4]:
+        for tok in canonical_entity(r.counterparty).split()[:4]:
             f[f"cp:{tok}"] += 1
         for k, v in r.external_ids.items():
             if k in ("dispute_id", "settlement_id") and v:

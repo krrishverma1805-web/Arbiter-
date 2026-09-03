@@ -27,6 +27,7 @@ from datetime import date
 
 from arbiter_engine.decompose.identity import decompose_group, expected_net_minor
 from arbiter_engine.match.compare import compare_bank_to_group, date_level
+from arbiter_engine.match.entity import same_entity
 from arbiter_engine.match.fellegi_sunter import FSModel
 from arbiter_engine.match.subset import subset_sum_match
 from arbiter_engine.models import Decomposition, Match, MatchCandidate, Record
@@ -378,6 +379,12 @@ def run_matching(
                 window=tol.date_window_days,
             )
             weight, per_field = model.weight(comp)
+            # counterparty entity resolution (docs/28 §1.2): a small tiebreak when
+            # the bank narration's party resolves to the batch's party
+            group_cp = next((i.counterparty for i in items if i.counterparty), None)
+            if same_entity(b.counterparty, group_cp):
+                per_field = {**per_field, "counterparty_entity": 1.0}
+                weight += 1.0
             ranked.append(
                 MatchCandidate(
                     hypothesis=f"settlement batch {utr} (expected {expected})",

@@ -24,6 +24,46 @@ from arbiter_engine.events.payloads import EventType
 from arbiter_engine.events.store import EventStore
 
 
+def _counterparty_history(
+    store: EventStore, run_id: str, org: str | None
+) -> dict[str, list[dict[str, Any]]]:
+    """Prior activity per counterparty (docs/28 §1.2), keyed on the *canonical*
+    entity so name variants collapse. Folded from the tenant's earlier completed
+    runs — the agent's `counterparty_history` tool reads this."""
+    from arbiter_engine.events.fold import fold_run
+    from arbiter_engine.match.entity import canonical_entity
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    try:
+        rids = store.runs()
+    except Exception:  # noqa: BLE001 - a read-only / partial store must not break the run
+        return out
+    for rid in rids:
+        if rid == run_id:
+            continue
+        types = {t for t, _ in store.iter_payloads(rid)}
+        if EventType.RUN_COMPLETED not in types:
+            continue
+        proj = fold_run(store, rid)
+        if org is not None and proj.records and getattr(proj.records[0], "org_id", "local") != org:
+            continue
+        for r in proj.records:
+            key = canonical_entity(r.counterparty)
+            if not key:
+                continue
+            bucket = out.setdefault(key, [])
+            if len(bucket) < 25:
+                bucket.append(
+                    {
+                        "run": rid[:8],
+                        "kind": r.kind,
+                        "amount_minor": r.amount_minor,
+                        "date": r.value_date.isoformat() if r.value_date else None,
+                    }
+                )
+    return out
+
+
 def _build_memory(store: EventStore, run_id: str, org: str | None) -> Any:
     """Prefer the persisted vector index (docs/28 §3 item 13); fall back to the
     in-process IDF-cosine memory if it can't be built (e.g. a read-only store)."""
@@ -160,6 +200,7 @@ def run_investigations(
     snap.candidates = {e.id: e.candidates for e in proj.exceptions if e.candidates}
     org = next((r.org_id for r in proj.records if getattr(r, "org_id", None)), None)
     snap.resolution_memory = _build_memory(store, run_id, org)
+    snap.prior_counterparties = _counterparty_history(store, run_id, org)
     spent = 0.0
 
     verifier = None if (replay or client is not None) else make_verifier(spec)

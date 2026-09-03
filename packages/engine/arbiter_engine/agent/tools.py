@@ -95,8 +95,16 @@ class Tools:
     def counterparty_history(
         self, counterparty: str | None = None, settlement_account: str | None = None
     ) -> dict[str, Any]:
-        key = counterparty or settlement_account or ""
-        return {"prior_activity": self.snap.prior_counterparties.get(key, [])}
+        from arbiter_engine.match.entity import canonical_entity
+
+        raw = counterparty or settlement_account or ""
+        # the map is keyed on the canonical entity, so "ACME PVT LTD" and
+        # "Acme Private Limited" resolve to the same prior activity (docs/28 §1.2)
+        key = canonical_entity(raw) or raw
+        hits = self.snap.prior_counterparties.get(key) or self.snap.prior_counterparties.get(
+            raw, []
+        )
+        return {"resolved_entity": key, "prior_activity": hits}
 
     def similar_exceptions(
         self, category_hint: str | None = None, pattern: str | None = None
