@@ -372,7 +372,7 @@ footer a { color: var(--muted); text-decoration: underline; text-underline-offse
       <span class="mono">226.9 rec/s</span> <span class="sep">·</span>
       <span>replay hash ✓</span>
     </div>
-    <p class="disclose">One honesty note, kept visible: the run was executed <span class="mono">--no-ai</span> because there is no <span class="mono">ANTHROPIC_API_KEY</span> in this environment. Every number below is real. The one <b>agent investigation</b> shown in “Watch it reconcile” is a <b>representative trace</b> built from the agent's actual loop contract (<span class="mono">docs/12</span>) — labelled as such where it appears — not a live model call.</p>
+    <p class="disclose">One honesty note, kept visible: the cockpit numbers come from a run executed <span class="mono">--no-ai</span> (deterministic core only). The <b>agent investigation</b> in “Watch it reconcile” is a <b>real</b> <span class="mono">gpt-4o</span> trace from <span class="mono">arbiter run f7e810ba</span> — Arbiter's investigation loop was pointed at OpenAI (<span class="mono">ARBITER_LLM_PROVIDER=openai</span>) and this is what it actually did, verbatim.</p>
   </div>
 </div>
 
@@ -388,7 +388,7 @@ footer a { color: var(--muted); text-decoration: underline; text-underline-offse
       <label class="field">dataset
         <select id="f-ds"><option>seed · d2c · 800</option><option>aug-close · marketplace</option></select>
       </label>
-      <label class="check"><input type="checkbox" id="f-noai" checked /> <span class="mono">--no-ai</span></label>
+      <label class="check"><input type="checkbox" id="f-noai" /> <span class="mono">--no-ai</span></label>
       <button class="btn" id="reconcile">reconcile →</button>
       <span id="f-msg" style="font-size:13px;color:var(--muted)"></span>
     </div>
@@ -422,7 +422,7 @@ footer a { color: var(--muted); text-decoration: underline; text-underline-offse
     </div>
 
     <div style="margin-top:20px;font-size:12px;color:var(--muted)">
-      <span class="tag">representative agent trace</span> — the investigation loop as specified in <span class="mono">docs/12</span>; offline this path escalates deterministically instead.
+      <span class="tag">real · gpt-4o · run f7e810ba</span> — the exact investigation loop from an <span class="mono">arbiter run</span> on this machine, OpenAI provider. It planned, called two read-only tools, proposed <span class="mono">TIMING</span>, the 2nd-model verifier rejected the citations, and it escalated to a human — the deterministic layers doing their job over a plausible-but-unsupported guess.
     </div>
     <div class="invest" id="invest"></div>
 
@@ -848,14 +848,15 @@ footer a { color: var(--muted); text-decoration: underline; text-underline-offse
 
   /* ---- stream animation ------------------------------------- */
   var phases = ["ingesting", "matching", "classifying", "investigating", "done"];
+  // the actual gpt-4o investigation from `arbiter run` f7e810ba (this machine, OpenAI provider)
   var invTurns = [
-    { d: 300, kind: "start", cat: "WRONG_ACCOUNT", amt: "₹56,084.07" },
-    { d: 900, text: "Goal: determine whether batch RZP…C796 (₹56,084.07, no primary-account credit) is a delayed settlement, a wrong-account credit, or a genuine shortfall." },
-    { d: 1500, text: "No credit of this amount ± tolerance in the primary account within a 6-day window.", tool: "query_evidence(amount≈5608407, ±window=6d)" },
-    { d: 2200, text: "This counterparty settled to secondary account …8842 in the two prior cycles.", tool: "counterparty_history(\"RZP…C796\")" },
-    { d: 2900, text: "Secondary statement has a credit of exactly ₹56,084.07 on 2026-08-06 — the batch's expected date.", tool: "query_evidence(source=bank_sec, date=2026-08-06)" },
-    { d: 3500, text: "Testing the alternative: if this were a shortfall, the decomposition residual would be partial, not the whole batch. It's the whole batch → not a shortfall.", tool: "decomposition_detail(\"RZP…C796\")" },
-    { d: 4200, kind: "prop", cat: "WRONG_ACCOUNT", conf: 86, text: "Full batch settled to secondary account …8842. Credit amount + date match exactly; counterparty has a two-cycle history there.", action: "route_to_human — confirm …8842 is in scope, then map it" }
+    { d: 200, kind: "start", cat: "UNEXPLAINED", amt: "−₹2,773.96" },
+    { d: 700, text: "PLAN: the unexplained residual is −₹2,773.96 under settlement UTR RZP20260807021769B5. Examine every transaction under that UTR; check record a8685c4f (amount ₹2,773.96, settled 2026-08-09 vs 2026-08-06 for the rest); review the decomposition for tax / fee / timing causes.", tool: "decomposition_detail(settlement_utr=RZP20260807021769B5)" },
+    { d: 1700, text: "", tool: "similar_exceptions(category_hint=TIMING, pattern=UTR=RZP20260807021769B5)" },
+    { d: 2700, text: "INVESTIGATE: decomposition — gross ₹46,610.03 − MDR ₹162.04 − GST ₹29.18 − refunds ₹6,347.36 = net expected ₹40,071.45; actual ₹37,297.49; residual −₹2,773.96, and the ledger cross-check passes. similar_exceptions returned nothing. Leading hypothesis: a timing misalignment — record a8685c4f settled a day late." },
+    { d: 3700, kind: "prop", cat: "TIMING", conf: 70, text: "The −₹2,773.96 residual matches record a8685c4f, which settled 2026-08-09 while the rest of the batch settled 2026-08-06 — an out-of-period settlement for this batch.", action: "accept_variance — account for the late settlement in timing" },
+    { d: 4700, kind: "verifier", ok: false, text: "{ \"supported\": false, \"reason\": \"the cited records do not actually carry a later settled_at value that verifies the timing-discrepancy claim\" }" },
+    { d: 5400, kind: "esc", reason: "verifier_rejected", q: "A human should review this exception directly — the proposed TIMING classification isn't supported by the cited evidence." }
   ];
   var streamed = false;
   function runStream() {
@@ -890,18 +891,23 @@ footer a { color: var(--muted); text-decoration: underline; text-underline-offse
       $("#rail .ph[data-p=investigating]").classList.replace("active", "past");
       $("#rail .ph[data-p=done]").classList.add("active");
       $("#done-card").style.display = "block";
-    }, 3000 + 4900);
+    }, 3000 + 5900);
   }
   function renderInv(n) {
     var host = $("#invest");
     var head = invTurns[0];
-    var turns = invTurns.slice(1, n).filter(function (t) { return t.text; });
-    var prop = invTurns.slice(0, n).find(function (t) { return t.kind === "prop"; });
+    var shown = invTurns.slice(0, n);
+    var turns = invTurns.slice(1, n).filter(function (t) { return t.text && !t.kind; });
+    var prop = shown.find(function (t) { return t.kind === "prop"; });
+    var vfy = shown.find(function (t) { return t.kind === "verifier"; });
+    var esc = shown.find(function (t) { return t.kind === "esc"; });
     host.innerHTML = '<div class="inv"><div class="h"><span>' + head.cat + '</span><span class="mono" style="color:var(--muted)">' + head.amt + '</span></div>' +
       '<div class="turns">' + turns.map(function (t) {
-        return '<div class="turn">' + t.text + (t.tool ? '<div class="tool">→ ' + t.tool + '</div>' : '') + '</div>';
+        return '<div class="turn">' + (t.text || "") + (t.tool ? '<div class="tool">→ ' + t.tool + '</div>' : '') + '</div>';
       }).join("") + '</div>' +
-      (prop ? '<div class="prop"><div class="ph2"><span>proposal · ' + prop.cat + '</span><span class="mono">' + prop.conf + '% grounded</span></div><p style="margin:5px 0 0">' + prop.text + '</p><div style="margin-top:5px"><b>suggested:</b> <span class="mono">' + prop.action + '</span></div></div>' : '') +
+      (prop ? '<div class="prop"><div class="ph2"><span>proposal · ' + prop.cat + '</span><span class="mono">' + prop.conf + '% confidence</span></div><p style="margin:5px 0 0">' + prop.text + '</p><div style="margin-top:5px"><b>suggested:</b> <span class="mono">' + prop.action + '</span></div></div>' : '') +
+      (vfy ? '<div class="prop" style="border-color:color-mix(in srgb,var(--attention) 45%,transparent);background:color-mix(in srgb,var(--attention) 9%,transparent)"><div class="ph2" style="color:var(--attention)">verifier · 2nd model checks the citations</div><p style="margin:5px 0 0;font-family:JetBrains Mono,monospace;font-size:11px">' + vfy.text + '</p></div>' : '') +
+      (esc ? '<div class="prop" style="border-color:color-mix(in srgb,var(--critical) 40%,transparent);background:color-mix(in srgb,var(--critical) 8%,transparent)"><div class="ph2" style="color:var(--critical)">escalated · ' + esc.reason + '</div><p style="margin:5px 0 0">' + esc.q + '</p></div>' : '') +
       '</div>';
   }
   function countTo(sel, target, ms) {
