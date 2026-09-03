@@ -48,6 +48,8 @@ export function Cockpit({
   const [sel, setSel] = useState(0);
   const [drawer, setDrawer] = useState<EvidenceDrawer | null>(null);
   const [open, setOpen] = useState(true);
+  // mobile: one surface at a time via the bottom tab bar; ignored at lg+
+  const [tab, setTab] = useState<"score" | "queue" | "evidence">("queue");
   const reduce = useReducedMotion();
   const t = reduce
     ? { duration: 0 }
@@ -109,8 +111,8 @@ export function Cockpit({
   }, [exceptions.length, resolve]);
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3">
+    <div className="min-h-screen pb-12 lg:pb-0">
+      <header className="flex items-center justify-between border-b border-border bg-surface px-4 py-3 sm:px-6">
         <div className="flex items-baseline gap-3">
           <Link href="/" className="text-sm text-muted hover:text-text">
             ← runs
@@ -122,23 +124,26 @@ export function Cockpit({
         <div className="flex items-center gap-4 text-sm">
           <Presence viewers={viewers} />
           {scorecard && (
-            <span>
+            <span className="whitespace-nowrap">
               <span className="font-semibold">
                 {(scorecard.matching.auto_match_rate * 100).toFixed(1)}%
-                auto-tied
+                <span className="hidden sm:inline"> auto-tied</span>
               </span>
               {" · "}
               <span className="text-attention">
-                {run.exceptions} exceptions
+                {run.exceptions}
+                <span className="hidden sm:inline"> exceptions</span>
               </span>
             </span>
           )}
         </div>
       </header>
 
-      <div className="grid grid-cols-[340px_1fr_minmax(0,440px)]">
+      <div className="lg:grid lg:grid-cols-[320px_1fr_minmax(0,420px)]">
         {/* ① scorecard */}
-        <aside className="border-r border-border p-5">
+        <aside
+          className={`${tab === "score" ? "block" : "hidden"} border-b border-border p-5 lg:block lg:border-b-0 lg:border-r`}
+        >
           {scorecard ? (
             <ScorecardPanel s={scorecard} />
           ) : (
@@ -147,13 +152,19 @@ export function Cockpit({
         </aside>
 
         {/* ② queue */}
-        <section className="min-w-0">
+        <section
+          className={`${tab === "queue" ? "block" : "hidden"} min-w-0 lg:block`}
+        >
           <div className="border-b border-border px-4 py-2 text-xs text-muted">
-            {exceptions.length} exceptions · <kbd className="font-mono">j</kbd>/
-            <kbd className="font-mono">k</kbd> move ·{" "}
-            <kbd className="font-mono">e</kbd> drawer ·{" "}
-            <kbd className="font-mono">a</kbd> accept ·{" "}
-            <kbd className="font-mono">w</kbd> won&apos;t-fix
+            {exceptions.length} exceptions
+            <span className="hidden sm:inline">
+              {" · "}
+              <kbd className="font-mono">j</kbd>/
+              <kbd className="font-mono">k</kbd> move ·{" "}
+              <kbd className="font-mono">e</kbd> drawer ·{" "}
+              <kbd className="font-mono">a</kbd> accept ·{" "}
+              <kbd className="font-mono">w</kbd> won&apos;t-fix
+            </span>
           </div>
           {exceptions.length === 0 ? (
             <p className="p-8 text-center text-sm text-positive">
@@ -165,12 +176,16 @@ export function Cockpit({
                 {exceptions.map((e, i) => (
                   <tr
                     key={e.id}
-                    onClick={() => setSel(i)}
+                    onClick={() => {
+                      setSel(i);
+                      setOpen(true);
+                      setTab("evidence");
+                    }}
                     className={`relative cursor-pointer border-b border-border ${
                       i === sel ? "bg-accent/10" : "hover:bg-accent/5"
                     }`}
                   >
-                    <td className="w-40 px-4 py-2">
+                    <td className="px-4 py-2.5">
                       {i === sel && (
                         <motion.span
                           layoutId="row-cursor"
@@ -184,13 +199,13 @@ export function Cockpit({
                         {e.category ?? "—"}
                       </span>
                     </td>
-                    <td className="px-2 py-2 text-right font-mono">
+                    <td className="px-2 py-2.5 text-right font-mono">
                       {e.impact_display ?? rupees(e.amount_impact_minor)}
                     </td>
-                    <td className="px-2 py-2 text-xs text-muted">
+                    <td className="hidden px-2 py-2.5 text-xs text-muted sm:table-cell">
                       {e.classified_by}
                     </td>
-                    <td className="px-4 py-2 text-right text-xs">
+                    <td className="px-4 py-2.5 text-right text-xs">
                       <StatusPill status={e.status} />
                     </td>
                   </tr>
@@ -208,7 +223,7 @@ export function Cockpit({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: reduce ? 0 : 24 }}
               transition={t}
-              className="border-l border-border p-5"
+              className={`${tab === "evidence" ? "block" : "hidden"} border-t border-border p-5 lg:block lg:border-l lg:border-t-0`}
             >
               {!current ? (
                 <p className="text-sm text-muted">select an exception</p>
@@ -228,6 +243,21 @@ export function Cockpit({
           )}
         </AnimatePresence>
       </div>
+
+      {/* mobile surface switcher */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-surface lg:hidden">
+        {(["score", "queue", "evidence"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setTab(v)}
+            className={`flex-1 py-3 text-xs font-medium capitalize ${
+              tab === v ? "text-accent" : "text-muted"
+            }`}
+          >
+            {v === "queue" ? `queue · ${exceptions.length}` : v}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
