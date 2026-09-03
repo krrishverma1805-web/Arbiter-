@@ -351,7 +351,7 @@ def _print_scorecard(card) -> None:  # type: ignore[no-untyped-def]
 @app.command("agent-bench")
 def agent_bench(
     client: str = typer.Option(
-        "oracle", "--client", help="oracle | reckless | fabricator | openai | anthropic"
+        "oracle", "--client", help="oracle | reckless | fabricator | all | openai | anthropic"
     ),
     seeds: int = typer.Option(10, "--seeds", help="how many seeded datasets to build cases from"),
     gate: bool = typer.Option(False, "--gate", help="exit 1 if a safety invariant fails"),
@@ -359,10 +359,40 @@ def agent_bench(
 ) -> None:
     """Agent trajectory benchmark — score the investigation loop against a
     labelled corpus of real exceptions (spec §32). Usefulness and safety are
-    reported separately; `unsafe_resolution_rate` must be 0."""
-    from arbiter_engine.bench.agent_bench import _DEFAULT_SEEDS, evaluate
+    reported separately; `unsafe_resolution_rate` must be 0.
 
-    rep = evaluate(client=client, seeds=_DEFAULT_SEEDS[: max(1, seeds)])
+    `--client all` builds the corpus once and scores every scripted client."""
+    from arbiter_engine.bench.agent_bench import _DEFAULT_SEEDS, evaluate, evaluate_all
+
+    picked = _DEFAULT_SEEDS[: max(1, seeds)]
+
+    if client == "all":
+        reps = evaluate_all(picked)
+        all_fail: list[str] = []
+        for name, rep in reps.items():
+            f = rep.gate_failures()
+            all_fail += [f"{name}: {x}" for x in f]
+            if as_json:
+                continue
+            typer.secho(f"\n── {name} ──", bold=True)
+            _print_agent_bench(rep, f)
+        if as_json:
+            typer.echo(
+                json.dumps(
+                    {
+                        n: {**r.as_dict(), "gate_failures": r.gate_failures()}
+                        for n, r in reps.items()
+                    },
+                    indent=2,
+                )
+            )
+        if gate and all_fail:
+            for x in all_fail:
+                typer.secho(f"  GATE: {x}", fg=typer.colors.RED)
+            raise typer.Exit(1)
+        return
+
+    rep = evaluate(client=client, seeds=picked)
     failures = rep.gate_failures()
 
     if as_json:
@@ -371,7 +401,13 @@ def agent_bench(
             raise typer.Exit(1)
         return
 
-    typer.secho(f"\nagent-bench · client={rep.client} · {rep.cases} cases\n", bold=True)
+    typer.secho(f"\nagent-bench · client={rep.client} · {rep.cases} cases", bold=True)
+    _print_agent_bench(rep, failures)
+    if failures and gate:
+        raise typer.Exit(1)
+
+
+def _print_agent_bench(rep, failures: list[str]) -> None:  # type: ignore[no-untyped-def]
     typer.secho("  usefulness", bold=True)
     typer.echo(f"    task completion      {rep.task_completion_rate:.1%}")
     typer.echo(f"    category accuracy    {rep.category_accuracy:.1%}")
@@ -382,7 +418,7 @@ def agent_bench(
     typer.echo(f"    false escalations    {rep.false_escalation_rate:.1%}  (cautious, not unsafe)")
     typer.echo(f"    avg turns / tokens   {rep.avg_turns} / {rep.avg_tokens:.0f}")
     typer.echo(f"    lift vs escalate-all {rep.ai_lift_vs_escalate_all:+.1%}")
-    typer.secho("\n  safety (independent)", bold=True)
+    typer.secho("  safety (independent)", bold=True)
     mat = rep.material_unsafe_resolutions
     mark = (
         typer.style("✓ 0", fg=typer.colors.GREEN)
@@ -392,7 +428,7 @@ def agent_bench(
     typer.echo(f"    material unsafe      {mark}  (SAFE-resolved while wrong & material)")
     typer.echo(
         f"    SAFE-gate slips      {rep.unsafe_resolutions}  "
-        f"(₹{rep.unsafe_rupees:,.0f} — all immaterial; a human still confirms)"
+        f"(₹{rep.unsafe_rupees:,.2f} — sub-rupee category ambiguity; a human still confirms)"
     )
     typer.echo(
         f"    harness catch rate   {rep.harness_catch_rate:.1%}  (of wrong attempts, escalated)"
@@ -401,17 +437,13 @@ def agent_bench(
         f"    misleading proposals {rep.misleading_proposal_rate:.1%}  (wrong, shown to a human)"
     )
     typer.echo(f"    fabricated → escalated {rep.fabricated_escalated_rate:.1%}")
-    typer.echo(f"    forbidden actions    {rep.forbidden_action_rate:.1%}")
     typer.echo(f"    injection cases      {rep.injection_cases} ({rep.injection_unsafe} unsafe)")
-
     if failures:
-        typer.secho("\n  GATE FAILED:", fg=typer.colors.RED, bold=True)
+        typer.secho("  GATE FAILED:", fg=typer.colors.RED, bold=True)
         for f in failures:
             typer.secho(f"    - {f}", fg=typer.colors.RED)
-        if gate:
-            raise typer.Exit(1)
-    elif gate:
-        typer.secho("\n  gate OK", fg=typer.colors.GREEN)
+    else:
+        typer.secho("  gate OK", fg=typer.colors.GREEN)
 
 
 @app.command()

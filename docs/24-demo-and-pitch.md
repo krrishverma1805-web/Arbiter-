@@ -35,9 +35,9 @@ _The 5-minute pitch video and the judge walkthrough. The bar says "one cherry-pi
 > "This one it couldn't resolve — and it didn't guess. It escalated with exactly one question: 'is there a second bank account feeding this?' That's the product — it collapses a 20-minute investigation into a yes/no."
 
 ### [3:00–3:45] It gets better
-- `arbiter run` cycle 2, then cycle 3 (rules carried forward).
-- Screen: the cycle-trend sparkline: **85% → 93% → 97%**, human-touch count 30 → 12 → 5.
-> "When I resolve an exception, Arbiter drafts a durable rule. Month three is measurably better than month one. No competitor shows you a rising curve — they show you a static claim."
+- `arbiter cycle-demo` — three closes, each scored twice (base spec vs. carried-forward learned spec).
+- Screen: the ₹-recovered column — one approved split-settlement rule clears **₹1,498 of residual across the two later closes** the base spec left `UNEXPLAINED`.
+> "When I resolve an exception, Arbiter drafts a durable rule I approve. The next close is measurably better — and we show you the ₹, scored against the base spec, not a hand-drawn curve."
 
 ### [3:45–4:15] Trust & audit
 - `arbiter verify <run-id>` → "event chain intact, 1,214 events."

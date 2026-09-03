@@ -514,8 +514,14 @@ class AgentBenchReport:
         return f
 
 
-def evaluate(client: str = "oracle", seeds: tuple[int, ...] = _DEFAULT_SEEDS) -> AgentBenchReport:
-    corpus = build_corpus(seeds)
+def evaluate(
+    client: str = "oracle",
+    seeds: tuple[int, ...] = _DEFAULT_SEEDS,
+    *,
+    corpus: list[_CaseRun] | None = None,
+) -> AgentBenchReport:
+    if corpus is None:
+        corpus = build_corpus(seeds)
     rep = AgentBenchReport(client=client, cases=len(corpus))
     if not corpus:
         return rep
@@ -667,3 +673,13 @@ def evaluate(client: str = "oracle", seeds: tuple[int, ...] = _DEFAULT_SEEDS) ->
     rep.per_case = per
     _ = RiskTier  # keep the import meaningful for future materiality bands
     return rep
+
+
+def evaluate_all(
+    seeds: tuple[int, ...] = _DEFAULT_SEEDS,
+    clients: tuple[str, ...] = ("oracle", "reckless", "fabricator"),
+) -> dict[str, AgentBenchReport]:
+    """Build the corpus once and score every scripted client against it — the CI
+    path, ~3x faster than three separate `evaluate()` calls."""
+    corpus = build_corpus(seeds)
+    return {c: evaluate(c, seeds, corpus=corpus) for c in clients}

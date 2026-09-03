@@ -65,7 +65,7 @@ Numeric claims 90%+, HighRadius 99%. Arbiter showing 92% on synthetic data impre
 
 **Mitigations:**
 - Don't compete on the auto-match %. Compete on **what happens to the 10%**: typed, ranked, explained, one-click-to-rule. That's the unsolved problem.
-- The learning-loop curve (85 → 93 → 97 over cycles) is the differentiator — _demonstrated improvement_, which no competitor shows.
+- The learning loop is the differentiator — _demonstrated improvement_ from human-approved rules (`arbiter cycle-demo`: one rule clears ₹1,498 of residual across two later closes), which no competitor shows. NB: the earlier "85 → 93 → 97" figure was aspirational; the shipped demo measures ₹ recovered, not an auto-match climb.
 - Publish the false-match rate. A competitor at 99% match with an unknown false-match rate is not obviously better than Arbiter at 94% with a published 0.6%.
 - **Honest residual risk:** cold-start is real. A new customer's month 1 will look mediocre. The product needs a "here's what month 3 looks like" story and the patience to get customers there.
 

@@ -129,7 +129,11 @@ exception ─▶ human accepts resolution "X" ─▶ Arbiter diffs the exception
           ─▶ merged into spec ─▶ next run: that pattern never becomes an exception again
 ```
 
-The scorecard tracks **auto-match rate over cycles**. The demo shows it climbing from ~85% → ~93% → ~97% across three simulated monthly closes. That trajectory _is_ the pitch.
+`arbiter cycle-demo` runs three monthly closes, each scored **twice** — the base spec vs.
+the carried-forward learned spec — so batch noise is separated from the rule's effect. In
+the seed demo a single approved split-settlement rule clears **₹1,498 of settlement residual
+across the two later closes** that the base spec left `UNEXPLAINED`. The point is
+_demonstrated_ improvement from human-approved rules, measured, not a hand-drawn curve.
 
 ---
 
