@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { streamUrl, rupees, type StreamFrame } from "@/lib/api";
+import {
+  api,
+  streamUrl,
+  rupees,
+  type Scorecard,
+  type StreamFrame,
+} from "@/lib/api";
 
 type Phase =
   "ingesting" | "matching" | "classifying" | "investigating" | "done";
@@ -60,6 +66,7 @@ export function LiveRun({ runId }: { runId: string }) {
   });
   const [phase, setPhase] = useState<Phase>("ingesting");
   const [done, setDone] = useState(false);
+  const [scorecard, setScorecard] = useState<Scorecard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reduce = useReducedMotion();
   const seenPhases = useRef<Set<Phase>>(new Set(["ingesting"]));
@@ -120,6 +127,10 @@ export function LiveRun({ runId }: { runId: string }) {
       setDone(true);
       setPhase("done");
       es.close();
+      api
+        .scorecard(runId)
+        .then(setScorecard)
+        .catch(() => {});
     });
     es.onerror = () => {
       // the stream caps itself server-side; only surface a hard failure
@@ -255,6 +266,32 @@ export function LiveRun({ runId }: { runId: string }) {
           <p className="text-sm font-medium text-positive">
             Run complete — chain sealed.
           </p>
+          {scorecard && (
+            <div className="mx-auto mt-3 flex max-w-md flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-muted">
+              <span>
+                <span className="font-mono text-text">
+                  {(scorecard.matching.auto_match_rate * 100).toFixed(1)}%
+                </span>{" "}
+                auto-tied
+              </span>
+              <span>
+                <span className="font-mono text-text">
+                  {(scorecard.matching.false_match_rate * 100).toFixed(2)}%
+                </span>{" "}
+                false-match
+              </span>
+              <span>
+                <span className="font-mono text-text">
+                  {(scorecard.matching.dollar_coverage * 100).toFixed(1)}%
+                </span>{" "}
+                ₹ coverage
+              </span>
+              <span>
+                {scorecard.determinism.replay_hash_match ? "✓" : "✗"}{" "}
+                deterministic
+              </span>
+            </div>
+          )}
           <Link
             href={`/runs/${runId}`}
             className="mt-3 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"

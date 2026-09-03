@@ -8,6 +8,13 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 5: live scorecard on the streaming view
+
+`LiveRun.tsx` fetches `api.scorecard(runId)` on the `done` event and renders
+auto-tie %, false-match %, ₹ coverage and the determinism tick alongside the
+"chain sealed" card — so the streaming view ends on the numbers, not just a
+link.
+
 ## 2026-09-03 — Phase 2: the cockpit sends its API key
 
 `api.ts` — `apiKey()` reads `localStorage["arbiter-key"]`; every `get`/`post`
