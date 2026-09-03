@@ -39,10 +39,12 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
 | | |
 |---|---|
 | **Ingests** | Razorpay settlement report + bank statement + order ledger → one immutable, normalized event log |
-| **Matches** | 4 deterministic passes: exact → tolerant → set/subset (1 credit ↔ N orders) → fuzzy candidates |
+| **Matches** | 8 deterministic passes: exact → tolerant → subset-sum (1 credit ↔ N orders) → fuzzy candidates → blocked → aggregate N:1 → aggregate 1:N → cross-period carry-forward |
 | **Decomposes** | Verifies `net = gross − MDR − GST-on-MDR − refunds − chargebacks ± rounding` line by line |
-| **Classifies** | Every non-match → a typed exception (`TIMING`, `DUPLICATE`, `FEE_DRIFT`, …), ranked by ₹ at stake |
+| **Classifies** | Every non-match → a typed exception (`TIMING`, `DUPLICATE`, `FEE_DRIFT`, …), ranked by ₹ at stake, then grouped into root causes (`arbiter clusters`) |
 | **Investigates** | The ambiguous residue → a bounded agent loop gathers evidence, tests a hypothesis, and either proposes a category + explanation + fix + rule, or escalates with one sharpened question. Proposals only — never auto-applied |
+| **Gates** | A deterministic **Safety Kernel** decides every proposal: SAFE / needs-a-human / escalate / quarantine — from the risk tier (R0–R5), the grounding check, a counterfactual arithmetic check, and a 2nd-model verifier. All fail-closed. `unsafe_resolution_rate` is a CI-gated metric with tolerance 0 |
+| **Stress-tests** | `arbiter attack` → 12 deterministic tamperings (altered amount, wrong currency, fabricated UTR, prompt injection, phantom credit, …); asserts a tampered file never produces a confident clean tie. Current: 12 contained · 0 unsafe · ₹0 unaccounted |
 | **Learns** | You accept a resolution → Arbiter drafts a durable rule → next cycle's auto-match rate rises |
 | **Reports** | `arbiter bench` → matching metrics (auto-match rate, precision, recall, **false-match rate**, ₹ coverage) **and** agent metrics (task-completion, tool-use accuracy, grounding, hallucination rate, escalation precision/recall, confidence calibration) — reproducibly, in CI |
 | **Places the cash** | `arbiter cash-position` → every settled rupee partitioned: confirmed in bank · in transit · held (disputes / wrong account) · unexplained. Pure arithmetic off the reconciled ledger — it always sums back to the processor-side net |
@@ -69,9 +71,18 @@ Full reasoning: [`docs/01`](docs/01-market-and-thesis.md) · the agent: [`docs/1
   classifies the next run, no model in the loop), the 3-close **cycle demo** (`make cycle`),
   the deterministic **cash-position** readout, the auditor-ready **Close Memo**, and the
   `audit-pack` export.
+- **Beyond M5** — the full [`docs/28`](docs/28-production-hardening.md) production-hardening
+  roadmap (multi-tenant platform, Postgres RLS, async job queue, Helm, OTel/Sentry/Grafana,
+  MCP server, continuous learning), then a 93-section hardening spec audited
+  ([`ENGINEERING_AUDIT.md`](ENGINEERING_AUDIT.md)) and its gaps closed: the **Safety Kernel**
+  ([`AI_SAFETY.md`](AI_SAFETY.md)), the **Attack Arbiter** harness
+  ([`FAILURE_RECOVERY.md`](FAILURE_RECOVERY.md)), headline safety metrics
+  ([`BENCHMARK.md`](BENCHMARK.md)), root-cause clustering, a validated exception state
+  machine, and the graded [`FINAL_REPORT.md`](FINAL_REPORT.md).
 
-92 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
-gate, a `gitleaks` + `pip-audit` security job, and a web typecheck/lint/build job.
+229 tests, strict `mypy`/`ruff`, CI with an isolated determinism gate, the bench scorecard
+gate (matching **and** safety metrics), a `gitleaks` + `pip-audit` security job, a Postgres
+restore-drill job, and a web typecheck/lint/build job.
 
 ## Quickstart
 
@@ -111,8 +122,8 @@ back onto it and still vetted by the deterministic grounding layer.
 
 | Path | |
 |---|---|
-| [`docs/`](docs/) | The full research, spec, architecture, design doctrine, competitive analysis, and honest red-team (27 docs + 5 ADRs) |
-| `packages/engine/` | The reconciliation engine — money, hashing, event store, spec loader, ingestion, the 4-pass matcher, Fellegi–Sunter scoring, decomposition, the safe-AST rule engine, the investigation agent, the learning loop, `bench`, `memo`, the CLI |
+| [`docs/`](docs/) | The full research, spec, architecture, design doctrine, competitive analysis, and honest red-team (28 docs + 5 ADRs), plus root-level summaries: [`ARCHITECTURE`](ARCHITECTURE.md) · [`AI_SAFETY`](AI_SAFETY.md) · [`SECURITY`](SECURITY.md) · [`THREAT_MODEL`](THREAT_MODEL.md) · [`BENCHMARK`](BENCHMARK.md) · [`FAILURE_RECOVERY`](FAILURE_RECOVERY.md) · [`REPLAY`](REPLAY.md) · [`FINAL_REPORT`](FINAL_REPORT.md) |
+| `packages/engine/` | The reconciliation engine — money, hashing, event store, spec loader, ingestion, the 8-pass matcher, Fellegi–Sunter scoring, decomposition, the safe-AST rule engine, the investigation agent, the deterministic **Safety Kernel** (`safety/`), the **Attack Arbiter** harness (`attack.py`), root-cause clustering, the learning loop, `bench`, `memo`, the CLI |
 | `packages/datagen/` | Synthetic batch generator — clean batches + ground truth + the labeled adversarial anomaly catalog |
 | `packages/api/` | FastAPI backend — runs, scorecard, exceptions, resolve, learned-rule review |
 | `web/` | Next.js cockpit — scorecard · keyboard-first exception queue · evidence drawer |
@@ -149,9 +160,10 @@ back onto it and still vetted by the deterministic grounding layer.
 ## Non-goals for this version (stated deliberately)
 
 Arbiter v1 does **not**: post journal entries into an ERP · run live bank/ERP connectors ·
-do multi-currency consolidation · detect fraud · produce a full cash forecast · handle
-auth / multi-tenancy / billing. Each is a deliberate scope boundary with a reason —
-see [`docs/02 §6`](docs/02-product-spec.md) and [`docs/06 §M`](docs/06-feature-inventory.md).
+do multi-entity consolidation · detect fraud · produce a full cash forecast. Each is a
+deliberate scope boundary with a reason — see [`docs/02 §6`](docs/02-product-spec.md) and
+[`docs/06 §M`](docs/06-feature-inventory.md). (Auth, multi-tenancy and billing *are* built
+now — [`SECURITY.md`](SECURITY.md) — but there is no hosted instance and no customer.)
 
 ## The numbers (800-record adversarial batch, seed 42, `--no-ai`)
 
@@ -161,6 +173,11 @@ see [`docs/02 §6`](docs/02-product-spec.md) and [`docs/06 §M`](docs/06-feature
 | precision | 100.0% | | ₹ coverage | 100.0% |
 | recall | 93.8% | | ₹ unexplained | 0.7% |
 | anomalies caught | 8 / 10 | | category accuracy | 75.0% |
+
+**Safety** (`SafetyScore` block, CI-gated at tolerance 0) — unsafe auto-resolutions **0 / 2**
+human-only items · ₹ protected **₹53,245 (100%)** · replay divergence **none** · fabricated
+citations **0** · Attack Arbiter **12 / 12 contained, 0 unsafe, ₹0 unaccounted**
+(`arbiter attack`).
 
 **Ablation** (`arbiter bench --ablate`) — the deterministic core is the whole
 table below until an `ANTHROPIC_API_KEY` is set; the model tiers (haiku triage →

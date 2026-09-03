@@ -358,3 +358,24 @@ Per §84/§85 and plain judgement:
 
 **Overall: the system already meets most of §89. Tier A closes the gaps that matter for
 the submission. Tier B is polish. Tier C is out of scope or a product decision.**
+
+---
+
+## 10. Execution status (2026-09-04)
+
+**Tier A and Tier B are complete.** Every item is committed on `main`, CI-green, with tests:
+
+| Item | Commit | Verification |
+|---|---|---|
+| A1 Safety Kernel (`safety/`) | `13c9a2e` | 17 tests; `Decision` on every proposal/escalation event |
+| A2 Attack Arbiter (`attack.py`, CLI, `POST /v1/attack`, cockpit panel) | `7634117` + `044f721` | 12 contained · 0 unsafe · ₹0 unaccounted; regression test |
+| A4 Headline safety metrics (`SafetyScore`, gate, cockpit) | `6298738` | 4 tests; gate tol 0 on `unsafe_resolution_rate` / `replay_divergence` / `fabricated_citations` |
+| B1 Root-cause clustering (`cluster.py`, CLI, `GET /clusters`, panel) | `5962286` | 5 tests |
+| B2 Exception state machine (`state.py`, wired into resolve) | `5962286` | 6 tests; API 409 on illegal transition |
+| B3 Root docs (7 files) + B4 `FINAL_REPORT.md` | `1c4b3ea` | — |
+
+Full suite: **229 passed**, ruff + mypy + tsc + `next build` clean.
+
+**Tier C stays deferred** — temporal state model (behaviour already correct), live Razorpay
+webhooks (v1 non-goal), removing pgvector/Helm/queue (a product call). These are documented,
+not forgotten.

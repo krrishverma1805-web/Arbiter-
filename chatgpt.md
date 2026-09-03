@@ -1,10 +1,12 @@
 # Arbiter — Full Project DNA (strategy consult brief)
 
-_Last updated 2026-09-03 (rev. 2 — folds in the first real agent runs against a live model,
-the OpenAI adapter, and the public demo). This file is written for an external strategy
-advisor (ChatGPT). It is the single self-contained document that explains what Arbiter is,
-what is actually built, what the research says, and where the people inside the project
-already believe the plan is weak._
+_Last updated 2026-09-04 (rev. 3 — folds in the Safety Kernel, the Attack-Arbiter
+adversarial harness, the headline safety metrics, root-cause clustering, the exception
+state machine, and the seven consolidated root docs; rev. 2 added the first real agent runs
+against a live model, the OpenAI adapter, and the public demo). This file is written for an
+external strategy advisor (ChatGPT). It is the single self-contained document that explains
+what Arbiter is, what is actually built, what the research says, and where the people inside
+the project already believe the plan is weak._
 
 ---
 
@@ -18,11 +20,12 @@ company, not just a hackathon entry.
 ### 0.5 Reality check — team, timeline, traction (read this before §10)
 
 - **Team:** one person. No co-founder, no employees.
-- **Timeline:** the entire codebase below — ~13k lines, 92 commits, engine + agent + API +
-  cockpit + a full production-hardening roadmap — was built in **roughly 3–4 days** of
-  intense work with heavy AI pair-programming. That speed is real and worth weighing both
-  ways: it shows unusual execution throughput, *and* it means almost nothing has been
-  pressure-tested by time, users, or a second engineer.
+- **Timeline:** the entire codebase below — ~14k lines, 100 commits, engine + agent + API +
+  cockpit + a full production-hardening roadmap + a fail-closed safety layer built against a
+  93-section hardening spec — was built in **roughly 4–5 days** of intense work with heavy
+  AI pair-programming. That speed is real and worth weighing both ways: it shows unusual
+  execution throughput, *and* it means almost nothing has been pressure-tested by time,
+  users, or a second engineer.
 - **Funding:** none. **Revenue:** none. **Users:** zero. **Design partners:** zero.
 - **Validation to date:** synthetic benchmarks the builder wrote, plus one public demo. No
   customer conversation has happened. No real bank statement has been reconciled.
@@ -253,6 +256,15 @@ Status legend: **✅ built + tested + in CI** · ◑ partial · ○ roadmap.
 - ✅ Fixed 11-type taxonomy per spec; deterministic classifier (spec rules + built-in
   heuristics); ₹-impact ranking; candidate attachment from the fuzzy pass; dedup/grouping;
   `budget-exceeded` status.
+- ✅ **Root-cause clustering** (`exceptions/cluster.py`, `arbiter clusters`, `GET
+  /v1/runs/{id}/clusters`, cockpit panel) — groups a run's open exceptions by a
+  deterministic key `(category, rule_id, residual direction, magnitude band)` and sums the ₹
+  per group, largest first. A controller sees "5 root causes, ₹X each" instead of 80 rows;
+  an LLM may only label a cluster, never set the numbers.
+- ✅ **Validated status state machine** (`exceptions/state.py`) — `open → proposed /
+  escalated / security_review / budget_exceeded → resolved / wont_fix`; `resolved` and
+  `wont_fix` are terminal. Wired into both resolve paths; the API returns **409** on an
+  illegal transition instead of silently appending a second resolution to a closed exception.
 
 ### The AI investigation agent (the one AI step)
 - ✅ **Hybrid-orchestration agent**: a deterministic FSM skeleton (`INGESTING → MATCHING →
@@ -288,6 +300,48 @@ Status legend: **✅ built + tested + in CI** · ◑ partial · ○ roadmap.
   path (the cockpit sends provider + key + model as request headers, used for that one run,
   never persisted).
 
+### Safety layer — the deterministic gate on the AI
+
+- ✅ **Safety Kernel** (`arbiter_engine/safety/`) — a single **pure, deterministic,
+  versioned** function `evaluate(proposal, exception, snapshot, grounding, policy) →
+  Decision{action ∈ SAFE | PROPOSE | ESCALATE | QUARANTINE, risk ∈ R0..R5, reasons}`. Every
+  agent proposal passes through it; the `Decision` is written onto the proposal/escalation
+  event so an auditor sees exactly why something was let through. The LLM never decides what
+  happens to its own output.
+- ✅ **Explicit R0–R5 risk tiers** (`safety/risk.py`) — `assess_risk` returns the max of
+  every rule that fires: R0 rounding-within-tolerance · R1 small + category-consistent · R3
+  multiple candidates / evidence–category mismatch / confidence in the uncertain band · R4
+  material ₹ impact / unexplained-with-material-money · R5 control category
+  (`SECURITY_REVIEW`, `WRONG_ACCOUNT`) / fabricated citation.
+- ✅ **Deterministic counterfactual verification** (`safety/counterfactual.py`) — *not* a
+  second LLM. For each hypothesis category it runs the arithmetic that would have to hold if
+  the hypothesis were true ("if this ₹X gap is an unrecorded refund, `refunds += X` closes
+  the residual to 0 — does it?") and contradicts the proposal if it doesn't. Independent of,
+  and additional to, the 2nd-model verifier.
+- ✅ **Fail-closed everywhere** — an unparseable / verdict-less verifier response escalates;
+  grounded-confidence below θ_escalate escalates; a provider outage escalates that exception,
+  it does not sink the run; material money (R4+) with sub-conclude confidence escalates; R5
+  never returns SAFE.
+- ✅ **Attack Arbiter** (`arbiter attack`, `POST /v1/attack`, cockpit panel) — a
+  deterministic adversarial harness. 12 scenarios, each copies a clean dataset, applies one
+  known tampering, reconciles with `--no-ai`, and reports `{detected? rupees_unaccounted?
+  unsafe_auto_resolution? what_arbiter_did? verdict}`. Verdicts: CONTAINED / PARTIAL /
+  MISSED / **UNSAFE** (the matcher asserted a confident clean tie over a tampered record —
+  the one outcome that must never happen). Scenarios: duplicate settlement row · altered
+  amount · wrong currency · fabricated UTR · dropped bank credit · duplicate refund · prompt
+  injection in a note · injection in a bank narration · ₹10,00,000 phantom credit · negative
+  gross · blanked amount · 74-year timestamp shift. **Building it found and fixed 4 real
+  gaps** (injection-scanner scope, foreign-currency handling, implausible-date handling,
+  bank-credit↔settlement linkage). Current result: **12 contained · 0 missed · 0 unsafe ·
+  ₹0 unaccounted.** `arbiter attack` exits non-zero on any UNSAFE; a CI test is the
+  regression gate.
+- ✅ **Headline safety metrics in the scorecard** (`bench` `SafetyScore`) —
+  `unsafe_resolution_rate` (of the items ground truth says needed a human, the fraction the
+  agent auto-resolved — **gate tolerance 0**), `rupees_protected` / `rupees_at_risk`,
+  `replay_divergence`, `fabricated_citations`, `injection_quarantined`. Surfaced in `arbiter
+  bench`, the cockpit scorecard panel, and the streaming view. The safety story is now a
+  *number*, gated in CI, not a claim.
+
 ### 6.1 What actually happened the first time the agent ran against a live model
 
 Until recently the agent path had only ever been exercised offline with scripted/recorded
@@ -322,16 +376,22 @@ demo. What that surfaced — this is real evidence, not speculation:
 
 Rough self-assessment of where the defensible value sits:
 
-- **The moat (≈20%):** settlement decomposition as a first-class model · the deterministic
+- **The moat (≈25%):** settlement decomposition as a first-class model · the deterministic
   matcher + Fellegi–Sunter scoring · the bounded investigation loop with grounding + the
-  verifier · the honest adversarial benchmark · the event-sourced replayable audit trail.
-- **Table stakes (≈30%):** file ingestion, the exception taxonomy, the cockpit UI, `--no-ai`.
-  Necessary, not differentiating.
-- **Premature scaffolding (≈50%):** the multi-tenant platform, Postgres RLS, the async job
+  verifier · **the deterministic Safety Kernel + counterfactual check + the Attack-Arbiter
+  harness** (the fail-closed "AI proposes, arithmetic decides" gate is the part a finance
+  buyer's risk team would actually care about) · the honest adversarial benchmark with
+  gated safety metrics · the event-sourced replayable audit trail.
+- **Table stakes (≈30%):** file ingestion, the exception taxonomy, the cockpit UI,
+  root-cause clustering, `--no-ai`. Necessary, not differentiating.
+- **Premature scaffolding (≈45%):** the multi-tenant platform, Postgres RLS, the async job
   queue, Helm chart, OpenTelemetry/Sentry/Grafana, the MCP server, the continuous-learning
   platform (retraining, drift, global patterns, pgvector). All built to spec, all CI-green,
   **none with a user** — built because a roadmap said to, not because demand pulled it.
-  That this happened is itself a data point about how decisions are being made.
+  That this happened is itself a data point about how decisions are being made. (The
+  Safety-Kernel/Attack-Arbiter work this round was also spec-driven, not demand-driven —
+  but it directly serves the Buildathon's "AI Judgment" and "Failure Recovery" criteria,
+  which is a narrower and more defensible reason than "the roadmap said so.")
 
 ### Resolution & learning loop
 - ✅ Accept / edit / reject / won't-fix on every exception, recorded as an event.
@@ -486,10 +546,17 @@ plans, gathers evidence with read-only tools, tests a hypothesis, and either pro
 category + explanation + fix + draft rule, or escalates with one question. Output is a
 strict schema; malformed → discarded, exception stays `UNEXPLAINED`, logged.
 
+**The gate:** every proposal the agent emits passes through the **deterministic Safety
+Kernel** (§6 "Safety layer") before it can be marked SAFE — a pure, versioned function over
+the risk tier, the grounding result, a deterministic counterfactual arithmetic check, and
+the 2nd-model verifier. The LLM proposes; deterministic code decides SAFE / needs-a-human /
+escalate / quarantine, and records why.
+
 **Hard guarantees:** no agent tool mutates money; every proposal is an event with an "AI
 proposed" badge; a human accept/edit/reject is required before a proposal affects anything;
 the agent is time- and token-budgeted; `arbiter run --no-ai` skips the step entirely and
-the scorecard still computes.
+the scorecard still computes; `unsafe_resolution_rate` (auto-resolutions ground truth says
+needed a human) is a CI-gated metric with tolerance 0.
 
 ### 7.3 Data model
 
@@ -542,6 +609,7 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
 | Brain (investigation loop) | **not** reproducible on a fresh call; made **replayable** by recording every request/response as an `AGENT_INTERACTION` event |
 | `arbiter replay <run-id>` | re-runs the skeleton deterministically; replays recorded agent turns instead of calling the API |
 | cross-run learned state (FS retrain, drift, threshold tuning) | written to a `__learn__<org>` pseudo-run, **never** the reconciliation hash chain, so a replay in a fresh store does not diverge |
+| `replay_divergence` | a first-class scorecard metric — the reconciliation is run twice and the terminal hashes compared; CI gate tolerance is 0 |
 
 ### 7.7 Accuracy — measured, honest, and synthetic
 
@@ -555,6 +623,14 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
 | recall | 93.8% | | ₹ unexplained | 0.7% |
 | anomalies caught | 8 / 10 | | category accuracy | 75.0% |
 | determinism (replay hash match) | ✅ | | confidence ECE | 0.12 (recalibrated, disclosed) |
+
+**Headline safety numbers** — same seed dataset, `SafetyScore` block, CI-gated at tolerance 0:
+
+| metric | value | | metric | value |
+|---|---|---|---|---|
+| unsafe auto-resolutions | **0 / 2** human-only items | | replay divergence | **none** |
+| ₹ protected | **₹53,245 (100%)** | | fabricated citations | **0** |
+| Attack Arbiter (12 scenarios) | **12 contained · 0 unsafe** | | ₹ unaccounted after attack | **₹0** |
 
 **What these numbers are and are not:**
 - They are on **synthetic data** generated by a generator I also wrote. The anomaly catalog
@@ -589,10 +665,18 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
 
 ### 7.9 Security & compliance posture
 
+- **Deterministic Safety Kernel** as the single gate on every agent proposal (R0–R5 tiers,
+  grounding, counterfactual arithmetic, 2nd-model verifier — all fail-closed); the
+  `Decision` is on the event log. Money-safety is independent of model-safety.
+- **Attack Arbiter** — a 12-scenario deterministic adversarial suite run in CI; current
+  result 12 contained / 0 unsafe / ₹0 unaccounted. It found and closed 4 real gaps.
 - Prompt-injection defense: untrusted-field fencing + system-prompt data declaration + a
-  deterministic injection scanner that quarantines to `SECURITY_REVIEW` (bypasses the agent)
-  + proposal-only tools as the backstop (money-safety is independent of model-safety).
-- File intake hardening (size/row caps, CSV formula neutralization, safe XLSX).
+  deterministic injection scanner (broadened this round beyond "ignore previous
+  instructions" to role-reassignment, "mark as reconciled/approved", authorization claims,
+  leading `system:`/`assistant:` lines) that quarantines to `SECURITY_REVIEW` (bypasses the
+  agent) + proposal-only tools as the backstop.
+- File intake hardening (size/row caps, CSV formula neutralization, safe XLSX,
+  foreign-currency-without-a-rate → quarantine, dates outside 2015–2035 → quarantine).
 - Secret + PII redaction in logs/traces/memo; `gitleaks` + `pip-audit` + Trivy in CI.
 - `arbiter verify` for tamper-evidence; Postgres RLS for tenant isolation.
 - Compliance analysis done (RBI PA-PG Directions 2025 — the schema has no PAN field by
@@ -602,16 +686,23 @@ tolerant / subset / fuzzy weights), `thresholds`, `taxonomy` (the exception enum
 ### 7.10 Build status
 
 M0–M5 milestones complete + the entire `docs/28` production-hardening roadmap (5 phases)
-executed. 92 commits over ~3–4 days, every one CI-green. ~190 test functions, 11 CI jobs
-(lint-type, test, security, determinism, bench + regression gate, docker, helm, web,
-recovery, deploy, nightly-live [schedule-only]). ~13k lines, engine is the substance.
+executed + a 93-section external hardening spec (`ARBITER_MASTER_IMPLEMENTATION_SPEC`)
+audited (`ENGINEERING_AUDIT.md`: ~85% of it was already built) and its real gaps closed —
+the Safety Kernel, the Attack-Arbiter harness, the headline safety metrics, root-cause
+clustering, the exception state machine, seven consolidated root docs, and a graded
+`FINAL_REPORT.md`. 100 commits over ~4–5 days, every one CI-green. ~222 test functions
+(229 cases), ~11 CI jobs (lint-type, test, security, determinism, bench + regression gate,
+docker, helm, web, recovery, deploy, nightly-live [schedule-only]). ~14k lines, engine is
+the substance.
 
 ### 7.11 What's live right now
 
 - **Public demo: `https://arbiter-cockpit.vercel.app`** — the *real* Next.js cockpit,
   hosted, no login. It serves a **frozen snapshot** of one real run (`f7e810ba`: 1,672
-  records, agent on `gpt-4o`): the scorecard, the keyboard exception queue, the evidence
-  drawer with the 4-turn investigation trace, and a `/live` view that replays the real
+  records, agent on `gpt-4o`): the scorecard (now including the headline safety block), the
+  keyboard exception queue, the evidence drawer with the 4-turn investigation trace, the
+  **root-cause cluster panel**, the **"Run the attack suite" panel** (serving the frozen
+  `arbiter attack --json` output — 12 contained), and a `/live` view that replays the real
   event log as SSE so the gpt-4o investigation animates the way it happened
   (plan → tool calls → proposal → verifier rejects the citations → escalated). Backed by
   Next.js route handlers reading captured JSON — no Python backend running. Set
@@ -659,16 +750,20 @@ Four bands. Arbiter sits deliberately between bands 3 and 4.
   are *engines* not products — no exception-triage UX, no LLM adjudication, no scorecard, no
   learning loop, no settlement-decomposition model.
 
-**Arbiter's defensible wedge (5 things, any one a talking point, together a position):**
+**Arbiter's defensible wedge (6 things, any one a talking point, together a position):**
 1. The honest scorecard — nobody publishes precision + recall + false-match rate on
-   reproducible *adversarial* labeled data, checkable by a stranger in one command.
+   reproducible *adversarial* labeled data, checkable by a stranger in one command — now
+   also with gated safety metrics (`unsafe_resolution_rate`, `replay_divergence`).
 2. Settlement decomposition as a first-class model — flags a total-match that doesn't
    decompose as a false match.
 3. The exception ledger is the deliverable, not the leftover — typed, ranked by rupees,
-   each with evidence + hypothesis + one-click-to-rule.
+   clustered into root causes, each with evidence + hypothesis + one-click-to-rule.
 4. Deterministic-core doctrine, written as an ADR — better engineering *and* exactly what
    the "AI Judgment" criterion rewards.
 5. Demonstrable improvement over cycles — a rising curve, not a static claim.
+6. Fail-closed safety — a deterministic Safety Kernel gates every AI proposal, and an
+   Attack-Arbiter harness proves in CI that a tampered file never produces a confident
+   clean tie (12/12 contained). This is the "Failure Recovery" criterion, made a number.
 
 ---
 
@@ -928,11 +1023,11 @@ Specifically:
    *this* market, or do they mean "excellent project, not a company"? Say which.
 4. **Design the cheapest falsification experiment (Q7).** One test, what it costs, what
    result kills the idea vs. greenlights it.
-5. **Tell me what to cut.** §6.2 is my own rough cut at moat (~20%) vs. table stakes
-   (~30%) vs. premature scaffolding (~50%). Pressure-test it. What should not have been
+5. **Tell me what to cut.** §6.2 is my own rough cut at moat (~25%) vs. table stakes
+   (~30%) vs. premature scaffolding (~45%). Pressure-test it. What should not have been
    built yet, and — the part I actually need — what does the fact that I built a full
-   production platform before talking to one customer tell you about how I'm making
-   decisions, and how do I fix that pattern?
+   production platform *and then a 93-section safety-hardening spec*, all before talking to
+   one customer, tell you about how I'm making decisions, and how do I fix that pattern?
 6. **If the verdict is "portfolio piece, marginal company" — tell me plainly**, and then
    answer Q8.
 
@@ -952,6 +1047,18 @@ opportunities here."
 - `docs/adr/` — 0001 deterministic core / AI at the boundary · 0002 event-sourced store ·
   0003 safe-AST rules · 0004 hybrid orchestration · 0005 Fellegi–Sunter matching.
 - `docs/BUILD-LOG.md` — every bug found and fixed, chronologically.
+- **Root-level summaries (each points into `docs/`):** `ARCHITECTURE.md` · `AI_SAFETY.md`
+  (the Safety Kernel, R0–R5, counterfactual, defense-in-depth table) · `SECURITY.md` ·
+  `THREAT_MODEL.md` (assets, actors, the Attack-Arbiter abuse cases, residual risk) ·
+  `BENCHMARK.md` · `FAILURE_RECOVERY.md` (fail-closed behaviour table + the attack harness) ·
+  `REPLAY.md`.
+- `ENGINEERING_AUDIT.md` — the 93-section hardening spec mapped against the code (done /
+  partial / gap) + the prioritized plan that was then executed.
+- `FINAL_REPORT.md` — a graded self-assessment against the four Buildathon criteria and the
+  spec's acceptance groups, with an explicit "what is NOT done" section.
+- `packages/engine/arbiter_engine/safety/` — `kernel.py` / `risk.py` / `counterfactual.py`
+  / `policy.py`. `packages/engine/arbiter_engine/attack.py` — the adversarial harness.
+  `packages/engine/arbiter_engine/exceptions/cluster.py` + `state.py`.
 - `README.md` — the numbers, the quickstart, the honest-limitations section.
 - `web/DEPLOY.md` — how the public demo is hosted and refreshed.
 - **See it: `https://arbiter-cockpit.vercel.app`** (the cockpit + the verbatim gpt-4o
