@@ -8,6 +8,15 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 2: the cockpit sends its API key
+
+`api.ts` — `apiKey()` reads `localStorage["arbiter-key"]`; every `get`/`post`
+attaches `Authorization: Bearer <key>` when it's set. EventSource and WebSocket
+can't set headers, so `streamUrl` and `usePresence` append `?key=`, and `_gate`
+now falls back to `?key=` when there's no `Authorization` header. The ⌘K palette
+gains "Set / Change API key" (a prompt → `localStorage` → reload). Dev
+(`ARBITER_ENV=dev`) still needs nothing. 1 API test, 182 total.
+
 ## 2026-09-03 — Phase 1: adversarial synthetic distribution
 
 `generate_dataset(difficulty="adversarial")` — on top of `hard`: ~35% of clean

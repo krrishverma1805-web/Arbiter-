@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { apiKey } from "@/lib/api";
 
 export interface Viewer {
   viewer_id: string;
@@ -21,7 +22,9 @@ export function usePresence(runId: string, onEvent?: Handler) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const url = `${proto}://${window.location.host}/api/v1/runs/${runId}/ws`;
+    const k = apiKey();
+    const q = k ? `?key=${encodeURIComponent(k)}` : "";
+    const url = `${proto}://${window.location.host}/api/v1/runs/${runId}/ws${q}`;
     let ws: WebSocket | null = null;
     let keepalive: ReturnType<typeof setInterval> | null = null;
     let closed = false;

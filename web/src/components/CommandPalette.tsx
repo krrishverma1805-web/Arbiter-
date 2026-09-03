@@ -3,7 +3,7 @@
 import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { api, type RunSummary } from "@/lib/api";
+import { api, apiKey, setApiKey, type RunSummary } from "@/lib/api";
 
 /** ⌘K / Ctrl-K everywhere: navigate, jump to a run, flip the theme. Page-local
  *  shortcuts (j/k/e/a/w in the cockpit) stay where they are. */
@@ -74,6 +74,23 @@ export function CommandPalette() {
             className="px-1 text-[11px] uppercase tracking-wide text-muted"
           >
             <Item onSelect={() => run(() => router.push("/"))}>All runs</Item>
+            <Item
+              onSelect={() =>
+                run(() => {
+                  const cur = apiKey() ?? "";
+                  const next = window.prompt(
+                    "Arbiter API key (blank to clear)",
+                    cur,
+                  );
+                  if (next !== null) {
+                    setApiKey(next.trim() || null);
+                    location.reload();
+                  }
+                })
+              }
+            >
+              {apiKey() ? "Change API key" : "Set API key"}
+            </Item>
           </Command.Group>
 
           <Command.Group

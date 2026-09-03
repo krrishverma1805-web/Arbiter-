@@ -227,6 +227,25 @@ def test_viewer_cannot_start_a_run_or_merge_rules(client, monkeypatch):
     assert r2.status_code == 202
 
 
+def test_sse_stream_accepts_the_key_on_the_query(client, monkeypatch):
+    """EventSource can't set headers, so the cockpit passes the key as `?key=`
+    on the stream URL (docs/28 §2 item 6)."""
+    c, ds = client
+    import arbiter_api.auth as auth
+
+    monkeypatch.setattr(auth, "ENV", "prod")
+    run_id = c.post(
+        "/v1/runs",
+        json={"spec": "razorpay-settlement", "dataset": str(ds)},
+        headers={"authorization": f"Bearer {auth.issue_key('sse', 'x', 'analyst')}"},
+    ).json()["run_id"]
+
+    assert c.get(f"/v1/runs/{run_id}/stream").status_code == 401
+    key = auth.issue_key("sse", "y", "viewer")
+    ok = c.get(f"/v1/runs/{run_id}/stream?key={key}")
+    assert ok.status_code == 200 and "event: done" in ok.text
+
+
 def test_access_audit_log_records_writes_and_denials(client, monkeypatch):
     """docs/28 §2 item 6: mutating requests and auth failures land in a
     tenant-scoped, admin-only access log."""

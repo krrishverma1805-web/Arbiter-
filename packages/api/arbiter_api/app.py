@@ -73,7 +73,11 @@ async def _gate(request: Request, call_next):  # type: ignore[no-untyped-def]
 
     if request.url.path in _PUBLIC:
         return await call_next(request)
-    principal = resolve(request.headers.get("authorization"))
+    # EventSource can't set headers — the SSE stream accepts the key on the query
+    auth = request.headers.get("authorization")
+    if auth is None and (qk := request.query_params.get("key")):
+        auth = f"Bearer {qk}"
+    principal = resolve(auth)
     if principal is None:
         audit(None, request.method, request.url.path, 401)
         return JSONResponse(

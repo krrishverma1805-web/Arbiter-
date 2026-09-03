@@ -7,8 +7,35 @@ function base(): string {
   return process.env.ARBITER_API_URL ?? "http://127.0.0.1:8000";
 }
 
+// The cockpit's API key (prod). Dev (`ARBITER_ENV=dev`) needs none. Set it via
+// the ⌘K palette → "Set API key"; it lives only in this browser.
+export function apiKey(): string | null {
+  if (typeof window === "undefined") return process.env.ARBITER_API_KEY ?? null;
+  try {
+    return localStorage.getItem("arbiter-key");
+  } catch {
+    return null;
+  }
+}
+export function setApiKey(key: string | null): void {
+  try {
+    if (key) localStorage.setItem("arbiter-key", key);
+    else localStorage.removeItem("arbiter-key");
+  } catch {
+    /* private mode */
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const k = apiKey();
+  return k ? { authorization: `Bearer ${k}` } : {};
+}
+
 async function get<T>(path: string): Promise<T> {
-  const r = await fetch(`${base()}${path}`, { cache: "no-store" });
+  const r = await fetch(`${base()}${path}`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
   if (!r.ok) throw new Error(`${r.status} ${path}`);
   return (await r.json()) as T;
 }
@@ -16,7 +43,7 @@ async function get<T>(path: string): Promise<T> {
 async function post<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(`${base()}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${r.status} ${path}`);
@@ -90,7 +117,14 @@ export interface ReconException {
 
 export interface EvidenceDrawer {
   exception: ReconException;
-  records: Array<Record<string, unknown> & { id: string; source: string; kind: string; amount_display: string }>;
+  records: Array<
+    Record<string, unknown> & {
+      id: string;
+      source: string;
+      kind: string;
+      amount_display: string;
+    }
+  >;
   decompositions: Array<{
     settlement_utr: string | null;
     expected_minor: number;
@@ -99,7 +133,11 @@ export interface EvidenceDrawer {
     ledger_crosscheck_ok: boolean;
     components: Record<string, number>;
   }>;
-  candidates: Array<{ hypothesis: string; score_bits: number; record_ids: string[] }>;
+  candidates: Array<{
+    hypothesis: string;
+    score_bits: number;
+    record_ids: string[];
+  }>;
   agent_proposal: Record<string, unknown> | null;
   agent_escalation: Record<string, unknown> | null;
   agent_trace?: Array<{
@@ -129,22 +167,37 @@ export interface StreamFrame {
 }
 
 // The cockpit runs in the browser, where the Next rewrite proxies /api/* to the
-// backend; EventSource needs the same-origin proxied URL.
-export const streamUrl = (runId: string) => `/api/v1/runs/${runId}/stream`;
+// backend; EventSource/WebSocket can't set headers, so the key rides the query.
+export function streamUrl(runId: string): string {
+  const k = apiKey();
+  return `/api/v1/runs/${runId}/stream${k ? `?key=${encodeURIComponent(k)}` : ""}`;
+}
 
 export const api = {
   listRuns: () => get<{ runs: RunSummary[] }>("/v1/runs"),
-  listSpecs: () => get<{ specs: { name: string; path: string }[] }>("/v1/specs"),
-  listDatasets: () => get<{ datasets: { name: string; path: string }[] }>("/v1/datasets"),
+  listSpecs: () =>
+    get<{ specs: { name: string; path: string }[] }>("/v1/specs"),
+  listDatasets: () =>
+    get<{ datasets: { name: string; path: string }[] }>("/v1/datasets"),
   startRun: (spec: string, dataset: string, no_ai = false) =>
     post<RunSummary>("/v1/runs", { spec, dataset, no_ai }),
   run: (id: string) => get<RunSummary>(`/v1/runs/${id}`),
   scorecard: (id: string) => get<Scorecard>(`/v1/runs/${id}/scorecard`),
-  exceptions: (id: string) => get<{ total: number; exceptions: ReconException[] }>(`/v1/runs/${id}/exceptions`),
-  drawer: (runId: string, excId: string) => get<EvidenceDrawer>(`/v1/exceptions/${runId}/${excId}`),
+  exceptions: (id: string) =>
+    get<{ total: number; exceptions: ReconException[] }>(
+      `/v1/runs/${id}/exceptions`,
+    ),
+  drawer: (runId: string, excId: string) =>
+    get<EvidenceDrawer>(`/v1/exceptions/${runId}/${excId}`),
   resolve: (runId: string, excId: string, action: string, detail: string) =>
-    post<{ ok: boolean }>(`/v1/exceptions/${runId}/${excId}/resolve`, { action, detail }),
-  verify: (id: string) => get<{ intact: boolean; events: number; terminal_hash: string }>(`/v1/runs/${id}/verify`),
+    post<{ ok: boolean }>(`/v1/exceptions/${runId}/${excId}/resolve`, {
+      action,
+      detail,
+    }),
+  verify: (id: string) =>
+    get<{ intact: boolean; events: number; terminal_hash: string }>(
+      `/v1/runs/${id}/verify`,
+    ),
 };
 
 export function rupees(minor: number): string {
