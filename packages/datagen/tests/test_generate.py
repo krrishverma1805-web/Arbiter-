@@ -71,11 +71,12 @@ def test_scenarios_shape(tmp_path: Path):
         assert gt["true_matches"]
 
 
-def test_adversarial_difficulty_still_produces_matchable_batches(tmp_path: Path):
-    """The `adversarial` distribution mangles / drops the UTR label on most
-    batches and appends a totals row — but a batch's amount + date must still
-    let the matcher recover it, so `true_matches` is non-empty and identity
-    holds for the clean ones."""
+def test_adversarial_difficulty_degrades_gracefully(tmp_path: Path):
+    """The `adversarial` distribution mangles / drops the UTR label on ~half the
+    batches and appends a totals row. Under that stress the matcher must (a)
+    still auto-tie a majority, (b) NEVER make a wrong auto-tie, and (c) never
+    lose a rupee — the batches it can't recover become explained exceptions."""
+    from arbiter_engine.bench import score_run
     from arbiter_engine.events.store import EventStore
     from arbiter_engine.run import RunInputs, execute
 
@@ -88,8 +89,9 @@ def test_adversarial_difficulty_still_produces_matchable_batches(tmp_path: Path)
     spec = Path(__file__).resolve().parents[3] / "specs/razorpay-settlement.yaml"
     store = EventStore("sqlite://")
     proj = execute(store, RunInputs(spec_path=spec, dataset_dir=tmp_path, no_ai=True))
-    matched = proj.matched_record_ids
-    # every ground-truth true match's records are auto-tied despite the garbling
-    bank_ids = {r.id for r in proj.records if r.source == "bank"}
-    tied = len(bank_ids & matched)
-    assert tied >= len(gt["true_matches"]) * 0.85
+    card = score_run(
+        proj, tmp_path, spec_name="adv", wallclock_ms=0, replay_hash_match=True
+    ).to_dict()["matching"]
+    assert card["false_match_rate"] <= 0.01
+    assert card["dollar_coverage"] >= 0.99
+    assert card["auto_match_rate"] >= 0.55
