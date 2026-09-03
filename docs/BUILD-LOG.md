@@ -8,6 +8,17 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 1: PDF bank-statement ingestion
+
+`ingest/pdf_source.py` via `pypdf` — which, unlike `pdfplumber`, has **zero
+required dependencies** (the earlier "heavy dep tree" concern was about
+pdfminer/pillow/cryptography, none of which pypdf's text path needs). New
+`arbiter-engine[pdf]` extra. `pdf_rows(text)` walks the extracted lines; any
+line carrying a date and ≥ 1 currency amount becomes a row (first money token =
+the transaction, `DR`/`DEBIT` → a debit), the rest is narration for
+`extract_utr`. A PDF with no text layer raises "no text layer (a scanned PDF
+needs OCR…)". 3 tests, 186 total.
+
 ## 2026-09-03 — Phase 2: S3/R2 upload storage backend
 
 `storage.S3Storage` (extends `Storage`, `arbiter-api[s3]` = boto3). `save` →

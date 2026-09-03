@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2"]
+pdf = ["pypdf>=5.1"]
 
 [project.scripts]
 arbiter = "arbiter_engine.cli:app"

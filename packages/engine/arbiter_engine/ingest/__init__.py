@@ -12,6 +12,7 @@ from arbiter_engine.events.store import EventStore
 from arbiter_engine.ingest.camt_source import ingest_camt
 from arbiter_engine.ingest.csv_source import IngestResult, ingest_csv, neutralize_for_export
 from arbiter_engine.ingest.mt940_source import ingest_mt940
+from arbiter_engine.ingest.pdf_source import ingest_pdf
 from arbiter_engine.ingest.xlsx_source import ingest_xlsx
 from arbiter_engine.specs.model import SourceSpec
 
@@ -20,6 +21,7 @@ __all__ = [
     "ingest_camt",
     "ingest_csv",
     "ingest_mt940",
+    "ingest_pdf",
     "ingest_source",
     "ingest_xlsx",
     "neutralize_for_export",
@@ -45,4 +47,6 @@ def ingest_source(
         return ingest_camt(store, run_id, source_name, spec, path, profile=profile, force=force)
     if suffix in (".sta", ".mt940", ".940") or (suffix not in (".csv",) and "mt940" in fmt):
         return ingest_mt940(store, run_id, source_name, spec, path, profile=profile, force=force)
+    if suffix == ".pdf":
+        return ingest_pdf(store, run_id, source_name, spec, path, profile=profile, force=force)
     return ingest_csv(store, run_id, source_name, spec, path, profile=profile, force=force)

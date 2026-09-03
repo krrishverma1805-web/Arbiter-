@@ -242,7 +242,7 @@ def _pipeline(
     return fold_run(store, run_id)
 
 
-_SOURCE_EXTS = (".csv", ".xlsx", ".xlsm", ".xml", ".sta", ".mt940", ".940")
+_SOURCE_EXTS = (".csv", ".xlsx", ".xlsm", ".xml", ".sta", ".mt940", ".940", ".pdf")
 
 
 def _resolve_source_file(dataset_dir: Path, source_name: str) -> Path | None:

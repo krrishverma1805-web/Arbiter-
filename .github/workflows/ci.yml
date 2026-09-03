@@ -34,7 +34,7 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
-      - run: uv sync --all-packages --extra mcp
+      - run: uv sync --all-packages --extra mcp --extra pdf
       - name: pytest
         run: uv run pytest -q -m "not live" --cov=arbiter_engine --cov=arbiter_datagen --cov=arbiter_api --cov-report=term-missing
 
