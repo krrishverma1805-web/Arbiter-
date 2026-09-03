@@ -120,7 +120,10 @@ back onto it and still vetted by the deterministic grounding layer.
 
 ## Documentation
 
-Read in order:
+**Start here (repo-root summaries, each points into `docs/`):**
+[`ARCHITECTURE.md`](ARCHITECTURE.md) · [`AI_SAFETY.md`](AI_SAFETY.md) · [`SECURITY.md`](SECURITY.md) · [`THREAT_MODEL.md`](THREAT_MODEL.md) · [`BENCHMARK.md`](BENCHMARK.md) · [`FAILURE_RECOVERY.md`](FAILURE_RECOVERY.md) · [`REPLAY.md`](REPLAY.md) · [`FINAL_REPORT.md`](FINAL_REPORT.md) (graded self-assessment) · [`ENGINEERING_AUDIT.md`](ENGINEERING_AUDIT.md)
+
+**Full research and spec — read in order:**
 
 1. [`01-market-and-thesis.md`](docs/01-market-and-thesis.md) — why this, why now, which loop, sourced
 2. [`02-product-spec.md`](docs/02-product-spec.md) — what it is, what's in the box and why, how it works end to end
