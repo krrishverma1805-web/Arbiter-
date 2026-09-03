@@ -195,7 +195,7 @@ loop, usefulness and safety scored separately):
 | client | task | category | escalation recall | unsafe | notes |
 |---|---|---|---|---|---|
 | oracle (competent) | **100%** | **100%** | **100%** | **0** | +44% lift vs. "escalate everything" |
-| reckless (confidently wrong) | — | — | — | **0 material** | 48% escalated by the harness · 5 immaterial SAFE-gate slips (₹4.5k) · a human still confirms |
+| reckless (confidently wrong) | — | — | — | **0 material** | ~40% escalated by the harness · 14 sub-rupee SAFE-gate slips (₹1.14 total) · a human still confirms |
 | fabricator (cites a ghost) | — | — | **100%** | **0** | every fabrication escalates |
 
 > **Arbiter never auto-resolves.** `unsafe_resolution_rate` measures how often the

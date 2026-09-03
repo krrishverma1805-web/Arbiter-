@@ -88,10 +88,10 @@ against one of:
   accuracy, **100% of human-only cases escalated, 0 unsafe resolutions**, +44%
   lift over the trivial "escalate everything" policy.
 * **reckless** — a confidently-wrong agent (proposes a tempting wrong category at
-  0.97). Result: **0 material unsafe resolutions**; the deterministic harness
-  escalates or flags every material one; the residual `SAFE`-gate slips are all
-  on immaterial amounts (≈ ₹3k total across the corpus) — and a human still
-  confirms.
+  0.97). Result: **0 material unsafe resolutions**; ~40% escalated outright, ~46%
+  shown to a human who rejects them; the residual `SAFE`-gate slips are every one
+  a sub-rupee category ambiguity (₹1.14 total across 99 cases) — and a human
+  still confirms.
 * **fabricator** — cites a record that doesn't exist. Result: **100% escalated**.
 
 Usefulness and safety are scored on separate scorecards. CI gates on: oracle

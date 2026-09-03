@@ -56,17 +56,18 @@ gets through, nothing is auto-resolved incorrectly.
 | metric | value |
 |---|---|
 | **material unsafe resolutions** | **0** |
-| SAFE-gate slips (kernel marked SAFE while wrong) | 5 / 99 — **all immaterial**, ≈ ₹4,500 total |
-| harness catch rate (wrong attempts the harness escalated) | **48%** |
-| misleading proposals (wrong, shown to a human who rejects) | 47% |
+| SAFE-gate slips (kernel marked SAFE while the category was wrong) | 14 / 99 — **₹1.14 total** across the whole corpus |
+| harness catch rate (wrong attempts the harness escalated outright) | **39%** |
+| misleading proposals (wrong, shown to a human who rejects them) | 46% |
 | injection cases reaching an unsafe outcome | **0** |
 
 Read this honestly: a confidently-wrong agent whose wrong category happens to be
 *residual-compatible* reaches a green `PROPOSE` about half the time — and a human
 rejects it, because **Arbiter never auto-resolves**. The deterministic checks
-alone (no 2nd LLM in the scripted run) escalate the other half. Every material
-one is caught. The 5 SAFE-gate slips are on immaterial amounts and a human still
-confirms them.
+alone (no 2nd LLM in the scripted run) escalate ~40% outright. The 14 SAFE-gate
+slips are every one a sub-rupee category ambiguity — the residual is small enough
+(₹1.14 across all 99 cases) that "rounding" vs "a tiny fee drift" is academic and
+both resolve the same way. Not one is material. A human still confirms each.
 
 ### Fabrication (fabricator)
 

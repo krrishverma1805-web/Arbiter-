@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, rupees, type Scorecard } from "@/lib/api";
 import { NewRun } from "@/components/NewRun";
 import { demo } from "@/lib/demo";
 
@@ -43,16 +43,7 @@ export default async function Home() {
         </kbd>
       </div>
 
-      {isDemo && (
-        <div className="mt-6 rounded border border-accent/30 bg-accent/5 p-3 text-sm">
-          <strong>Hosted demo.</strong> This is the real cockpit serving a frozen
-          snapshot of one <code className="font-mono">arbiter run</code> — 1,672
-          records, the investigation agent pointed at <code className="font-mono">gpt-4o</code>.
-          Open the run below to see the full agent investigation; “reconcile”
-          replays it live. Run the whole stack yourself with{" "}
-          <code className="font-mono">make up</code>.
-        </div>
-      )}
+      {isDemo && <DemoOverview sc={demo.scorecard as unknown as Scorecard} runId={demo.run.run_id} />}
 
       {!apiUp && !isDemo && (
         <div className="mt-6 rounded border border-attention/40 bg-attention/10 p-3 text-sm">
@@ -91,5 +82,105 @@ export default async function Home() {
         ))}
       </ul>
     </main>
+  );
+}
+
+function DemoOverview({ sc, runId }: { sc: Scorecard; runId: string }) {
+  const m = sc.matching;
+  const s = sc.safety;
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="rounded border border-accent/30 bg-accent/5 p-3 text-sm">
+        <strong>Hosted demo.</strong> The real cockpit serving a frozen{" "}
+        <code className="font-mono">arbiter run</code> — 1,672 records, the
+        investigation agent pointed at{" "}
+        <code className="font-mono">gpt-4o</code>. Everything below is that run.
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Stat
+          big={`${(m.auto_match_rate * 100).toFixed(1)}%`}
+          label="auto-verified"
+          tone="positive"
+        />
+        <Stat
+          big={s ? rupees(s.rupees_at_risk_minor) : "—"}
+          label="held for a human"
+          tone="attention"
+        />
+        <Stat big={`${sc.exceptions.total}`} label="open exceptions" />
+      </div>
+
+      <div className="rounded border border-border bg-surface p-3 text-xs">
+        <div className="font-semibold uppercase tracking-wide text-muted">
+          assurance
+        </div>
+        <ul className="mt-1.5 space-y-1">
+          <li>
+            false-match rate{" "}
+            <span className="font-mono text-positive">
+              {(m.false_match_rate * 100).toFixed(1)}%
+            </span>{" "}
+            · ₹ coverage{" "}
+            <span className="font-mono text-positive">
+              {(m.dollar_coverage * 100).toFixed(0)}%
+            </span>
+          </li>
+          {s && (
+            <li>
+              unsafe auto-resolutions{" "}
+              <span className="font-mono text-positive">
+                {s.unsafe_auto_resolutions}
+              </span>{" "}
+              · ₹ protected{" "}
+              <span className="font-mono text-positive">
+                {rupees(s.rupees_protected_minor)}
+              </span>{" "}
+              · replay{" "}
+              <span className="font-mono text-positive">
+                {s.replay_divergence ? "diverged" : "identical"}
+              </span>
+            </li>
+          )}
+          <li className="text-muted">
+            Arbiter never auto-resolves — a human confirms every proposal.
+          </li>
+        </ul>
+      </div>
+
+      <Link
+        href={`/runs/${runId}`}
+        className="inline-block rounded border border-accent bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/20"
+      >
+        Open the cockpit →
+      </Link>
+    </div>
+  );
+}
+
+function Stat({
+  big,
+  label,
+  tone,
+}: {
+  big: string;
+  label: string;
+  tone?: "positive" | "attention";
+}) {
+  return (
+    <div className="rounded border border-border bg-surface p-3">
+      <div
+        className={`text-xl font-semibold ${
+          tone === "positive"
+            ? "text-positive"
+            : tone === "attention"
+              ? "text-attention"
+              : ""
+        }`}
+      >
+        {big}
+      </div>
+      <div className="text-[11px] text-muted">{label}</div>
+    </div>
   );
 }

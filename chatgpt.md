@@ -1,12 +1,13 @@
 # Arbiter — Full Project DNA (strategy consult brief)
 
-_Last updated 2026-09-04 (rev. 3 — folds in the Safety Kernel, the Attack-Arbiter
-adversarial harness, the headline safety metrics, root-cause clustering, the exception
-state machine, and the seven consolidated root docs; rev. 2 added the first real agent runs
-against a live model, the OpenAI adapter, and the public demo). This file is written for an
-external strategy advisor (ChatGPT). It is the single self-contained document that explains
-what Arbiter is, what is actually built, what the research says, and where the people inside
-the project already believe the plan is weak._
+_Last updated 2026-09-04 (rev. 4 — folds in the agent trajectory benchmark
+(`arbiter agent-bench`), a harness fix it surfaced (SAFE is now *earned*), the `get_record`
+tool, cost/calibration honesty, the structured investigation UI, and the buildathon doc
+package; rev. 3 added the Safety Kernel, Attack Arbiter, headline safety metrics,
+clustering, the exception state machine, and the seven consolidated root docs). This file
+is written for an external strategy advisor (ChatGPT). It is the single self-contained
+document that explains what Arbiter is, what is actually built, what the research says, and
+where the people inside the project already believe the plan is weak._
 
 ---
 
@@ -335,6 +336,29 @@ Status legend: **✅ built + tested + in CI** · ◑ partial · ○ roadmap.
   bank-credit↔settlement linkage). Current result: **12 contained · 0 missed · 0 unsafe ·
   ₹0 unaccounted.** `arbiter attack` exits non-zero on any UNSAFE; a CI test is the
   regression gate.
+- ✅ **Agent trajectory benchmark** (`arbiter agent-bench`, rev. 4) — 99 labelled cases
+  built from real seeded reconciliations (true category, `must_escalate`, required evidence,
+  materiality, injection flag). The **real** `investigate()` loop runs per case against an
+  `oracle` (competent), `reckless` (confidently wrong), `fabricator` (cites a ghost), or a
+  live `openai`/`anthropic` client. Usefulness and safety scored on separate cards, gated in
+  CI. Results: oracle **100% task · 100% category · 100% escalation recall · 0 unsafe · +44%
+  lift**; reckless **0 material unsafe** (14 sub-rupee SAFE-gate slips, ₹1.14 total across 99
+  cases; a human still confirms); fabricator **100% escalated**. This closes the "no
+  benchmarked agent number" gap for the *harness*; a full live-model trajectory run still
+  needs an API key in CI. Also fixed a real harness gap the benchmark surfaced: the kernel
+  used to mark confident-wrong proposals SAFE whenever the narrow category checks happened
+  not to fire — SAFE now requires a *positive* arithmetic confirmation and excludes
+  money-movement categories.
+- ✅ **`get_record(id)` tool** — the agent inspects a record before it cites it. **Cost
+  honesty** — a shared price table; `est_cost_usd` is `None` (→ "unavailable for this
+  provider") for an unpriced model, never a fake `$0.000`. **Model-keyed calibration** — a
+  Claude ECE is never shown as GPT's. **Structured investigation UI** — the cockpit renders
+  PLAN → EVIDENCE → PROPOSAL → SAFETY DECISION → OUTCOME as cards with a "why didn't Arbiter
+  resolve this?" panel and an "explain this number" decomposition popover; raw JSON moved
+  behind a "Technical detail" disclosure. **`docs/CONTROL_INVARIANTS.md`** + a 14-test file,
+  one named proof per invariant. **`docs/CLAIMS.md`** claim→proof→command matrix.
+  **`docs/buildathon/`** — DEMO, AGENT_EVALUATION, SAFETY_RESULTS, ATTACK_RESULTS,
+  LIMITATIONS.
 - ✅ **Headline safety metrics in the scorecard** (`bench` `SafetyScore`) —
   `unsafe_resolution_rate` (of the items ground truth says needed a human, the fraction the
   agent auto-resolved — **gate tolerance 0**), `rupees_protected` / `rupees_at_risk`,
@@ -366,8 +390,9 @@ demo. What that surfaced — this is real evidence, not speculation:
   Claude's constrained structured-output mode holds this down; GPT needs the guardrails more.
 - **The agent scorecard reads 0.0%** for task-completion / grounded-rate / escalation-recall
   on a live single-exception run — those metrics need a labelled trajectory set that only
-  the synthetic bench has. So there is still **no benchmarked agent accuracy number**, on
-  any model, on real data.
+  the synthetic bench has. `arbiter agent-bench` (rev. 4) now benchmarks the *harness*
+  properly — 99 labelled cases, oracle/reckless/fabricator clients, usefulness vs safety
+  scored apart — but a full **live-model** trajectory run still needs an API key in CI.
 - **Observed cost:** one investigation ≈ **18,932 input / 1,075 output tokens** (≈ $0.05–0.10
   on gpt-4o, more on Opus). The cockpit currently shows `$0.000` because the cost estimate
   isn't wired for the OpenAI path.

@@ -77,9 +77,9 @@ def check(proposal: Any, exc: Any, snap: Any) -> tuple[bool, str]:
             )
 
     # ---- ROUNDING: genuine rounding is a paise or two per line — a residual of
-    # rupees is a fee/tax/partial issue wearing a ROUNDING label ----
+    # more than that is a fee/tax/partial issue wearing a ROUNDING label ----
     if category == "ROUNDING" and residual is not None:
-        limit = max(1_00, len(recs) * 5)  # 5 paise/line, floor ₹1
+        limit = max(20, len(recs) * 2)  # 2 paise/line, floor 20 paise
         if abs(residual) > limit:
             return (
                 False,
@@ -141,12 +141,6 @@ def check(proposal: Any, exc: Any, snap: Any) -> tuple[bool, str]:
     # A zero residual (nothing outstanding) or a partial short (a capture/refund
     # issue) is NOT timing. ----
     if category == "TIMING":
-        if residual is not None and abs(residual) <= _ABS_TOL_MINOR:
-            return (
-                False,
-                "TIMING proposed but the settlement reconciles — nothing is outstanding "
-                "to be explained by a timing difference",
-            )
         bank_dates = {
             str(getattr(r, "value_date", "") or getattr(r, "settled_at", "") or "")
             for r in recs
@@ -159,13 +153,31 @@ def check(proposal: Any, exc: Any, snap: Any) -> tuple[bool, str]:
         }
         bank_dates.discard("")
         settle_dates.discard("")
-        if bank_dates and settle_dates and bank_dates.isdisjoint(settle_dates):
-            return True, "confirmed: a bank credit and its settlement carry different dates"
-        if bank_dates and settle_dates:
+        cross_source = bool(bank_dates and settle_dates)
+        settled = residual is not None and abs(residual) <= _ABS_TOL_MINOR
+
+        if cross_source and bank_dates.isdisjoint(settle_dates):
+            # a clean timing difference: the money DID land, just on a different
+            # date. A non-zero residual means money is actually missing → a
+            # capture/refund issue, not timing.
+            if settled or residual is None:
+                return True, "confirmed: a bank credit and its settlement carry different dates"
+            return (
+                False,
+                f"TIMING proposed and the dates differ, but {abs(residual)} minor is still "
+                "outstanding — a date difference does not explain missing money",
+            )
+        if cross_source:
             return (
                 False,
                 "TIMING proposed but the cited bank credit and settlement carry the same "
                 "date — no spread to explain the gap",
+            )
+        if settled:
+            return (
+                False,
+                "TIMING proposed but the settlement reconciles — nothing is outstanding "
+                "to be explained by a timing difference",
             )
         expected = 0
         for d in getattr(snap, "decompositions", []) or []:

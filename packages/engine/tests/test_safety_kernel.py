@@ -149,9 +149,9 @@ def test_counterfactual_refund_direction_contradiction() -> None:
 
 
 def test_counterfactual_timing_semantics() -> None:
-    # a bank credit and its settlement on different dates → cross-source date gap,
-    # positively confirmed
-    exc = _Exc(amount_impact_minor=1000, record_ids=["s1", "b1"])
+    # a bank credit and its settlement on different dates, and the money DID land
+    # (residual ≈ 0) → a clean timing difference, positively confirmed
+    exc = _Exc(amount_impact_minor=0, record_ids=["s1", "b1"])
     snap = _Snap(
         records={
             "s1": _Rec("s1", settled_at="2026-08-06"),
@@ -160,6 +160,11 @@ def test_counterfactual_timing_semantics() -> None:
     )
     ok, note = counterfactual.check(_proposal("TIMING"), exc, snap)
     assert ok is True and note.startswith("confirmed:")
+
+    # different dates but money still outstanding → NOT a clean timing diff
+    exc_short = _Exc(amount_impact_minor=-9000, record_ids=["s1", "b1"])
+    ok_s, note_s = counterfactual.check(_proposal("TIMING"), exc_short, snap)
+    assert ok_s is False and "outstanding" in note_s
 
     # bank credit and settlement on the SAME date → no spread → contradiction
     snap.records["b1"] = _Rec("b1", value_date="2026-08-06", source="bank")

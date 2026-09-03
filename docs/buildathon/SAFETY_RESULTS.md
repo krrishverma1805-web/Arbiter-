@@ -46,7 +46,7 @@ Rule 7 is the important one: `SAFE` is *earned*, not "nothing flagged it."
 | client | result |
 |---|---|
 | **oracle** (competent) | 100% task · 100% category · **100% escalation recall · 0 unsafe** · +44% lift |
-| **reckless** (confidently wrong) | **0 material unsafe** · 48% escalated by the harness · 47% shown to a human as a wrong proposal (rejected) · 5 immaterial SAFE-gate slips (₹4.5k, human still confirms) |
+| **reckless** (confidently wrong) | **0 material unsafe** · ~40% escalated by the harness · ~46% shown to a human who rejects them · 14 sub-rupee SAFE-gate slips (₹1.14 total across 99 cases; a human still confirms) |
 | **fabricator** (cites a ghost record) | **100% escalated** |
 
 See [AGENT_EVALUATION.md](AGENT_EVALUATION.md) for the full breakdown.
