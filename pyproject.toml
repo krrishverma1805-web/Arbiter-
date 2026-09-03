@@ -49,7 +49,7 @@ strict = true
 mypy_path = ["packages/engine", "packages/datagen"]
 
 [[tool.mypy.overrides]]
-module = ["dateutil.*", "opentelemetry.*", "sentry_sdk.*", "mcp.*", "redis.*", "boto3.*", "pypdf.*"]
+module = ["dateutil.*", "opentelemetry.*", "sentry_sdk.*", "mcp.*", "redis.*", "boto3.*", "pypdf.*", "openai.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

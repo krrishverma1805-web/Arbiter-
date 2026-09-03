@@ -15,7 +15,13 @@ import os
 from functools import partial
 from typing import Any
 
-from arbiter_engine.agent.client import AnthropicClient, LLMClient, RecordedClient, Turn
+from arbiter_engine.agent.client import (
+    AnthropicClient,
+    LLMClient,
+    OpenAIClient,
+    RecordedClient,
+    Turn,
+)
 from arbiter_engine.agent.investigator import investigate
 from arbiter_engine.agent.memory import ResolutionMemory
 from arbiter_engine.agent.prompts import INVESTIGATOR_V1_HASH
@@ -96,6 +102,18 @@ def in_scope(spec: Any) -> tuple[set[str], set[str]]:
     return invoke, never
 
 
+def _llm_ready() -> bool:
+    """True when the agent can make a real call — an Anthropic key, or an OpenAI
+    key with the provider switched to openai."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return True
+    return bool(os.environ.get("OPENAI_API_KEY")) and _provider() == "openai"
+
+
+def _provider() -> str:
+    return os.environ.get("ARBITER_LLM_PROVIDER", "anthropic").strip().lower()
+
+
 def make_client(spec: Any, *, model_override: str | None = None, exc: Any = None) -> LLMClient:
     """Tiered triage (docs/12 §5): a small model handles the low-$ / well-shaped
     exceptions, the expensive model only the genuinely hard ones."""
@@ -115,6 +133,12 @@ def make_client(spec: Any, *, model_override: str | None = None, exc: Any = None
             effort = effort_map.get("triage", "low")
         elif getattr(exc, "category", None) == "UNEXPLAINED":
             effort = effort_map.get("unexplained", effort)
+
+    if _provider() == "openai":
+        # spec model ids are Claude names; one OpenAI model handles every tier
+        # unless overridden per env.
+        oai = os.environ.get("ARBITER_OPENAI_MODEL", "gpt-4o")
+        return OpenAIClient(model=oai, effort=effort)
     return AnthropicClient(model=model, effort=effort)
 
 
@@ -156,12 +180,16 @@ def make_verifier(spec: Any) -> LLMClient | None:
     """A second, independent model that checks a proposal's cited evidence
     (docs/28 §1.3). Only built when a `verify` model is configured and a key is
     present; a subset of runs / high-$ exceptions actually invoke it."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    if not _llm_ready():
         return None
     adj = _adjudication(spec)
     models = adj.get("models", {})
     vm = models.get("verify") or models.get("triage")
-    return AnthropicClient(model=vm, effort="low") if vm else None
+    if not vm:
+        return None
+    if _provider() == "openai":
+        return OpenAIClient(model=os.environ.get("ARBITER_OPENAI_MODEL", "gpt-4o"), effort="low")
+    return AnthropicClient(model=vm, effort="low")
 
 
 def recorded_client_for(store: EventStore, run_id: str, exception_id: str) -> RecordedClient:
@@ -236,7 +264,7 @@ def run_investigations(
             active: LLMClient = recorded_client_for(store, run_id, exc.id)
         elif client is not None:
             active = client
-        elif spent >= cost_ceiling or not os.environ.get("ANTHROPIC_API_KEY"):
+        elif spent >= cost_ceiling or not _llm_ready():
             # no key or ceiling hit → escalate deterministically, no LLM call
             store.append(
                 run_id,
@@ -258,7 +286,7 @@ def run_investigations(
                     "escalation": {
                         "kind": "escalate",
                         "what_i_know": "AI investigation unavailable for this run.",
-                        "what_is_missing": "an ANTHROPIC_API_KEY or remaining cost budget",
+                        "what_is_missing": "an LLM API key or remaining cost budget",
                         "question": "A human should review this exception.",
                         "reason": "budget",
                     },

@@ -198,7 +198,11 @@ def _run_ablation(spec: Path, dataset: Path) -> None:
     import os as _os
 
     configs: list[tuple[str, bool, str | None]] = [("--no-ai", True, None)]
-    if _os.environ.get("ANTHROPIC_API_KEY"):
+    if _os.environ.get("ARBITER_LLM_PROVIDER", "").lower() == "openai" and _os.environ.get(
+        "OPENAI_API_KEY"
+    ):
+        configs += [(_os.environ.get("ARBITER_OPENAI_MODEL", "gpt-4o"), False, None)]
+    elif _os.environ.get("ANTHROPIC_API_KEY"):
         configs += [
             ("haiku", False, "claude-haiku-4-5"),
             ("sonnet", False, "claude-sonnet-5"),

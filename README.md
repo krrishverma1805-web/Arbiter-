@@ -101,6 +101,11 @@ uv run arbiter events  <run-id>            # dump the raw event log
 
 The investigation agent needs `ANTHROPIC_API_KEY`; without it, runs still complete —
 ambiguous exceptions escalate deterministically and the run stays reproducible.
+It can also run against OpenAI instead — `pip install 'arbiter-engine[openai]'`, then
+`ARBITER_LLM_PROVIDER=openai OPENAI_API_KEY=… ARBITER_OPENAI_MODEL=gpt-4o`. Same
+`Turn` contract, so grounding, the verifier pass, replay and the scorecard are
+unchanged; a non-Anthropic model that free-forms the output contract is coerced
+back onto it and still vetted by the deterministic grounding layer.
 
 ## What's in here
 
