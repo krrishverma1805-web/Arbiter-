@@ -113,6 +113,7 @@ def investigate(
     turn_budget: int = 6,
     token_budget: int = 12000,
     thresholds: dict[str, float] | None = None,
+    verifier: LLMClient | None = None,
 ) -> Investigation:
     thresholds = thresholds or {"theta_conclude": 0.8, "theta_escalate": 0.55}
     task = build_task_message(exc, tools.snap, spec, thresholds)
@@ -142,7 +143,7 @@ def investigate(
         parsed = _try_parse(t, exc.id)
         if parsed is not None:
             if isinstance(parsed, Proposal):
-                return _finalize_proposal(inv, parsed, tools, thresholds)
+                return _finalize_proposal(inv, parsed, tools, thresholds, verifier)
             inv.outcome, inv.escalation = "escalate", parsed
             return inv
 
@@ -171,11 +172,16 @@ def investigate(
 
 
 def _finalize_proposal(
-    inv: Investigation, proposal: Proposal, tools: Tools, thresholds: dict[str, float]
+    inv: Investigation,
+    proposal: Proposal,
+    tools: Tools,
+    thresholds: dict[str, float],
+    verifier: LLMClient | None = None,
 ) -> Investigation:
     """Ground the proposal against the run before trusting it. A fabricated
     citation, or a grounded confidence below the escalation floor, converts the
-    proposal to an escalation (docs/28 §1.3)."""
+    proposal to an escalation (docs/28 §1.3). If a verifier client is supplied,
+    a second model must also agree the cited evidence supports the claim."""
     rep = check_grounding(proposal, tools.snap)
     inv.grounding = rep
 
@@ -193,8 +199,66 @@ def _finalize_proposal(
         )
         return _escalate(inv, "evidence_exhausted", why)
 
+    if verifier is not None:
+        ok, reason = _verify(proposal, tools, verifier, inv)
+        if not ok:
+            return _escalate(inv, "verifier_rejected", reason)
+
     inv.outcome, inv.proposal = "proposal", proposal
     return inv
+
+
+_VERIFIER_SYSTEM = (
+    "You are a second-opinion reviewer. You are given a reconciliation proposal and the "
+    "actual records it cites. Decide ONLY whether the cited records genuinely support the "
+    "proposed category and action. Do not propose an alternative. Reply with strict JSON: "
+    '{"supported": true|false, "reason": "<one sentence>"}.'
+)
+
+
+def _verify(
+    proposal: Proposal, tools: Tools, verifier: LLMClient, inv: Investigation
+) -> tuple[bool, str]:
+    refs = [r.model_dump(mode="json") for r in proposal.evidence_refs]
+    cited_ids = {r.record_id for r in proposal.evidence_refs}
+    records = [
+        _record_brief(tools.snap.records[i]) for i in sorted(cited_ids) if i in tools.snap.records
+    ]
+    payload = {
+        "proposal": {
+            "category": proposal.category,
+            "action": proposal.suggested_action.action,
+            "explanation": proposal.explanation,
+            "evidence_refs": refs,
+        },
+        "cited_records": records,
+    }
+    t = verifier.complete(
+        system=_VERIFIER_SYSTEM,
+        messages=[{"role": "user", "content": json.dumps(payload)}],
+        tools=[],
+        force_structured={"type": "json_schema", "schema": {"type": "object"}},
+    )
+    inv.tokens_in += t.tokens_in
+    inv.tokens_out += t.tokens_out
+    inv.interactions.append({**_record(inv.turns, t), "role": "verifier"})
+    try:
+        data = json.loads(t.text or "{}")
+    except json.JSONDecodeError:
+        return True, "verifier response unparseable — not blocking"
+    return bool(data.get("supported", True)), str(data.get("reason", "verifier disagreed"))[:200]
+
+
+def _record_brief(r: Any) -> dict[str, Any]:
+    return {
+        "id": r.id,
+        "source": r.source,
+        "kind": r.kind,
+        "amount_minor": r.amount_minor,
+        "reference": r.reference,
+        "value_date": r.value_date.isoformat() if r.value_date else None,
+        "external_ids": dict(r.external_ids),
+    }
 
 
 def _record(turn_no: int, t: Turn) -> dict[str, Any]:

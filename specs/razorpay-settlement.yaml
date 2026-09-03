@@ -173,8 +173,12 @@ adjudication:
   invoke_for: [UNEXPLAINED, AMBIGUOUS]
   never_invoke_for: [SECURITY_REVIEW]   # hard rule — docs/14 C2
   model_policy: tiered                  # haiku triage -> opus for hard cases; see docs/12 §5
-  models: { triage: claude-haiku-4-5, investigate: claude-opus-5 }
-  effort: { investigate_default: medium, unexplained: high }
+  models: { triage: claude-haiku-4-5, investigate: claude-opus-5, verify: claude-haiku-4-5 }
+  triage_below_minor: 500000            # < ₹5,000 non-UNEXPLAINED -> the triage model
+  effort: { investigate_default: medium, unexplained: high, triage: low }
+  verify_above_minor: 10000             # ≥ ₹100 -> a 2nd model checks the cited evidence
+  self_consistency_above_minor: 10000000  # ≥ ₹100,000 -> 3 samples, majority vote
+  self_consistency_samples: 3
   turn_budget: 6
   per_exception_token_budget: 12000
   per_run_cost_ceiling_usd: 2.00

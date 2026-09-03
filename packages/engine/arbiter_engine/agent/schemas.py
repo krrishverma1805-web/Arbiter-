@@ -105,7 +105,13 @@ class Escalate(BaseModel):
     what_is_missing: str = Field(max_length=500)
     question: str = Field(max_length=350)
     reason: Literal[
-        "evidence_exhausted", "contradictory", "budget", "provider_unavailable", "malformed_output"
+        "evidence_exhausted",
+        "contradictory",
+        "budget",
+        "provider_unavailable",
+        "malformed_output",
+        "verifier_rejected",  # a second model disagreed the evidence supports the claim
+        "inconsistent",  # self-consistency samples did not agree on a category
     ]
 
 

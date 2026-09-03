@@ -266,3 +266,89 @@ def test_action_inconsistent_with_category_is_penalised(adversarial_dataset: Pat
     assert inv.grounding is not None and not inv.grounding.category_consistent
     assert "action" in inv.grounding.category_note
     assert inv.outcome == "escalate"
+
+
+def _json_turn(obj: dict) -> Turn:
+    import json as _j
+
+    return Turn(text=_j.dumps(obj), stop_reason="end_turn", tokens_in=20, tokens_out=10)
+
+
+def test_verifier_can_veto_a_well_grounded_proposal(adversarial_dataset: Path, spec_path: Path):
+    """A proposal that clears the deterministic grounding check still doesn't
+    reach the human if the second-opinion model says the evidence doesn't
+    support it (docs/28 §1.3)."""
+    _store, proj, spec = _snapshot(adversarial_dataset, spec_path)
+    exc = _first_unexplained(proj)
+    snap = RunSnapshot.from_projection(proj)
+
+    proposal = _Client([_proposal_turn(exc, confidence=0.95)])
+    veto = _Client(
+        [_json_turn({"supported": False, "reason": "the credit date contradicts TIMING"})]
+    )
+    inv = investigate(exc, Tools(snap), proposal, spec, verifier=veto)
+    assert inv.outcome == "escalate"
+    assert inv.escalation is not None and inv.escalation.reason == "verifier_rejected"
+    # the verifier turn was recorded for the audit trail
+    assert any(i.get("role") == "verifier" for i in inv.interactions)
+
+
+def test_verifier_approval_lets_the_proposal_through(adversarial_dataset: Path, spec_path: Path):
+    _store, proj, spec = _snapshot(adversarial_dataset, spec_path)
+    exc = _first_unexplained(proj)
+    snap = RunSnapshot.from_projection(proj)
+    proposal = _Client([_proposal_turn(exc, confidence=0.95)])
+    ok = _Client([_json_turn({"supported": True, "reason": "consistent"})])
+    inv = investigate(exc, Tools(snap), proposal, spec, verifier=ok)
+    assert inv.outcome == "proposal"
+
+
+def test_tiered_triage_picks_the_cheap_model_for_low_dollar_exceptions(spec_path: Path):
+    from arbiter_engine.agent.orchestrate import make_client
+
+    spec = load_spec(spec_path)
+    small = ReconException(
+        id="s", run_id="r", category="AMBIGUOUS", classified_by="rule", amount_impact_minor=50_00
+    )
+    big = ReconException(
+        id="b",
+        run_id="r",
+        category="UNEXPLAINED",
+        classified_by="rule",
+        amount_impact_minor=90_000_00,
+    )
+    assert make_client(spec, exc=small).model == "claude-haiku-4-5"
+    assert make_client(spec, exc=big).model == "claude-opus-5"
+
+
+def test_self_consistency_escalates_on_disagreement():
+    """Three independent investigations, three different categories → the
+    majority run is downgraded to an escalation so a human decides."""
+    from arbiter_engine.agent.investigator import Investigation
+    from arbiter_engine.agent.orchestrate import _self_consistent
+
+    def _inv(cat: str) -> Investigation:
+        iv = Investigation(exception_id="e", outcome="proposal", model="test")
+        iv.proposal = type("P", (), {"category": cat})()  # a tiny stand-in
+        iv.tokens_in, iv.tokens_out = 100, 50
+        return iv
+
+    outcomes = iter(["TIMING", "DUPLICATE", "ROUNDING"])
+    inv = _self_consistent(lambda: _inv(next(outcomes)), 3)
+    assert inv.outcome == "escalate"
+    assert inv.escalation is not None and inv.escalation.reason == "inconsistent"
+    assert inv.tokens_in == 300  # token cost of all three samples is retained
+
+
+def test_self_consistency_returns_the_majority_when_they_agree():
+    from arbiter_engine.agent.investigator import Investigation
+    from arbiter_engine.agent.orchestrate import _self_consistent
+
+    def _inv(cat: str) -> Investigation:
+        iv = Investigation(exception_id="e", outcome="proposal", model="test")
+        iv.proposal = type("P", (), {"category": cat})()
+        return iv
+
+    outcomes = iter(["TIMING", "TIMING", "ROUNDING"])
+    inv = _self_consistent(lambda: _inv(next(outcomes)), 3)
+    assert inv.outcome == "proposal" and inv.proposal.category == "TIMING"

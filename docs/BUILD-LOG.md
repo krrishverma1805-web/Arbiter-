@@ -8,6 +8,30 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 1: 2nd-model verifier + tiered triage + self-consistency
+
+Three agent-accuracy layers, all gated so `--no-ai` / no-key / the offline
+tests are untouched:
+
+- **Verifier pass** (`investigator._verify`) — after a proposal clears the
+  deterministic grounding check, if a `verifier` client is supplied and the
+  exception is ≥ `verify_above_minor`, an independent model sees the proposal +
+  the *resolved* cited records and returns `{supported, reason}`; `false` →
+  `verifier_rejected` escalation. The verifier turn is appended to
+  `inv.interactions` (`role: "verifier"`) so it lands in the audit trace.
+- **Tiered triage** (`orchestrate.make_client(..., exc=)`) — `model_policy:
+  tiered` + `triage_below_minor`: a low-$ non-UNEXPLAINED exception goes to the
+  small model, everything else to opus; per-category `effort`.
+- **Self-consistency** (`orchestrate._self_consistent`) — an exception ≥
+  `self_consistency_above_minor` runs `self_consistency_samples` full
+  investigations; the majority category wins, no majority → `inconsistent`
+  escalation. Only the winning run's interactions are persisted, so `replay`
+  still reproduces it in one pass; the combined token cost is kept.
+
+`Escalate.reason` gained `verifier_rejected` / `inconsistent`. Spec
+`adjudication` gained `verify` model + the four threshold knobs. 5 offline tests
++ 1 live. 167 tests, gate green.
+
 ## 2026-09-03 — Phase 1: cross-period carry-forward
 
 `match/cross_period.py`. `prior_open_batches(store, spec_hash, exclude_run_id)`
