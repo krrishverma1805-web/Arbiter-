@@ -227,6 +227,30 @@ def test_viewer_cannot_start_a_run_or_merge_rules(client, monkeypatch):
     assert r2.status_code == 202
 
 
+def test_access_audit_log_records_writes_and_denials(client, monkeypatch):
+    """docs/28 §2 item 6: mutating requests and auth failures land in a
+    tenant-scoped, admin-only access log."""
+    c, ds = client
+    import arbiter_api.auth as auth
+
+    monkeypatch.setattr(auth, "ENV", "prod")
+    admin = {"authorization": f"Bearer {auth.issue_key('audita', 'boss', 'admin')}"}
+    viewer = {"authorization": f"Bearer {auth.issue_key('audita', 'temp', 'viewer')}"}
+
+    # a write (202) and a forbidden write (403) by two subjects of the same org
+    c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}, headers=admin)
+    c.post("/v1/runs", json={"spec": "razorpay-settlement", "dataset": str(ds)}, headers=viewer)
+    # an unauthenticated request (401)
+    c.get("/v1/runs")
+
+    log = c.get("/v1/audit", headers=admin).json()["entries"]
+    paths = {(e["subject"], e["method"], e["status"]) for e in log}
+    assert ("boss", "POST", 202) in paths
+    assert ("temp", "POST", 403) in paths
+    # the viewer cannot read the audit log
+    assert c.get("/v1/audit", headers=viewer).status_code == 403
+
+
 def test_two_api_tenants_do_not_see_each_others_runs(client, monkeypatch):
     c, ds = client
     import arbiter_api.auth as auth

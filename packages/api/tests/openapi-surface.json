@@ -1,0 +1,73 @@
+{
+  "openapi": "3.1.0",
+  "paths": {
+    "/healthz": [
+      "GET"
+    ],
+    "/metrics": [
+      "GET"
+    ],
+    "/readyz": [
+      "GET"
+    ],
+    "/v1/audit": [
+      "GET"
+    ],
+    "/v1/datasets": [
+      "GET"
+    ],
+    "/v1/exceptions/{run_id}/{exception_id}": [
+      "GET"
+    ],
+    "/v1/exceptions/{run_id}/{exception_id}/resolve": [
+      "POST"
+    ],
+    "/v1/jobs": [
+      "GET"
+    ],
+    "/v1/jobs/{job_id}": [
+      "GET"
+    ],
+    "/v1/me": [
+      "GET"
+    ],
+    "/v1/runs": [
+      "GET",
+      "POST"
+    ],
+    "/v1/runs/{run_id}": [
+      "GET"
+    ],
+    "/v1/runs/{run_id}/exceptions": [
+      "GET"
+    ],
+    "/v1/runs/{run_id}/matches": [
+      "GET"
+    ],
+    "/v1/runs/{run_id}/replay": [
+      "GET"
+    ],
+    "/v1/runs/{run_id}/rules/merge": [
+      "POST"
+    ],
+    "/v1/runs/{run_id}/rules/pending": [
+      "GET"
+    ],
+    "/v1/runs/{run_id}/scorecard": [
+      "GET"
+    ],
+    "/v1/runs/{run_id}/stream": [
+      "GET"
+    ],
+    "/v1/runs/{run_id}/verify": [
+      "GET"
+    ],
+    "/v1/specs": [
+      "GET"
+    ],
+    "/v1/uploads": [
+      "GET",
+      "POST"
+    ]
+  }
+}

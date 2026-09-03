@@ -69,10 +69,13 @@ _PUBLIC = ("/healthz", "/readyz", "/metrics", "/docs", "/openapi.json", "/redoc"
 
 @app.middleware("http")
 async def _gate(request: Request, call_next):  # type: ignore[no-untyped-def]
+    from arbiter_api.auth import audit
+
     if request.url.path in _PUBLIC:
         return await call_next(request)
     principal = resolve(request.headers.get("authorization"))
     if principal is None:
+        audit(None, request.method, request.url.path, 401)
         return JSONResponse(
             status_code=401,
             content={"title": "unauthorized", "detail": "a valid API key is required"},
@@ -87,7 +90,11 @@ async def _gate(request: Request, call_next):  # type: ignore[no-untyped-def]
             content={"title": "rate limited", "detail": f"retry in {retry:.1f}s"},
             headers={"Retry-After": str(int(retry) + 1)},
         )
-    return await call_next(request)
+    response = await call_next(request)
+    # record mutating requests and denials; plain reads stay in the metrics/logs
+    if is_write or response.status_code in (401, 403):
+        audit(principal, request.method, request.url.path, response.status_code)
+    return response
 
 
 def get_store() -> EventStore:
@@ -149,6 +156,29 @@ class RunRequest(BaseModel):
 def whoami() -> dict[str, Any]:
     p = current_principal()
     return {"org_id": p.org_id, "subject": p.subject, "role": p.role}
+
+
+@app.get("/v1/audit")
+def access_audit(limit: int = Query(100, le=1000)) -> dict[str, Any]:
+    """The API access log for this tenant — mutating requests and auth denials
+    (docs/28 §2 item 6). Admin only."""
+    _require("admin")
+    from arbiter_api.auth import recent_access
+
+    rows = recent_access(current_principal().org_id, limit)
+    return {
+        "entries": [
+            {
+                "at": r.at,
+                "subject": r.subject,
+                "role": r.role,
+                "method": r.method,
+                "path": r.path,
+                "status": r.status,
+            }
+            for r in rows
+        ]
+    }
 
 
 @app.post("/v1/uploads", status_code=201)

@@ -8,6 +8,19 @@ Format: newest first. Each entry: what broke · how it showed up · root cause �
 
 ---
 
+## 2026-09-03 — Phase 2: access audit log + pinned OpenAPI surface
+
+`auth.AccessLog` table (migration `90589883`) + `auth.audit(principal, method,
+path, status)`. The `_gate` middleware now records every mutating request and
+every 401/403 with the resolved principal; `GET /v1/audit` (admin, tenant-
+scoped) reads it back, newest first. Best-effort — a failed audit write never
+touches the response.
+
+`test_openapi.py` + `openapi-surface.json`: a committed snapshot of every path
+and its HTTP methods. CI fails on an unintended route add / remove / verb
+change; regenerate deliberately with `python packages/api/tests/test_openapi.py`.
+2 tests, 180 total.
+
 ## 2026-09-03 — Phase 4: agent escalation-threshold tuning
 
 `learn/agent_tune.py`. Every proposal carries a `grounded_confidence`; the human

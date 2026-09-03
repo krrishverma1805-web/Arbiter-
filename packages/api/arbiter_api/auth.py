@@ -40,6 +40,23 @@ class ApiKey(SQLModel, table=True):
     revoked: bool = False
 
 
+class AccessLog(SQLModel, table=True):
+    """Who did what (docs/28 §2 item 6). Written for every mutating request and
+    every auth failure — a tamper-evident-adjacent trail (the event store is the
+    real audit log; this covers the API perimeter)."""
+
+    __tablename__ = "access_log"
+
+    id: int | None = Field(default=None, primary_key=True)
+    at: str = Field(index=True)
+    org_id: str = Field(index=True)
+    subject: str
+    role: str
+    method: str
+    path: str
+    status: int
+
+
 @dataclass(frozen=True)
 class Principal:
     org_id: str
@@ -111,6 +128,41 @@ def current_store() -> EventStore:
 
 def has_role(minimum: str) -> bool:
     return _RANK.get(current_principal().role, -1) >= _RANK[minimum]
+
+
+def audit(principal: Principal | None, method: str, path: str, status: int) -> None:
+    """Append one access-log row. Best-effort — never raises into the request."""
+    from datetime import UTC, datetime
+
+    p = principal or Principal("-", "anonymous", "-")
+    try:
+        with Session(_engine()) as s:
+            s.add(
+                AccessLog(
+                    at=datetime.now(UTC).isoformat(),
+                    org_id=p.org_id,
+                    subject=p.subject,
+                    role=p.role,
+                    method=method,
+                    path=path,
+                    status=status,
+                )
+            )
+            s.commit()
+    except Exception:  # noqa: BLE001 - auditing must not break the request
+        pass
+
+
+def recent_access(org_id: str, limit: int = 100) -> list[AccessLog]:
+    with Session(_engine()) as s:
+        return list(
+            s.exec(
+                select(AccessLog)
+                .where(AccessLog.org_id == org_id)
+                .order_by(AccessLog.id.desc())  # type: ignore[union-attr]
+                .limit(limit)
+            )
+        )
 
 
 _ = DB_URL  # keep the symbol importable for historical callers
