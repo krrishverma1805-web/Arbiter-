@@ -1,6 +1,11 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
 import { api, rupees, type Scorecard } from "@/lib/api";
+import { AppShell } from "@/components/AppShell";
 import { NewRun } from "@/components/NewRun";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { demo } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +15,6 @@ export default async function Home() {
   let specs: { name: string; path: string }[] = [];
   let datasets: { name: string; path: string }[] = [];
   let apiUp = true;
-  // No configured backend → this is the hosted demo serving a frozen snapshot
-  // of a real run (the investigation agent was pointed at gpt-4o).
   const isDemo = !process.env.ARBITER_API_URL;
   if (isDemo) {
     runs = demo.runs.runs;
@@ -30,147 +33,148 @@ export default async function Home() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Arbiter</h1>
-          <p className="mt-1 text-muted">
-            A verification layer for money movement.
-          </p>
-        </div>
-        <kbd className="mt-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted">
-          ⌘K
-        </kbd>
-      </div>
+    <AppShell width="read">
+      <header className="max-w-xl">
+        <h1 className="text-xl font-semibold tracking-tight">Arbiter</h1>
+        <p className="mt-2 text-base leading-relaxed text-text-muted">
+          A verification layer for money movement. Point it at a settlement
+          file and your ledger; it ties what it can, explains the rest, and
+          hands you a short list of what needs a person.
+        </p>
+      </header>
 
-      {isDemo && <DemoOverview sc={demo.scorecard as unknown as Scorecard} runId={demo.run.run_id} />}
+      {isDemo && (
+        <DemoCard sc={demo.scorecard as unknown as Scorecard} runId={demo.run.run_id} />
+      )}
 
       {!apiUp && !isDemo && (
-        <div className="mt-6 rounded border border-attention/40 bg-attention/10 p-3 text-sm">
-          The API isn&apos;t reachable. Start it with{" "}
-          <code className="font-mono">uv run arbiter-api</code>.
+        <Card className="mt-8 border-attention/30 bg-attention/5 p-4 text-sm">
+          The reconciliation service isn&apos;t reachable. Start it, then reload
+          this page.
+        </Card>
+      )}
+
+      {(apiUp || isDemo) && (
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold">Start a reconciliation</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Pick a spec and a dataset. The run opens as you watch it.
+          </p>
+          <NewRun specs={specs} datasets={datasets} />
         </div>
       )}
 
-      {(apiUp || isDemo) && <NewRun specs={specs} datasets={datasets} />}
-
-      <h2 className="mt-10 text-sm font-semibold uppercase tracking-wide text-muted">
-        Runs
-      </h2>
-      <ul className="mt-3 divide-y divide-border rounded border border-border bg-surface">
-        {runs.length === 0 && (
-          <li className="p-4 text-sm text-muted">No runs yet.</li>
-        )}
-        {runs.map((r) => (
-          <li key={r.run_id}>
-            <Link
-              href={`/runs/${r.run_id}`}
-              className="flex items-center justify-between p-4 hover:bg-accent/5"
-            >
-              <span className="font-mono text-xs text-muted">
-                {r.run_id.slice(0, 8)}
-              </span>
-              <span className="text-sm">
-                {r.records} records · {r.matches} matches ·{" "}
-                <span className="text-attention">
-                  {r.exceptions} exceptions
-                </span>
-              </span>
-              <span className="text-xs text-muted">{r.status}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </main>
+      <div className="mt-12">
+        <h2 className="text-sm font-semibold">Recent runs</h2>
+        <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
+          {runs.length === 0 && (
+            <li className="px-4 py-8 text-center text-sm text-text-muted">
+              No runs yet.
+            </li>
+          )}
+          {runs.map((r) => (
+            <li key={r.run_id}>
+              <Link
+                href={`/runs/${r.run_id}`}
+                className="flex items-center gap-4 px-4 py-3 transition-colors [transition-duration:120ms] hover:bg-surface-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-text-muted">
+                      {r.run_id.slice(0, 8)}
+                    </span>
+                    {r.status && (
+                      <Badge
+                        variant={
+                          r.status === "completed" ? "positive" : "neutral"
+                        }
+                      >
+                        {r.status}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="mt-1 text-sm">
+                    {r.records.toLocaleString("en-IN")} records ·{" "}
+                    {r.matches} settlement groups tied
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-medium text-attention">
+                    {r.exceptions}
+                  </div>
+                  <div className="text-xs text-text-muted">
+                    to review
+                  </div>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-text-muted" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </AppShell>
   );
 }
 
-function DemoOverview({ sc, runId }: { sc: Scorecard; runId: string }) {
+function DemoCard({ sc, runId }: { sc: Scorecard; runId: string }) {
   const m = sc.matching;
   const s = sc.safety;
   return (
-    <div className="mt-6 space-y-4">
-      <div className="rounded border border-accent/30 bg-accent/5 p-3 text-sm">
-        <strong>Hosted demo.</strong> The real cockpit serving a frozen{" "}
-        <code className="font-mono">arbiter run</code> — 1,672 records, the
-        investigation agent pointed at{" "}
-        <code className="font-mono">gpt-4o</code>. Everything below is that run.
+    <Card className="mt-8 p-5">
+      <div className="flex items-center gap-2">
+        <Badge variant="accent">Live demo</Badge>
+        <span className="text-xs text-text-muted">
+          A frozen run of 1,672 real records, the AI pointed at gpt-4o
+        </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Stat
-          big={`${(m.auto_match_rate * 100).toFixed(1)}%`}
-          label="auto-verified"
+      <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:gap-x-12">
+        <Figure
+          value={`${(m.auto_match_rate * 100).toFixed(1)}%`}
+          label="verified automatically"
           tone="positive"
         />
-        <Stat
-          big={s ? rupees(s.rupees_at_risk_minor) : "—"}
-          label="held for a human"
+        <Figure
+          value={s ? rupees(s.rupees_at_risk_minor) : "n/a"}
+          label="held for a person"
           tone="attention"
         />
-        <Stat big={`${sc.exceptions.total}`} label="open exceptions" />
+        <Figure value={`${sc.exceptions.total}`} label="open exceptions" />
       </div>
 
-      <div className="rounded border border-border bg-surface p-3 text-xs">
-        <div className="font-semibold uppercase tracking-wide text-muted">
-          assurance
-        </div>
-        <ul className="mt-1.5 space-y-1">
-          <li>
-            false-match rate{" "}
-            <span className="font-mono text-positive">
-              {(m.false_match_rate * 100).toFixed(1)}%
-            </span>{" "}
-            · ₹ coverage{" "}
-            <span className="font-mono text-positive">
-              {(m.dollar_coverage * 100).toFixed(0)}%
-            </span>
-          </li>
-          {s && (
-            <li>
-              unsafe auto-resolutions{" "}
-              <span className="font-mono text-positive">
-                {s.unsafe_auto_resolutions}
-              </span>{" "}
-              · ₹ protected{" "}
-              <span className="font-mono text-positive">
-                {rupees(s.rupees_protected_minor)}
-              </span>{" "}
-              · replay{" "}
-              <span className="font-mono text-positive">
-                {s.replay_divergence ? "diverged" : "identical"}
-              </span>
-            </li>
-          )}
-          <li className="text-muted">
-            Arbiter never auto-resolves — a human confirms every proposal.
-          </li>
-        </ul>
-      </div>
+      <p className="mt-4 border-t border-border pt-4 text-sm text-text-muted">
+        Arbiter never closes an item on its own. Every proposal waits for a
+        person to confirm it. Re-running the same inputs produced an{" "}
+        {s?.replay_divergence ? "different" : "identical"} result, and{" "}
+        {m.false_match_rate === 0
+          ? "no matches were wrong"
+          : `${(m.false_match_rate * 100).toFixed(1)}% of matches were wrong`}
+        .
+      </p>
 
       <Link
         href={`/runs/${runId}`}
-        className="inline-block rounded border border-accent bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/20"
+        className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-ink transition-colors [transition-duration:120ms] hover:bg-accent/90"
       >
-        Open the cockpit →
+        Open the cockpit <ArrowRight className="size-4" />
       </Link>
-    </div>
+    </Card>
   );
 }
 
-function Stat({
-  big,
+function Figure({
+  value,
   label,
   tone,
 }: {
-  big: string;
+  value: string;
   label: string;
   tone?: "positive" | "attention";
 }) {
   return (
-    <div className="rounded border border-border bg-surface p-3">
+    <div>
       <div
-        className={`text-xl font-semibold ${
+        className={`text-lg font-semibold tabular-nums sm:text-xl ${
           tone === "positive"
             ? "text-positive"
             : tone === "attention"
@@ -178,9 +182,9 @@ function Stat({
               : ""
         }`}
       >
-        {big}
+        {value}
       </div>
-      <div className="text-[11px] text-muted">{label}</div>
+      <div className="mt-0.5 text-sm text-text-muted">{label}</div>
     </div>
   );
 }

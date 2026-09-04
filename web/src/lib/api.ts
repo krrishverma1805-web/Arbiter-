@@ -176,6 +176,8 @@ export interface ReconException {
 
 export interface EvidenceDrawer {
   exception: ReconException;
+  /** total records behind this exception; `records` may be a capped sample */
+  _record_total?: number;
   records: Array<
     Record<string, unknown> & {
       id: string;
@@ -301,10 +303,10 @@ export const api = {
   drawer: (runId: string, excId: string) =>
     get<EvidenceDrawer>(`/v1/exceptions/${runId}/${excId}`),
   resolve: (runId: string, excId: string, action: string, detail: string) =>
-    post<{ ok: boolean }>(`/v1/exceptions/${runId}/${excId}/resolve`, {
-      action,
-      detail,
-    }),
+    post<{ ok: boolean; demo?: boolean }>(
+      `/v1/exceptions/${runId}/${excId}/resolve`,
+      { action, detail },
+    ),
   verify: (id: string) =>
     get<{ intact: boolean; events: number; terminal_hash: string }>(
       `/v1/runs/${id}/verify`,

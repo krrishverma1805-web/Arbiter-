@@ -55,10 +55,10 @@ worker:
 	ARBITER_ASYNC=1 uv run arbiter-api worker
 
 web:
-	cd web && pnpm dev
+	cd web && ARBITER_API_URL=http://localhost:8000 pnpm dev
 
 up:
-	( uv run arbiter-api & cd web && pnpm dev ) ; wait
+	( uv run arbiter-api & cd web && ARBITER_API_URL=http://localhost:8000 pnpm dev ) ; wait
 
 test: install
 	uv run pytest -m "not live"

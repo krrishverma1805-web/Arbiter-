@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
 import {
   api,
   streamUrl,
@@ -10,9 +11,21 @@ import {
   type Scorecard,
   type StreamFrame,
 } from "@/lib/api";
+import { categoryLabel, ESCALATION_REASON } from "@/lib/vocab";
+import { cn } from "@/lib/utils";
+import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { CategoryChip } from "@/components/cockpit/shared";
 
-type Phase =
-  "ingesting" | "matching" | "classifying" | "investigating" | "done";
+type Phase = "ingesting" | "matching" | "classifying" | "investigating" | "done";
+
+const PHASE_LABEL: Record<Phase, string> = {
+  ingesting: "Reading the files",
+  matching: "Matching",
+  classifying: "Classifying exceptions",
+  investigating: "Investigating with the AI",
+  done: "Done",
+};
 
 const PHASE_OF: Record<string, Phase> = {
   RECORD_INGESTED: "ingesting",
@@ -68,8 +81,15 @@ function readJsonTurn(raw: string): Record<string, unknown> | null {
     return null;
   }
 }
-function stripFences(t: string): string {
-  return t.replace(/```json[\s\S]*?```/g, "").replace(/```[\s\S]*?```/g, "").trim();
+// the streamed reasoning turns arrive as loose markdown; clean it to plain prose
+function cleanTurn(t: string): string {
+  return t
+    .replace(/```json[\s\S]*?```/g, "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }
 
 const KEEP = new Set([
@@ -83,11 +103,7 @@ const KEEP = new Set([
 
 export function LiveRun({ runId }: { runId: string }) {
   const [frames, setFrames] = useState<StreamFrame[]>([]);
-  const [counts, setCounts] = useState({
-    records: 0,
-    matches: 0,
-    exceptions: 0,
-  });
+  const [counts, setCounts] = useState({ records: 0, matches: 0, exceptions: 0 });
   const [phase, setPhase] = useState<Phase>("ingesting");
   const [done, setDone] = useState(false);
   const [scorecard, setScorecard] = useState<Scorecard | null>(null);
@@ -129,7 +145,6 @@ export function LiveRun({ runId }: { runId: string }) {
           prev.some((x) => x.seq === f.seq) ? prev : [...prev, f],
         );
     };
-    // named SSE events + the default message event
     for (const t of [
       "RECORD_INGESTED",
       "SOURCE_INGESTED",
@@ -157,12 +172,11 @@ export function LiveRun({ runId }: { runId: string }) {
         .catch(() => {});
     });
     es.onerror = () => {
-      // the stream caps itself server-side; only surface a hard failure
       if (
         es.readyState === EventSource.CLOSED &&
         !seenPhases.current.has("done")
       ) {
-        setError("stream ended — open the full cockpit");
+        setError("The live feed stopped. Open the cockpit for the finished run.");
         es.close();
       }
     };
@@ -170,89 +184,90 @@ export function LiveRun({ runId }: { runId: string }) {
   }, [runId]);
 
   const investigations = useMemo(() => foldInvestigations(frames), [frames]);
-  const spring = reduce
-    ? { duration: 0 }
-    : { type: "spring" as const, stiffness: 380, damping: 30 };
+  const t = { duration: reduce ? 0 : 0.15 };
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <header className="flex items-baseline justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Reconciling</h1>
-          <p className="mt-0.5 font-mono text-xs text-muted">
+    <AppShell
+      width="read"
+      context={
+        <span className="flex items-center gap-x-2">
+          <span className="text-text">
+            {done ? "Reconciliation complete" : "Reconciling"}
+          </span>
+          <span className="hidden font-mono text-text-muted sm:inline">
             {runId.slice(0, 8)}
-          </p>
-        </div>
-        <Link
-          href={`/runs/${runId}`}
-          className="text-sm text-accent hover:underline"
-        >
-          {done ? "open cockpit →" : "skip to cockpit"}
-        </Link>
-      </header>
-
+          </span>
+        </span>
+      }
+      actions={
+        <Button asChild variant={done ? "primary" : "secondary"} size="sm">
+          <Link href={`/runs/${runId}`}>
+            {done ? "Open the cockpit" : "Skip to the cockpit"}
+          </Link>
+        </Button>
+      }
+    >
       <PhaseRail phase={phase} seen={seenPhases.current} />
 
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        <Stat label="records" value={counts.records} />
-        <Stat label="auto-tied" value={counts.matches} />
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <Stat label="records read" value={counts.records} />
+        <Stat label="tied automatically" value={counts.matches} />
         <Stat label="exceptions" value={counts.exceptions} />
       </div>
 
-      <div className="mt-8 space-y-3">
+      {investigations.length > 0 && (
+        <h2 className="mb-3 mt-10 text-sm font-semibold">
+          What the AI is investigating
+        </h2>
+      )}
+
+      <div className="space-y-3">
         <AnimatePresence initial={false}>
           {investigations.map((inv) => (
             <motion.div
               key={inv.id}
-              layout
-              initial={{ opacity: 0, y: reduce ? 0 : 12 }}
+              initial={{ opacity: 0, y: reduce ? 0 : 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              transition={spring}
-              className="overflow-hidden rounded-xl border border-border bg-surface"
+              transition={t}
+              className="overflow-hidden rounded-lg border border-border bg-surface"
             >
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-medium">
-                  {inv.category ?? "investigating…"}
-                </span>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                {inv.category ? (
+                  <CategoryChip category={inv.category} />
+                ) : (
+                  <span className="text-sm text-text-muted">investigating…</span>
+                )}
                 {inv.impactMinor != null && (
-                  <span className="font-mono text-xs text-muted">
+                  <span className="font-mono text-xs text-text-muted">
                     {rupees(inv.impactMinor)}
                   </span>
                 )}
               </div>
 
-              <ol className="space-y-2 px-4 pb-3">
-                <AnimatePresence initial={false}>
-                  {inv.turns.map((t, i) => (
-                    <motion.li
+              {inv.turns.length > 0 && (
+                <ol className="space-y-2 px-4 pb-3">
+                  {inv.turns.map((turn, i) => (
+                    <li
                       key={i}
-                      initial={{ opacity: 0, x: reduce ? 0 : -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={spring}
                       className="border-l-2 border-accent/30 pl-3 text-xs leading-relaxed"
                     >
-                      {t.text && <p className="text-text">{t.text}</p>}
-                      {t.tools.length > 0 && (
-                        <p className="mt-0.5 font-mono text-[11px] text-muted">
-                          {t.tools.map((x) => `→ ${x}`).join("  ")}
+                      {turn.text && <TurnText text={turn.text} />}
+                      {turn.tools.length > 0 && (
+                        <p className="mt-0.5 font-mono text-[11px] text-text-muted">
+                          {turn.tools.map((x) => `→ ${x}`).join("  ")}
                         </p>
                       )}
-                    </motion.li>
+                    </li>
                   ))}
-                </AnimatePresence>
-              </ol>
+                </ol>
+              )}
 
               {inv.proposal && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={spring}
-                  className="border-t border-accent/20 bg-accent/5 px-4 py-3 text-xs"
-                >
-                  <div className="flex items-center justify-between">
+                <div className="border-t border-accent/20 bg-accent/5 px-4 py-3 text-xs">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-accent">
-                      proposal · {inv.proposal.category}
+                      Proposed: {categoryLabel(inv.proposal.category)}
                     </span>
                     {inv.proposal.grounded != null && (
                       <span className="font-mono">
@@ -260,77 +275,78 @@ export function LiveRun({ runId }: { runId: string }) {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1">{inv.proposal.explanation}</p>
-                  {inv.proposal.grounded != null && (
-                    <p className="mt-1 text-[11px] text-muted">
-                      model self-confidence — Arbiter re-derives its own from how the citations hold up
-                    </p>
-                  )}
-                </motion.div>
+                  <p className="mt-1 text-text">{inv.proposal.explanation}</p>
+                </div>
               )}
+
               {inv.verifier && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={spring}
-                  className={`border-t px-4 py-3 text-xs ${
+                <div
+                  className={cn(
+                    "border-t px-4 py-3 text-xs",
                     inv.verifier.supported
                       ? "border-positive/20 bg-positive/5"
-                      : "border-critical/25 bg-critical/5"
-                  }`}
+                      : "border-critical/25 bg-critical/5",
+                  )}
                 >
                   <span
-                    className={`font-semibold ${inv.verifier.supported ? "text-positive" : "text-critical"}`}
+                    className={cn(
+                      "font-semibold",
+                      inv.verifier.supported
+                        ? "text-positive"
+                        : "text-critical",
+                    )}
                   >
-                    verifier · {inv.verifier.supported ? "citations supported" : "citations rejected"}
+                    Independent check:{" "}
+                    {inv.verifier.supported
+                      ? "the citations hold up"
+                      : "the citations don't hold up"}
                   </span>
-                  <p className="mt-1">{inv.verifier.reason}</p>
-                </motion.div>
+                  <p className="mt-1 text-text">{inv.verifier.reason}</p>
+                </div>
               )}
+
               {inv.decision && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={spring}
-                  className="border-t border-border bg-surface px-4 py-2 text-[11px]"
-                >
-                  <span className="font-semibold text-muted uppercase tracking-wide">
-                    safety kernel
+                <div className="border-t border-border px-4 py-2 text-[11px]">
+                  <span className="font-medium uppercase tracking-wide text-text-muted">
+                    Safety check
                   </span>{" "}
                   <span className="font-mono">
                     {inv.decision.risk} ·{" "}
                     <span
-                      className={
+                      className={cn(
                         inv.decision.action === "SAFE"
                           ? "text-positive"
                           : inv.decision.action === "ESCALATE" ||
                               inv.decision.action === "QUARANTINE"
                             ? "text-attention"
-                            : "text-accent"
-                      }
+                            : "text-accent",
+                      )}
                     >
-                      {inv.decision.action}
+                      {inv.decision.action === "SAFE"
+                        ? "safe to propose"
+                        : inv.decision.action === "ESCALATE"
+                          ? "send to a person"
+                          : inv.decision.action.toLowerCase()}
                     </span>
                   </span>
-                  {inv.decision.reasons.length > 0 && (
-                    <span className="ml-2 text-muted">
-                      {inv.decision.reasons.join(" · ")}
-                    </span>
-                  )}
-                </motion.div>
+                </div>
               )}
+
               {inv.escalation && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={spring}
-                  className="border-t border-attention/30 bg-attention/10 px-4 py-3 text-xs"
-                >
+                <div className="border-t border-attention/30 bg-attention/10 px-4 py-3 text-xs">
                   <span className="font-semibold text-attention">
-                    escalated · {inv.escalation.reason}
+                    Sent to a person
                   </span>
-                  <p className="mt-1 font-medium">{inv.escalation.question}</p>
-                </motion.div>
+                  <p className="mt-1 text-text-muted">
+                    {ESCALATION_REASON[inv.escalation.reason ?? ""] ??
+                      "The evidence wasn't conclusive."}
+                  </p>
+                  {inv.escalation.question && (
+                    <p className="mt-1.5 font-medium text-text">
+                      {inv.escalation.question}
+                    </p>
+                  )}
+                </div>
               )}
             </motion.div>
           ))}
@@ -339,84 +355,108 @@ export function LiveRun({ runId }: { runId: string }) {
 
       {done && (
         <motion.div
-          initial={{ opacity: 0, y: reduce ? 0 : 8 }}
+          initial={{ opacity: 0, y: reduce ? 0 : 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-10 rounded-xl border border-positive/30 bg-positive/5 p-5 text-center"
+          transition={t}
+          className="mt-10 rounded-lg border border-positive/30 bg-positive/5 p-5 text-center"
         >
           <p className="text-sm font-medium text-positive">
-            Run complete — chain sealed.
+            Reconciliation complete. The audit trail is sealed.
           </p>
           {scorecard && (
-            <div className="mx-auto mt-3 flex max-w-md flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-muted">
+            <div className="mx-auto mt-3 flex max-w-md flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-text-muted">
               <span>
                 <span className="font-mono text-text">
                   {(scorecard.matching.auto_match_rate * 100).toFixed(1)}%
                 </span>{" "}
-                auto-tied
+                verified automatically
               </span>
               <span>
                 <span className="font-mono text-text">
                   {(scorecard.matching.false_match_rate * 100).toFixed(2)}%
                 </span>{" "}
-                false-match
-              </span>
-              <span>
-                <span className="font-mono text-text">
-                  {(scorecard.matching.dollar_coverage * 100).toFixed(1)}%
-                </span>{" "}
-                ₹ coverage
-              </span>
-              <span>
-                {scorecard.determinism.replay_hash_match ? "✓" : "✗"}{" "}
-                deterministic
+                false matches
               </span>
               {scorecard.safety && (
                 <span>
                   <span className="font-mono text-text">
                     {scorecard.safety.unsafe_auto_resolutions}
                   </span>{" "}
-                  unsafe auto-res
+                  unsafe auto-resolutions
                 </span>
               )}
+              <span>
+                {scorecard.determinism.replay_hash_match
+                  ? "reproducible"
+                  : "not reproducible"}
+              </span>
             </div>
           )}
-          <Link
-            href={`/runs/${runId}`}
-            className="mt-3 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
-          >
-            Open the cockpit
-          </Link>
+          <Button asChild variant="primary" className="mt-4">
+            <Link href={`/runs/${runId}`}>Open the cockpit</Link>
+          </Button>
         </motion.div>
       )}
+
       {error && !done && (
-        <p className="mt-6 text-center text-sm text-muted">{error}</p>
+        <div className="mt-8 rounded-md border border-attention/30 bg-attention/5 p-4 text-center text-sm">
+          {error}
+        </div>
       )}
-    </div>
+    </AppShell>
+  );
+}
+
+function TurnText({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 440;
+  const shown = open || !long ? text : text.slice(0, 420).trimEnd() + "…";
+  return (
+    <p className="text-text">
+      {shown}
+      {long && (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="ml-1 whitespace-nowrap text-accent hover:underline"
+        >
+          {open ? "less" : "more"}
+        </button>
+      )}
+    </p>
   );
 }
 
 function PhaseRail({ phase, seen }: { phase: Phase; seen: Set<Phase> }) {
   return (
-    <div className="mt-6 flex items-center gap-2">
+    <div className="flex items-center gap-2 overflow-x-auto pb-1">
       {PHASES.map((p, i) => {
         const active = p === phase;
         const past = seen.has(p) && !active;
         return (
           <div key={p} className="flex flex-1 items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <motion.span
-                animate={{ scale: active ? 1.15 : 1 }}
-                className={`h-2 w-2 rounded-full ${
-                  active ? "bg-accent" : past ? "bg-positive" : "bg-border"
-                }`}
+            <div className="flex flex-none items-center gap-1.5">
+              <span
+                className={cn(
+                  "size-2 rounded-full transition-colors [transition-duration:150ms]",
+                  active
+                    ? "bg-accent"
+                    : past
+                      ? "bg-positive"
+                      : "bg-border",
+                )}
               />
               <span
-                className={`text-xs ${active ? "text-text" : "text-muted"}`}
+                className={cn(
+                  "whitespace-nowrap text-xs",
+                  active ? "font-medium text-text" : "text-text-muted",
+                )}
               >
-                {p}
+                {PHASE_LABEL[p]}
               </span>
             </div>
-            {i < PHASES.length - 1 && <div className="h-px flex-1 bg-border" />}
+            {i < PHASES.length - 1 && (
+              <div className="h-px min-w-3 flex-1 bg-border" />
+            )}
           </div>
         );
       })}
@@ -426,16 +466,11 @@ function PhaseRail({ phase, seen }: { phase: Phase; seen: Set<Phase> }) {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-border bg-surface px-3 py-2">
-      <motion.div
-        key={value}
-        initial={{ opacity: 0.4 }}
-        animate={{ opacity: 1 }}
-        className="text-lg font-semibold tabular-nums"
-      >
-        {value}
-      </motion.div>
-      <div className="text-[11px] text-muted">{label}</div>
+    <div className="rounded-lg border border-border bg-surface px-3 py-2.5">
+      <div className="text-lg font-semibold tabular-nums">
+        {value.toLocaleString("en-IN")}
+      </div>
+      <div className="mt-0.5 text-xs text-text-muted">{label}</div>
     </div>
   );
 }
@@ -467,12 +502,16 @@ function foldInvestigations(frames: StreamFrame[]): Investigation[] {
         inv.proposal = {
           category: (j.category as string) ?? null,
           explanation: (j.explanation as string) ?? "",
-          grounded: typeof j.confidence === "number" ? (j.confidence as number) : null,
+          grounded:
+            typeof j.confidence === "number" ? (j.confidence as number) : null,
         };
       } else if (j && typeof j.supported === "boolean") {
-        inv.verifier = { supported: j.supported as boolean, reason: (j.reason as string) ?? "" };
+        inv.verifier = {
+          supported: j.supported as boolean,
+          reason: (j.reason as string) ?? "",
+        };
       } else {
-        const clean = stripFences(f.text ?? "");
+        const clean = cleanTurn(f.text ?? "");
         if (clean || (f.tool_calls && f.tool_calls.length))
           inv.turns.push({ text: clean, tools: f.tool_calls ?? [] });
       }
@@ -486,14 +525,10 @@ function foldInvestigations(frames: StreamFrame[]): Investigation[] {
       if (f.decision) inv.decision = f.decision;
     } else if (f.type === "AGENT_ESCALATED" && id) {
       const inv = ensure(id);
-      inv.escalation = {
-        question: f.question ?? "",
-        reason: f.reason ?? null,
-      };
+      inv.escalation = { question: f.question ?? "", reason: f.reason ?? null };
       if (f.decision) inv.decision = f.decision;
     }
   }
-  // only show exceptions the agent actually looked at, most recent first
   return order
     .map((id) => byId.get(id)!)
     .filter(

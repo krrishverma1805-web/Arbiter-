@@ -1,41 +1,31 @@
 "use client";
 
-import Link from "next/link";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "@/components/ui/toast";
+
 import {
   api,
-  rupees,
-  type AgentInvestigation,
-  type AttackReport,
   type EvidenceDrawer,
-  type InvestigationStep,
   type ReconException,
   type RunSummary,
   type Scorecard,
 } from "@/lib/api";
-import { usePresence } from "@/lib/presence";
-import { clusterExceptions } from "@/lib/clusters";
+import { actionLabel } from "@/lib/vocab";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Verdict } from "@/components/cockpit/Verdict";
+import { Queue } from "@/components/cockpit/Queue";
+import { Evidence } from "@/components/cockpit/Evidence";
 
-const CAT_COLOR: Record<string, string> = {
-  TIMING: "text-accent",
-  DUPLICATE: "text-attention",
-  CHARGEBACK: "text-critical",
-  SECURITY_REVIEW: "text-critical",
-  FEE_DEDUCTION: "text-attention",
-  ROUNDING: "text-muted",
-  UNEXPLAINED: "text-critical",
-};
-
-const ACTIONS = [
-  "accept_variance",
-  "carry_forward",
-  "flag_overcharge",
-  "raise_dispute",
-  "request_data",
-  "route_to_human",
-  "wont_fix",
-];
+const OPEN_STATUSES = new Set([
+  "open",
+  "proposed",
+  "escalated",
+  "security_review",
+  "budget_exceeded",
+]);
 
 export function Cockpit({
   runId,
@@ -49,917 +39,229 @@ export function Cockpit({
   initialExceptions: ReconException[];
 }) {
   const [exceptions, setExceptions] = useState(initialExceptions);
-  const [sel, setSel] = useState(0);
+  // start on the biggest open item so the evidence panel is never empty;
+  // a ?exc=<id> deep link is applied after mount (below) to avoid an SSR mismatch
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    const open = initialExceptions.filter((e) => OPEN_STATUSES.has(e.status));
+    return (
+      [...open].sort(
+        (a, b) =>
+          Math.abs(b.amount_impact_minor) - Math.abs(a.amount_impact_minor),
+      )[0]?.id ?? null
+    );
+  });
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [drawer, setDrawer] = useState<EvidenceDrawer | null>(null);
-  const [open, setOpen] = useState(true);
-  // mobile: one surface at a time via the bottom tab bar; ignored at lg+
-  const [tab, setTab] = useState<"score" | "queue" | "evidence">("queue");
-  const reduce = useReducedMotion();
-  const t = reduce
-    ? { duration: 0 }
-    : { type: "spring" as const, stiffness: 420, damping: 34 };
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
-  const current = exceptions[sel];
+  const select = useCallback((id: string) => {
+    setSelectedId(id);
+    setSheetOpen(true);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("exc", id);
+      window.history.replaceState(null, "", url);
+    }
+  }, []);
+
+  // residual from the loaded drawer sharpens that row's plain summary
+  const residualById = useMemo(() => {
+    const m: Record<string, number | null> = {};
+    if (drawer) {
+      m[drawer.exception.id] = drawer.decompositions[0]?.residual_minor ?? null;
+    }
+    return m;
+  }, [drawer]);
+
+  // apply a ?exc=<id> deep link once, after hydration
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("exc");
+    if (q && exceptions.some((e) => e.id === q)) setSelectedId(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refresh = useCallback(async () => {
-    const r = await api.exceptions(runId);
-    setExceptions(r.exceptions);
+    try {
+      const r = await api.exceptions(runId);
+      setExceptions(r.exceptions);
+    } catch {
+      /* keep what we have */
+    }
   }, [runId]);
 
-  const { viewers } = usePresence(
-    runId,
-    useCallback(
-      (m: Record<string, unknown>) => {
-        if (m.type === "exception_resolved") refresh();
-      },
-      [refresh],
-    ),
-  );
-
   useEffect(() => {
-    if (!current) {
+    if (!selectedId) {
       setDrawer(null);
       return;
     }
     let live = true;
-    api.drawer(runId, current.id).then((d) => live && setDrawer(d));
+    setDrawerLoading(true);
+    api
+      .drawer(runId, selectedId)
+      .then((d) => live && setDrawer(d))
+      .catch(() => live && setDrawer(null))
+      .finally(() => live && setDrawerLoading(false));
     return () => {
       live = false;
     };
-  }, [runId, current]);
+  }, [runId, selectedId]);
+
+  const openIds = useMemo(
+    () => exceptions.filter((e) => OPEN_STATUSES.has(e.status)).map((e) => e.id),
+    [exceptions],
+  );
 
   const resolve = useCallback(
     async (action: string) => {
-      if (!current) return;
-      await api.resolve(runId, current.id, action, "");
-      await refresh();
+      if (!selectedId) return;
+      const id = selectedId;
+      setBusy(true);
+      try {
+        const res = await api.resolve(runId, id, action, "");
+        // optimistically move the item to "done" so the queue reacts at once
+        setExceptions((prev) =>
+          prev.map((e) =>
+            e.id === id
+              ? { ...e, status: "resolved", resolution: { action } }
+              : e,
+          ),
+        );
+        // advance to the next open item
+        const nextOpen = openIds.filter((x) => x !== id);
+        const i = openIds.indexOf(id);
+        setSelectedId(nextOpen[Math.min(i, nextOpen.length - 1)] ?? null);
+
+        if (res?.demo) {
+          toast(`${actionLabel(action)} — marked resolved`, {
+            description:
+              "The demo is read-only. A live run would close this and draft a matching rule for next cycle.",
+          });
+        } else {
+          toast(`${actionLabel(action)}`, {
+            description: "Closed and kept in the audit trail.",
+          });
+          await refresh();
+        }
+      } catch {
+        toast("Couldn't save that", {
+          description:
+            "The reconciliation service didn't accept the change. Try again.",
+        });
+      } finally {
+        setBusy(false);
+      }
     },
-    [runId, current, refresh],
+    [runId, selectedId, openIds, refresh],
   );
+
+  const exportRun = useCallback(() => {
+    const blob = new Blob(
+      [JSON.stringify({ run, scorecard, exceptions }, null, 2)],
+      { type: "application/json" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `arbiter-run-${runId.slice(0, 8)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Downloaded the run", {
+      description: "Scorecard, exceptions, and the run summary as JSON.",
+    });
+  }, [run, scorecard, exceptions, runId]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLSelectElement
+        e.target instanceof HTMLSelectElement ||
+        e.target instanceof HTMLTextAreaElement
       )
         return;
-      if (e.key === "j") setSel((s) => Math.min(s + 1, exceptions.length - 1));
-      else if (e.key === "k") setSel((s) => Math.max(s - 1, 0));
-      else if (e.key === "e" || e.key === "Enter") setOpen((o) => !o);
-      else if (e.key === "a") resolve("accept_variance");
-      else if (e.key === "w") resolve("wont_fix");
+      const idx = selectedId ? openIds.indexOf(selectedId) : -1;
+      if (e.key === "j") {
+        e.preventDefault();
+        const next =
+          openIds[Math.min(idx + 1, openIds.length - 1)] ?? openIds[0];
+        if (next) setSelectedId(next);
+      } else if (e.key === "k") {
+        e.preventDefault();
+        const prev = openIds[Math.max(idx - 1, 0)];
+        if (prev) setSelectedId(prev);
+      } else if (e.key === "a" && selectedId) {
+        resolve("accept_variance");
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [exceptions.length, resolve]);
+  }, [openIds, selectedId, resolve]);
+
+  const evidenceNode = (
+    <Evidence
+      drawer={drawerLoading ? null : drawer}
+      onResolve={resolve}
+      busy={busy}
+    />
+  );
 
   return (
-    <div className="min-h-screen pb-12 lg:pb-0">
-      <header className="flex items-center justify-between border-b border-border bg-surface px-4 py-3 sm:px-6">
-        <div className="flex items-baseline gap-3">
-          <Link href="/" className="text-sm text-muted hover:text-text">
-            ← runs
-          </Link>
-          <span className="font-mono text-xs text-muted">
+    <AppShell
+      width="wide"
+      context={
+        <span className="flex items-center gap-x-2">
+          <span className="text-text">Reconciliation run</span>
+          <span className="hidden font-mono text-text-muted sm:inline">
             {runId.slice(0, 8)}
           </span>
-        </div>
-        <div className="flex items-center gap-4 text-sm">
-          <Presence viewers={viewers} />
-          {scorecard && (
-            <span className="whitespace-nowrap">
-              <span className="font-semibold">
-                {(scorecard.matching.auto_match_rate * 100).toFixed(1)}%
-                <span className="hidden sm:inline"> auto-tied</span>
-              </span>
-              {" · "}
-              <span className="text-attention">
-                {run.exceptions}
-                <span className="hidden sm:inline"> exceptions</span>
-              </span>
-            </span>
-          )}
-        </div>
-      </header>
-
-      <div className="lg:grid lg:grid-cols-[320px_1fr_minmax(0,420px)]">
-        {/* ① scorecard */}
-        <aside
-          className={`${tab === "score" ? "block" : "hidden"} border-b border-border p-5 lg:block lg:border-b-0 lg:border-r`}
-        >
-          {scorecard ? (
-            <ScorecardPanel s={scorecard} />
-          ) : (
-            <p className="text-sm text-muted">no scorecard</p>
-          )}
-          <ClustersPanel exceptions={exceptions} onPick={(id) => {
-            const i = exceptions.findIndex((e) => e.id === id);
-            if (i >= 0) {
-              setSel(i);
-              setOpen(true);
-              setTab("evidence");
-            }
-          }} />
-          <AttackPanel />
-        </aside>
-
-        {/* ② queue */}
-        <section
-          className={`${tab === "queue" ? "block" : "hidden"} min-w-0 lg:block`}
-        >
-          <div className="border-b border-border px-4 py-2 text-xs text-muted">
-            {exceptions.length} exceptions
-            <span className="hidden sm:inline">
-              {" · "}
-              <kbd className="font-mono">j</kbd>/
-              <kbd className="font-mono">k</kbd> move ·{" "}
-              <kbd className="font-mono">e</kbd> drawer ·{" "}
-              <kbd className="font-mono">a</kbd> accept ·{" "}
-              <kbd className="font-mono">w</kbd> won&apos;t-fix
-            </span>
-          </div>
-          {exceptions.length === 0 ? (
-            <p className="p-8 text-center text-sm text-positive">
-              Everything tied. Nothing to review.
-            </p>
-          ) : (
-            <table className="w-full text-sm">
-              <tbody>
-                {exceptions.map((e, i) => (
-                  <tr
-                    key={e.id}
-                    onClick={() => {
-                      setSel(i);
-                      setOpen(true);
-                      setTab("evidence");
-                    }}
-                    className={`relative cursor-pointer border-b border-border ${
-                      i === sel ? "bg-accent/10" : "hover:bg-accent/5"
-                    }`}
-                  >
-                    <td className="px-4 py-2.5">
-                      {i === sel && (
-                        <motion.span
-                          layoutId="row-cursor"
-                          transition={t}
-                          className="absolute inset-y-0 left-0 w-0.5 bg-accent"
-                        />
-                      )}
-                      <span
-                        className={`font-medium ${CAT_COLOR[e.category ?? ""] ?? ""}`}
-                      >
-                        {e.category ?? "—"}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2.5 text-right font-mono">
-                      {e.impact_display ?? rupees(e.amount_impact_minor)}
-                    </td>
-                    <td className="hidden px-2 py-2.5 text-xs text-muted sm:table-cell">
-                      {e.classified_by}
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-xs">
-                      <StatusPill status={e.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        {/* ③ evidence drawer */}
-        <AnimatePresence initial={false}>
-          {open && (
-            <motion.aside
-              initial={{ opacity: 0, x: reduce ? 0 : 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: reduce ? 0 : 24 }}
-              transition={t}
-              className={`${tab === "evidence" ? "block" : "hidden"} border-t border-border p-5 lg:block lg:border-l lg:border-t-0`}
-            >
-              {!current ? (
-                <p className="text-sm text-muted">select an exception</p>
-              ) : !drawer ? (
-                <p className="text-sm text-muted">loading evidence…</p>
-              ) : (
-                <motion.div
-                  key={current.id}
-                  initial={{ opacity: 0, y: reduce ? 0 : 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={t}
-                >
-                  <DrawerPanel d={drawer} onResolve={resolve} />
-                </motion.div>
-              )}
-            </motion.aside>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* mobile surface switcher */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-surface lg:hidden">
-        {(["score", "queue", "evidence"] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setTab(v)}
-            className={`flex-1 py-3 text-xs font-medium capitalize ${
-              tab === v ? "text-accent" : "text-muted"
-            }`}
-          >
-            {v === "queue" ? `queue · ${exceptions.length}` : v}
-          </button>
-        ))}
-      </nav>
-    </div>
-  );
-}
-
-function Presence({
-  viewers,
-}: {
-  viewers: { viewer_id: string; name: string }[];
-}) {
-  if (viewers.length <= 1) return null;
-  const initials = (n: string) => n.slice(0, 2).toUpperCase();
-  return (
-    <div
-      className="flex items-center gap-1.5"
-      title={viewers.map((v) => v.name).join(", ")}
-    >
-      <div className="flex -space-x-1.5">
-        {viewers.slice(0, 4).map((v) => (
-          <span
-            key={v.viewer_id}
-            className="grid h-6 w-6 place-items-center rounded-full border border-surface bg-accent/15 text-[10px] font-medium text-accent"
-          >
-            {initials(v.name)}
+          <span className="hidden text-text-muted sm:inline">
+            {run.records.toLocaleString("en-IN")} records
           </span>
-        ))}
-      </div>
-      <span className="text-xs text-muted">{viewers.length} viewing</span>
-    </div>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const c =
-    status === "resolved"
-      ? "text-positive"
-      : status === "escalated"
-        ? "text-accent"
-        : status === "security_review"
-          ? "text-critical"
-          : "text-muted";
-  return <span className={c}>{status}</span>;
-}
-
-function ScorecardPanel({ s }: { s: Scorecard }) {
-  const m = s.matching;
-  return (
-    <div className="space-y-5">
-      <div>
-        <div className="text-3xl font-semibold">
-          {(m.auto_match_rate * 100).toFixed(1)}%
+        </span>
+      }
+      actions={
+        <div className="hidden items-center gap-2 sm:flex">
+          <Button variant="secondary" size="sm" onClick={exportRun}>
+            Export
+          </Button>
         </div>
-        <div className="text-xs text-muted">
-          auto-tied ({m.correct_matches}/{m.true_matches})
-        </div>
-      </div>
-      <Row label="precision" v={pct(m.precision)} />
-      <Row
-        label="false-match rate"
-        v={pct(m.false_match_rate)}
-        bad={m.false_match_rate > 0.015}
-      />
-      <Row label="₹ coverage" v={pct(m.dollar_coverage)} />
-      <Row label="₹ unexplained" v={pct(m.dollar_unexplained)} />
-      {m.by_pass && (
-        <Row
-          label="by pass"
-          v={Object.entries(m.by_pass)
-            .map(([k, v]) => `${k} ${v}`)
-            .join("  ")}
+      }
+    >
+      {scorecard && (
+        <Verdict
+          scorecard={scorecard}
+          exceptions={exceptions}
+          onPick={setSelectedId}
         />
       )}
-      <hr className="border-border" />
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-        exceptions
-      </div>
-      {Object.entries(s.exceptions.by_type).map(([k, v]) => (
-        <Row key={k} label={k} v={String(v)} />
-      ))}
-      <Row
-        label="anomalies caught"
-        v={`${s.exceptions.detected_anomalies}/${s.exceptions.total_anomalies}`}
-      />
-      <Row label="category accuracy" v={pct(s.exceptions.category_accuracy)} />
-      <hr className="border-border" />
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-        agent {s.agent.enabled ? `· ${s.agent.model}` : "· disabled"}
-      </div>
-      {s.agent.enabled && (
-        <>
-          {s.agent.insufficient_eval_data && (
-            <p className="text-[11px] text-attention">
-              too few labelled investigations to trust these rates — see{" "}
-              <span className="font-mono">arbiter agent-bench</span>
-            </p>
-          )}
-          <Row label="task-completion" v={pct(s.agent.task_completion_rate)} />
-          <Row
-            label="hallucination"
-            v={pct(s.agent.hallucination_rate)}
-            bad={s.agent.hallucination_rate > 0.02}
-          />
-          {typeof s.agent.grounded_rate === "number" && (
-            <Row label="grounded" v={pct(s.agent.grounded_rate)} />
-          )}
-          {typeof s.agent.confidence_ece === "number" &&
-          s.agent.confidence_n ? (
-            <Row
-              label="confidence ECE"
-              v={`${s.agent.confidence_ece.toFixed(3)}${
-                s.agent.calibration_model ? ` · ${s.agent.calibration_model}` : ""
-              }`}
-            />
-          ) : null}
-          <Row label="escalation recall" v={pct(s.agent.escalation_recall)} />
-          <Row
-            label="cost"
-            v={
-              typeof s.agent.est_cost_usd === "number"
-                ? `$${s.agent.est_cost_usd.toFixed(3)}`
-                : "unavailable for this provider"
-            }
-          />
-        </>
-      )}
-      {s.safety && (
-        <>
-          <hr className="border-border" />
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-            safety (headline)
-          </div>
-          <Row
-            label="unsafe auto-resolutions"
-            v={`${s.safety.unsafe_auto_resolutions} / ${s.safety.items_needing_human}`}
-            bad={s.safety.unsafe_auto_resolutions > 0}
-          />
-          <Row
-            label="₹ protected"
-            v={`${rupees(s.safety.rupees_protected_minor)} (${pct(
-              s.safety.rupees_protected_rate,
-            )})`}
-          />
-          <Row
-            label="replay divergence"
-            v={s.safety.replay_divergence ? "✗ DIVERGED" : "none"}
-            bad={s.safety.replay_divergence}
-          />
-          <Row
-            label="fabricated citations"
-            v={String(s.safety.fabricated_citations)}
-            bad={s.safety.fabricated_citations > 0}
-          />
-          <Row
-            label="injection quarantined"
-            v={String(s.safety.injection_quarantined)}
-          />
-        </>
-      )}
-      <hr className="border-border" />
-      <Row
-        label="deterministic"
-        v={s.determinism.replay_hash_match ? "✓" : "✗"}
-        bad={!s.determinism.replay_hash_match}
-      />
-      <Row label="throughput" v={`${s.throughput.records_per_sec} rec/s`} />
-    </div>
-  );
-}
 
-function ClustersPanel({
-  exceptions,
-  onPick,
-}: {
-  exceptions: ReconException[];
-  onPick: (id: string) => void;
-}) {
-  const clusters = clusterExceptions(exceptions);
-  if (clusters.length === 0) return null;
-  const total = clusters.reduce((s, c) => s + c.grossMinor, 0);
-  return (
-    <div className="mt-6 border-t border-border pt-5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-        root causes · {clusters.length}
-      </div>
-      <p className="mt-1 text-xs text-muted">
-        {rupees(total)} across {exceptions.length} exceptions
-      </p>
-      <ul className="mt-3 space-y-2">
-        {clusters.map((c) => (
-          <li key={c.headline}>
-            <button
-              onClick={() => onPick(c.exampleId)}
-              className="w-full rounded border border-border bg-surface p-2 text-left hover:border-accent"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span
-                  className={`text-xs font-medium ${CAT_COLOR[c.category] ?? ""}`}
-                >
-                  {c.category}
-                </span>
-                <span className="font-mono text-xs">{rupees(c.grossMinor)}</span>
-              </div>
-              <div className="mt-0.5 text-[11px] text-muted">
-                {c.count}× · {c.headline.split(" · ").slice(1).join(" · ")}
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+      <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-8">
+        <Queue
+          exceptions={exceptions}
+          selectedId={selectedId}
+          onSelect={select}
+          residualById={residualById}
+        />
 
-function AttackPanel() {
-  const [report, setReport] = useState<AttackReport | null>(null);
-  const [busy, setBusy] = useState(false);
-  const run = async () => {
-    setBusy(true);
-    try {
-      setReport(await api.attack("razorpay-settlement", "seed"));
-    } catch {
-      setReport(null);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="mt-6 border-t border-border pt-5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-        attack arbiter
-      </div>
-      <p className="mt-1 text-xs text-muted">
-        Tamper with a clean dataset and watch Arbiter refuse to be fooled.
-      </p>
-      <button
-        onClick={run}
-        disabled={busy}
-        className="mt-2 rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium hover:border-accent disabled:opacity-50"
-      >
-        {busy ? "running…" : "Run the attack suite"}
-      </button>
-      {report && (
-        <div className="mt-3">
-          <div className="text-xs">
-            <span className="font-semibold text-positive">
-              {report.contained} contained
-            </span>
-            {" · "}
-            <span
-              className={
-                report.unsafe > 0 ? "font-semibold text-critical" : "text-muted"
-              }
-            >
-              {report.unsafe} unsafe
-            </span>
-            {" · "}
-            <span className="text-muted">
-              {rupees(report.rupees_unaccounted_minor)} unaccounted
-            </span>
-          </div>
-          <ul className="mt-2 space-y-1">
-            {report.scenarios.map((s) => (
-              <li
-                key={s.scenario}
-                className="flex items-baseline justify-between gap-2 text-[11px]"
-              >
-                <span className="truncate text-muted">{s.scenario}</span>
-                <span
-                  className={
-                    s.verdict === "CONTAINED"
-                      ? "text-positive"
-                      : s.verdict === "UNSAFE"
-                        ? "text-critical"
-                        : "text-attention"
-                  }
-                >
-                  {s.verdict}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DrawerPanel({
-  d,
-  onResolve,
-}: {
-  d: EvidenceDrawer;
-  onResolve: (a: string) => void;
-}) {
-  const e = d.exception;
-  const dc = d.decompositions[0];
-  return (
-    <div className="space-y-4">
-      <div>
-        <div
-          className={`text-lg font-semibold ${CAT_COLOR[e.category ?? ""] ?? ""}`}
-        >
-          {e.category ?? "UNCLASSIFIED"}
-        </div>
-        <div className="text-xs text-muted">
-          {e.impact_display ?? rupees(e.amount_impact_minor)} ·{" "}
-          {e.classified_by} · {e.status}
-        </div>
-        {dc && Object.keys(dc.components ?? {}).length > 0 && (
-          <details className="mt-1 text-[11px]">
-            <summary className="cursor-pointer text-muted hover:text-text">
-              explain this number
-            </summary>
-            <div className="mt-1 rounded border border-border bg-surface p-2 font-mono">
-              {Object.entries(dc.components).map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <span className="text-muted">
-                    {k === "gross" ? "" : "− "}
-                    {k}
-                  </span>
-                  <span>{rupees(Math.abs(v))}</span>
-                </div>
-              ))}
-              <div className="mt-1 flex justify-between border-t border-border pt-1">
-                <span className="text-muted">= expected</span>
-                <span>{rupees(dc.expected_minor)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">actual (bank)</span>
-                <span>{rupees(dc.actual_minor)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">residual</span>
-                <span
-                  className={
-                    dc.residual_minor === 0 ? "text-positive" : "text-attention"
-                  }
-                >
-                  {rupees(dc.residual_minor)}
-                </span>
-              </div>
-              {dc.settlement_utr && (
-                <div className="mt-1 text-[10px] text-muted">
-                  source: {dc.settlement_utr} · ledger crosscheck{" "}
-                  {dc.ledger_crosscheck_ok ? "✓" : "✗"}
-                </div>
-              )}
-            </div>
-          </details>
+        {isDesktop && (
+          <aside className="sticky top-20 hidden max-h-[calc(100vh-6rem)] min-h-[420px] flex-col self-start overflow-hidden rounded-lg border border-border bg-surface lg:flex">
+            {evidenceNode}
+          </aside>
         )}
       </div>
 
-      <div className="space-y-2">
-        {d.records.map((r) => (
-          <div
-            key={r.id}
-            className="rounded border border-border bg-surface p-2 text-xs"
+      {!isDesktop && (
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent
+            side="right"
+            className="flex w-full flex-col overflow-hidden p-0 sm:max-w-md"
           >
-            <div className="flex justify-between">
-              <span className="font-medium">
-                {r.source} · {r.kind}
-              </span>
-              <span className="font-mono">{r.amount_display}</span>
-            </div>
-            <div className="text-muted">{String(r.reference ?? "")}</div>
-          </div>
-        ))}
-      </div>
-
-      {d.decompositions.map((dc) => (
-        <div
-          key={dc.settlement_utr}
-          className="rounded border border-border bg-surface p-2 font-mono text-xs"
-        >
-          expected {rupees(dc.expected_minor)} · actual{" "}
-          {rupees(dc.actual_minor)} ·{" "}
-          <span
-            className={
-              dc.residual_minor === 0 ? "text-positive" : "text-attention"
-            }
-          >
-            residual {rupees(dc.residual_minor)}
-          </span>
-        </div>
-      ))}
-
-      {d.agent_investigation && d.agent_investigation.steps.length > 0 ? (
-        <>
-          {d.agent_investigation.outcome === "escalate" &&
-            d.agent_investigation.decision && (
-              <WhyNotResolved inv={d.agent_investigation} />
-            )}
-          <InvestigationChain inv={d.agent_investigation} />
-        </>
-      ) : (
-        <>
-          {d.agent_proposal && <ProposalPanel p={d.agent_proposal} />}
-          {d.agent_escalation && (
-            <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
-              <div className="font-semibold text-accent">escalated by Arbiter</div>
-              <p className="mt-1">
-                <strong>knows:</strong> {String(d.agent_escalation.what_i_know)}
-              </p>
-              <p>
-                <strong>missing:</strong>{" "}
-                {String(d.agent_escalation.what_is_missing)}
-              </p>
-              <p className="mt-1 font-medium">
-                {String(d.agent_escalation.question)}
-              </p>
-            </div>
-          )}
-        </>
+            <SheetTitle className="sr-only">Evidence</SheetTitle>
+            {evidenceNode}
+          </SheetContent>
+        </Sheet>
       )}
-      {d.agent_trace && d.agent_trace.length > 0 && (
-        <details className="rounded border border-border bg-surface p-2 text-[11px]">
-          <summary className="cursor-pointer font-medium text-muted">
-            Technical detail · {d.agent_trace.length} raw turns
-          </summary>
-          <ol className="mt-2 space-y-1.5">
-            {d.agent_trace.map((t, i) => (
-              <li key={i} className="border-l-2 border-border pl-2">
-                {t.role === "verifier" && (
-                  <span className="mr-1 rounded bg-border px-1 text-muted">
-                    verifier
-                  </span>
-                )}
-                {t.text && (
-                  <p className="whitespace-pre-wrap break-words font-mono">
-                    {t.text}
-                  </p>
-                )}
-                {t.tool_calls.length > 0 && (
-                  <p className="font-mono text-muted">
-                    → {t.tool_calls.join(", ")}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
-
-      {e.resolution ? (
-        <div className="rounded border border-positive/40 bg-positive/10 p-2 text-xs">
-          resolved · {e.resolution.action}
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2 pt-2">
-          {ACTIONS.map((a) => (
-            <button
-              key={a}
-              onClick={() => onResolve(a)}
-              className="rounded border border-border px-2 py-1 text-xs hover:border-accent hover:text-accent"
-            >
-              {a}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    </AppShell>
   );
 }
-
-function ProposalPanel({ p }: { p: Record<string, unknown> }) {
-  const g = (p.grounding ?? null) as Record<string, unknown> | null;
-  const raw = typeof p.confidence === "number" ? p.confidence : null;
-  const grounded =
-    g && typeof g.grounded_confidence === "number"
-      ? g.grounded_confidence
-      : null;
-  const fabricated = (g?.fabricated as unknown[] | undefined)?.length ?? 0;
-  const catOk = g ? g.category_consistent !== false : true;
-  const refs =
-    (p.evidence_refs as {
-      claim: string;
-      record_id: string;
-      field: string;
-    }[]) ?? [];
-  return (
-    <div className="rounded border border-accent/40 bg-accent/5 p-3 text-xs">
-      <div className="flex items-center justify-between">
-        <span className="font-semibold text-accent">proposed by Arbiter</span>
-        {grounded !== null && (
-          <span
-            className={`font-mono ${grounded >= 0.8 ? "text-positive" : grounded >= 0.55 ? "text-attention" : "text-critical"}`}
-          >
-            {pct(grounded)} grounded
-            {raw !== null && raw !== grounded ? ` (said ${pct(raw)})` : ""}
-          </span>
-        )}
-      </div>
-      <div className="mt-1 font-medium">{String(p.category)}</div>
-      <p className="mt-1">{String(p.explanation ?? "")}</p>
-      {refs.length > 0 && (
-        <ul className="mt-2 space-y-0.5 text-muted">
-          {refs.map((r, i) => (
-            <li key={i}>
-              ↳ {r.claim}{" "}
-              <span className="font-mono">
-                [{r.record_id}·{r.field}]
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {fabricated > 0 && (
-        <div className="mt-2 font-medium text-critical">
-          ⚠ {fabricated} citation(s) did not resolve to a real record —
-          escalated
-        </div>
-      )}
-      {!catOk &&
-        typeof g?.category_note === "string" &&
-        g.category_note.length > 0 && (
-          <div className="mt-2 text-attention">⚠ {g.category_note}</div>
-        )}
-    </div>
-  );
-}
-
-const ACTION_KEY: Record<string, string> = {
-  SAFE: "text-positive",
-  PROPOSE: "text-accent",
-  ESCALATE: "text-attention",
-  QUARANTINE: "text-critical",
-};
-const STEP_LABEL: Record<InvestigationStep["kind"], string> = {
-  plan: "Plan",
-  evidence: "Evidence",
-  reason: "Reason",
-  proposal: "Proposal",
-  escalation: "Escalation",
-  safety: "Safety",
-};
-
-function InvestigationChain({ inv }: { inv: AgentInvestigation }) {
-  return (
-    <div className="rounded border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted">
-        <span>investigation</span>
-        <span className="font-mono">
-          {inv.tool_calls} tool calls · {inv.tokens_in + inv.tokens_out} tok
-        </span>
-      </div>
-      <ol className="divide-y divide-border">
-        {inv.steps.map((s, i) => (
-          <li key={i} className="px-3 py-2 text-xs">
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-[10px] text-muted">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span className="font-semibold">
-                {s.title || STEP_LABEL[s.kind]}
-              </span>
-              {s.kind === "safety" && s.action && (
-                <span
-                  className={`ml-auto font-mono ${ACTION_KEY[s.action] ?? ""}`}
-                >
-                  {s.risk} · {s.action}
-                </span>
-              )}
-              {s.kind === "proposal" && s.category && (
-                <span
-                  className={`ml-auto font-mono ${CAT_COLOR[s.category] ?? ""}`}
-                >
-                  {s.category}
-                </span>
-              )}
-            </div>
-            {s.body && <p className="mt-1 text-text">{s.body}</p>}
-            {s.tools && s.tools.length > 0 && (
-              <p className="mt-1 font-mono text-muted">
-                → {s.tools.map((t) => t.name).join(", ")}
-              </p>
-            )}
-            {s.kind === "proposal" && (
-              <div className="mt-1 space-y-0.5 text-muted">
-                {typeof s.grounded_confidence === "number" && (
-                  <div>
-                    grounded confidence{" "}
-                    <span
-                      className={`font-mono ${
-                        s.grounded_confidence >= 0.8
-                          ? "text-positive"
-                          : s.grounded_confidence >= 0.55
-                            ? "text-attention"
-                            : "text-critical"
-                      }`}
-                    >
-                      {pct(s.grounded_confidence)}
-                    </span>
-                    {typeof s.stated_confidence === "number" &&
-                      s.stated_confidence !== s.grounded_confidence &&
-                      ` (model said ${pct(s.stated_confidence)})`}
-                  </div>
-                )}
-                {s.citations_resolved && (
-                  <div>citations resolved {s.citations_resolved}</div>
-                )}
-                {s.fabricated && s.fabricated.length > 0 && (
-                  <div className="text-critical">
-                    ⚠ fabricated: {s.fabricated.join(", ")}
-                  </div>
-                )}
-                {s.suggested_action && (
-                  <div>suggested action: {s.suggested_action}</div>
-                )}
-              </div>
-            )}
-            {s.kind === "safety" && (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {(s.reasons ?? []).map((r) => (
-                  <span
-                    key={r}
-                    className="rounded bg-border px-1 font-mono text-[10px] text-muted"
-                  >
-                    {r}
-                  </span>
-                ))}
-              </div>
-            )}
-            {s.kind === "escalation" && s.reason && (
-              <p className="mt-1 font-mono text-attention">{s.reason}</p>
-            )}
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
-const NOT_RESOLVED_REASON: Record<string, string> = {
-  contradictory: "a citation pointed at a record that does not exist in this run",
-  evidence_exhausted: "the cited evidence did not support the conclusion strongly enough",
-  counterfactual_contradicted:
-    "the deterministic arithmetic check refuted the proposed cause",
-  verifier_rejected: "an independent model disagreed the evidence supports the claim",
-  material_risk:
-    "the amount is material and the conclusion was plausible, not confident",
-  inconsistent: "repeated investigations did not agree on a category",
-  budget: "the investigation ran out of turns before a confident conclusion",
-  provider_unavailable: "the model was unavailable",
-};
-
-function WhyNotResolved({ inv }: { inv: AgentInvestigation }) {
-  const esc = inv.steps.find((s) => s.kind === "escalation");
-  const dec = inv.decision;
-  const reason = esc?.reason ?? dec?.escalation_reason ?? "";
-  return (
-    <div className="rounded border border-attention/40 bg-attention/5 p-3 text-xs">
-      <div className="font-semibold text-attention">
-        Why didn&apos;t Arbiter resolve this?
-      </div>
-      <p className="mt-1">
-        {NOT_RESOLVED_REASON[reason] ?? "the evidence did not support a confident conclusion"}.
-      </p>
-      <ul className="mt-2 space-y-0.5 text-muted">
-        {dec && (
-          <li>
-            risk tier{" "}
-            <span className="font-mono">
-              {dec.risk} {dec.risk_label ? `(${dec.risk_label})` : ""}
-            </span>
-          </li>
-        )}
-        {typeof dec?.grounded_confidence === "number" && (
-          <li>
-            grounded confidence{" "}
-            <span className="font-mono">{pct(dec.grounded_confidence)}</span>
-          </li>
-        )}
-        {esc?.what_is_missing && <li>missing: {esc.what_is_missing}</li>}
-      </ul>
-      {esc?.body && <p className="mt-2 font-medium">{esc.body}</p>}
-      <p className="mt-2 font-mono text-[10px] text-muted">
-        final: {dec?.action ?? "ESCALATE"}
-        {dec?.policy_version ? ` · ${dec.policy_version}` : ""}
-      </p>
-    </div>
-  );
-}
-
-function Row({ label, v, bad }: { label: string; v: string; bad?: boolean }) {
-  return (
-    <div className="flex justify-between text-sm">
-      <span className="text-muted">{label}</span>
-      <span className={`font-mono ${bad ? "text-critical" : ""}`}>{v}</span>
-    </div>
-  );
-}
-
-const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
