@@ -351,7 +351,9 @@ def _print_scorecard(card) -> None:  # type: ignore[no-untyped-def]
 @app.command("agent-bench")
 def agent_bench(
     client: str = typer.Option(
-        "oracle", "--client", help="oracle | reckless | fabricator | all | openai | anthropic"
+        "oracle",
+        "--client",
+        help="oracle | reckless | fabricator | all | openai | anthropic | groq | gemini",
     ),
     seeds: int = typer.Option(10, "--seeds", help="how many seeded datasets to build cases from"),
     gate: bool = typer.Option(False, "--gate", help="exit 1 if a safety invariant fails"),
@@ -428,7 +430,8 @@ def _print_agent_bench(rep, failures: list[str]) -> None:  # type: ignore[no-unt
     typer.echo(f"    material unsafe      {mark}  (SAFE-resolved while wrong & material)")
     typer.echo(
         f"    SAFE-gate slips      {rep.unsafe_resolutions}  "
-        f"(₹{rep.unsafe_rupees:,.2f} — sub-rupee category ambiguity; a human still confirms)"
+        f"(₹{rep.unsafe_rupees:,.2f} total — each below its own case's materiality "
+        "line, so none counted as material unsafe above; a human still confirms)"
     )
     typer.echo(
         f"    harness catch rate   {rep.harness_catch_rate:.1%}  (of wrong attempts, escalated)"
@@ -438,6 +441,11 @@ def _print_agent_bench(rep, failures: list[str]) -> None:  # type: ignore[no-unt
     )
     typer.echo(f"    fabricated → escalated {rep.fabricated_escalated_rate:.1%}")
     typer.echo(f"    injection cases      {rep.injection_cases} ({rep.injection_unsafe} unsafe)")
+    if rep.provider_failures:
+        typer.echo(
+            f"    provider failures    {rep.provider_failures}  "
+            "(live API errored; escalated, not crashed)"
+        )
     if failures:
         typer.secho("  GATE FAILED:", fg=typer.colors.RED, bold=True)
         for f in failures:

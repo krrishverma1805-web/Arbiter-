@@ -21,6 +21,12 @@ PRICE_PER_MTOK: dict[str, tuple[float, float]] = {
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4.1": (2.0, 8.0),
     "gpt-4.1-mini": (0.40, 1.60),
+    # Groq (openai/gpt-oss-120b, on-demand rate — https://groq.com/pricing)
+    "openai/gpt-oss-120b": (0.15, 0.60),
+    # Gemini (introductory rate through 2026-12-31, reverts to (1.50, 7.50) after —
+    # https://ai.google.dev/gemini-api/docs/pricing)
+    "gemini-3.6-flash": (0.75, 3.75),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
 }
 
 #: used for the per-run cost ceiling when the model is unknown — deliberately

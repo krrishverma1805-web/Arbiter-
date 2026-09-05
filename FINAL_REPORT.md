@@ -99,10 +99,18 @@ silent resolution. 14 named control-invariant tests
 - **No customer.** No design partner, no pilot, no revenue. The build is a
   well-executed bet, and `chatgpt.md` §6.2 estimates ~45 % of it is scaffolding
   built ahead of demand.
-- **A full live-model agent benchmark.** `agent-bench` proves the *harness*
-  (scripted oracle/reckless/fabricator clients, 99 cases); running it against a
-  real frontier model over the whole corpus needs an API key in CI. One live
-  gpt-4o investigation is captured (the verifier caught a bad proposal).
+- **A full live-model agent benchmark against Claude or GPT specifically.**
+  `agent-bench` proves the *harness* (scripted oracle/reckless/fabricator
+  clients, 99 cases) and now also a full live run: `--client gemini` against
+  `gemini-3.5-flash-lite` completed 46/99 real investigations (100%
+  evidence-grounded, 0 material unsafe resolutions), with the other 53
+  escalated — not crashed — on the free-tier key's rate limit. That run
+  surfaced and fixed two real gaps: the benchmark harness didn't catch a
+  provider failure per-case the way the real run pipeline (`orchestrate.py`)
+  already did, and the OpenAI-compatible client dropped Gemini's required
+  `thought_signature` across multi-turn tool calls. A full Claude/GPT run
+  still needs a funded key in CI; one live gpt-4o investigation is separately
+  captured (the verifier caught a bad proposal).
 - **The demo shows one real investigation.** The frozen snapshot has a single
   gpt-4o run (the verifier rejection — the strongest AI-judgment beat). The
   "4–6 varied exceptions" story is told by the *benchmark* (99 cases), not by

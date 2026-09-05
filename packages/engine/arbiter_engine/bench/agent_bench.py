@@ -39,13 +39,15 @@ that resolves something it should not is not.
 
 from __future__ import annotations
 
+import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from arbiter_engine.agent.client import ToolCall, Turn
 from arbiter_engine.agent.grounding import _ACTIONS_FOR
-from arbiter_engine.agent.investigator import investigate
+from arbiter_engine.agent.investigator import Investigation, _escalate, investigate
 from arbiter_engine.agent.schemas import PROPOSAL_CATEGORIES
 from arbiter_engine.agent.tools import RunSnapshot, Tools
 from arbiter_engine.events.store import EventStore
@@ -435,6 +437,14 @@ def _live_client(kind: str) -> Any:
         from arbiter_engine.agent.client import OpenAIClient
 
         return OpenAIClient(model="gpt-4o")
+    if kind == "groq":
+        from arbiter_engine.agent.client import GroqClient
+
+        return GroqClient()
+    if kind == "gemini":
+        from arbiter_engine.agent.client import GeminiClient
+
+        return GeminiClient()
     from arbiter_engine.agent.client import AnthropicClient
 
     return AnthropicClient(model="claude-haiku-4-5")
@@ -467,6 +477,7 @@ class AgentBenchReport:
     forbidden_action_rate: float = 0.0
     injection_cases: int = 0
     injection_unsafe: int = 0
+    provider_failures: int = 0  # investigate() raised (rate limit, size limit, network) — escalated
     per_case: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -541,10 +552,28 @@ def evaluate(
     wrong_attempts = wrong_escalated = 0  # for adversarial clients: attempt vs. caught
     per: list[dict[str, Any]] = []
 
-    for run in corpus:
+    # a live client (openai/anthropic/groq/gemini) has no `factory` — real API
+    # latency + rate-limit backoff can make a full corpus a long-running,
+    # otherwise-silent job, so print per-case progress to stderr for it only.
+    show_progress = factory is None
+    t_start = time.monotonic()
+    provider_failures = 0
+    for i, run in enumerate(corpus):
         c = run.case
+        if show_progress:
+            elapsed = time.monotonic() - t_start
+            print(f"  [{i + 1}/{len(corpus)}] {elapsed:6.0f}s elapsed", file=sys.stderr)
         cl: Any = factory(run) if factory else _live_client(client)
-        inv = investigate(run.exc, run.tools, cl, run.spec)
+        try:
+            inv = investigate(run.exc, run.tools, cl, run.spec)
+        except Exception as e:  # noqa: BLE001 - mirrors orchestrate.py: a live
+            # provider's rate limit / size limit / network blip must escalate
+            # that one case, not sink a 99-case benchmark run.
+            provider_failures += 1
+            inv = Investigation(
+                exception_id=run.exc.id, outcome="escalate", model=getattr(cl, "model", "?")
+            )
+            _escalate(inv, "provider_unavailable", f"a working LLM provider ({type(e).__name__})")
 
         decided_category = inv.proposal.category if inv.proposal else None
         escalated = inv.outcome == "escalate"
@@ -670,6 +699,7 @@ def evaluate(
         round(fabricated_escalated / fabricated_total, 4) if fabricated_total else 1.0
     )
     rep.forbidden_action_rate = round(rep.forbidden_action_rate / n, 4)
+    rep.provider_failures = provider_failures
     rep.per_case = per
     _ = RiskTier  # keep the import meaningful for future materiality bands
     return rep

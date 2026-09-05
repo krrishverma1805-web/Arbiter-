@@ -4,7 +4,9 @@ Every other document (README, cockpit copy, `docs/`, the demo, the pitch) must
 agree with this table. If something here says `LIMITED` or `NOT BUILT`, no other
 doc may imply otherwise.
 
-_Last verified: 2026-09-04, HEAD `aae0e34`._
+_Last verified: 2026-09-05, HEAD `39e5c3d` + uncommitted agent-client hardening
+(retry/backoff, Groq/Gemini clients, provider-failure escalation in the
+benchmark harness) — see `git diff` for the exact patch this table describes._
 
 ## Core engine
 
@@ -34,7 +36,7 @@ _Last verified: 2026-09-04, HEAD `aae0e34`._
 | Deterministic counterfactual arithmetic (positive confirmation) | **DONE** | `safety/counterfactual.py`, `test_safety_kernel.py` |
 | Structured output contract (schema-validated Proposal / Escalate) | **DONE** | `agent/schemas.py` |
 | Prompt-injection quarantine (routed to SECURITY_REVIEW, bypasses the agent) | **DONE** | `exceptions/injection.py`; `test_injection_content_is_quarantined_and_fenced` |
-| Provider-pluggable (`AnthropicClient` / `OpenAIClient` / recorded / scripted) | **DONE** | `agent/client.py` |
+| Provider-pluggable (`AnthropicClient` / `OpenAIClient` / `GroqClient` / `GeminiClient` / recorded / scripted) | **DONE** | `agent/client.py`; retry-with-backoff on rate limits for all live clients |
 | Cost honesty (`est_cost_usd = None` for unpriced models, never `$0.000`) | **DONE** | `agent/pricing.py`; `test_pricing.py` |
 | Model-keyed calibration (a Claude ECE is never shown as GPT's) | **DONE** | `bench/calibration.py::model_key` |
 
@@ -59,7 +61,7 @@ _Last verified: 2026-09-04, HEAD `aae0e34`._
 | Deterministic matching benchmark + regression gate | **DONE** | `arbiter bench --gate`; CI `bench` job |
 | Adversarial synthetic distribution + graceful-degradation invariants | **DONE** | `arbiter-datagen --difficulty adversarial`; CI `bench` job |
 | **Agent trajectory benchmark** — 99 labelled cases, real loop, usefulness vs safety scored apart | **DONE** | `arbiter agent-bench`; `test_agent_bench.py`; CI `bench` job |
-| Meaningful **live-model** agent benchmark (Claude / GPT over the full corpus) | **LIMITED** | one live gpt-4o investigation captured (the verifier caught a bad proposal); no full run — needs an API key in CI |
+| Meaningful **live-model** agent benchmark (real API, full corpus) | **DONE** (Gemini) · **LIMITED** (Claude/GPT) | `arbiter agent-bench --client gemini --seeds 16` over the full 99-case corpus, live `gemini-3.5-flash-lite`: 46/99 completed investigations (100% evidence-grounded, 0 material unsafe resolutions), 53/99 escalated on a free-tier rate-limit ceiling — caught and escalated per-case, not a crashed run (`bench/agent_bench.py::evaluate`'s own try/except, mirroring `orchestrate.py`). Building this found and fixed two real gaps: the benchmark harness didn't catch provider failures the way `orchestrate.py` already did, and the OpenAI-compatible client silently dropped Gemini's required `thought_signature` on multi-turn tool calls (both fixed in `agent/client.py`). One live gpt-4o investigation is separately captured for OpenAI; Claude/GPT full-corpus runs still need a funded key |
 | Confidence calibration study | **DONE** (structure) · **LIMITED** (live) | `arbiter bench --calibration`; the agent ECE needs a live-model run |
 
 ## Product / UX

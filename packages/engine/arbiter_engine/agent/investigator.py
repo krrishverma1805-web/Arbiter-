@@ -309,7 +309,15 @@ def _assistant_blocks(t: Turn) -> list[dict[str, Any]]:
     if t.text:
         blocks.append({"type": "text", "text": t.text})
     for c in t.tool_calls:
-        blocks.append({"type": "tool_use", "id": c.id, "name": c.name, "input": c.arguments})
+        block: dict[str, Any] = {
+            "type": "tool_use",
+            "id": c.id,
+            "name": c.name,
+            "input": c.arguments,
+        }
+        if c.raw:
+            block["raw"] = c.raw
+        blocks.append(block)
     return blocks
 
 

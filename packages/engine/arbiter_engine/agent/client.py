@@ -16,9 +16,45 @@ and the investigator records each request/response pair as an event.
 from __future__ import annotations
 
 import json
+import os
+import random
+import sys
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+_MAX_RETRY_DELAY = 90.0  # a single attempt never sleeps longer than this
+
+
+def _with_retry(call: Any, rate_limit_error: type[BaseException], *, max_attempts: int = 8) -> Any:
+    """Retry `call()` on a provider rate-limit error with exponential backoff.
+
+    Real accounts (this includes low-tier / unfunded API keys) can have TPM
+    limits far below what a 99-case agent-bench run needs; without this, one
+    429 aborts the whole run instead of the client just slowing down. 8
+    attempts gives ~4 minutes of cumulative patience for a short rolling-
+    window throttle (e.g. Gemini's free-tier RPM cap, which recovers in
+    seconds) without letting a single delay balloon — a server that reports a
+    much longer wait (e.g. a daily quota, seen on Groq/Gemini's stricter
+    tiers) is capped at `_MAX_RETRY_DELAY` per attempt, so the whole retry
+    budget is bounded at max_attempts * _MAX_RETRY_DELAY (~12 min) rather than
+    parking on a server-reported wait of tens of minutes."""
+    for attempt in range(max_attempts):
+        try:
+            return call()
+        except rate_limit_error as e:
+            if attempt == max_attempts - 1:
+                raise
+            retry_after = None
+            resp = getattr(e, "response", None)
+            if resp is not None:
+                retry_after = getattr(resp, "headers", {}).get("retry-after")
+            delay = float(retry_after) if retry_after else (2.0 * (2**attempt))
+            delay = min(delay, _MAX_RETRY_DELAY) + random.uniform(0, 0.5)
+            print(f"  rate limited, retrying in {delay:.1f}s…", file=sys.stderr)
+            time.sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 @dataclass
@@ -26,6 +62,7 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+    raw: dict[str, Any] | None = None  # provider passthrough, e.g. Gemini's thought_signature
 
 
 @dataclass
@@ -60,6 +97,7 @@ class AnthropicClient:
         self.model = model
         self.effort = effort
         self._client = anthropic.Anthropic()
+        self._rate_limit_error = anthropic.RateLimitError
 
     def complete(
         self,
@@ -81,7 +119,7 @@ class AnthropicClient:
             kwargs["output_config"] = {"effort": self.effort, "format": force_structured}
         else:
             kwargs["tools"] = tools
-        resp = self._client.messages.create(**kwargs)
+        resp = _with_retry(lambda: self._client.messages.create(**kwargs), self._rate_limit_error)
         return _turn_from_anthropic(resp)
 
 
@@ -114,21 +152,22 @@ def _turn_from_anthropic(resp: Any) -> Turn:
 
 
 # --------------------------------------------------------------------------- openai
-class OpenAIClient:
-    """Adapter over OpenAI Chat Completions.
+class _OpenAICompatibleClient:
+    """Shared Chat Completions wire format for OpenAI and any OpenAI-compatible
+    endpoint (Groq's `/openai/v1`, etc.) — same request/response shape, only the
+    base URL, API key and default model differ per subclass.
 
     Arbiter builds messages, tool schemas and the "force a decision" instruction
-    in Anthropic's shape; this class translates that shape to OpenAI's on the way
-    in and normalises the reply back to a `Turn` on the way out, so nothing
-    downstream (the investigator loop, grounding, replay) has to know.
+    in Anthropic's shape; `complete` translates that shape to Chat Completions on
+    the way in and normalises the reply back to a `Turn` on the way out, so
+    nothing downstream (the investigator loop, grounding, replay) has to know.
     """
 
-    def __init__(self, model: str = "gpt-4o", *, effort: str = "medium") -> None:
-        import openai  # lazy: the engine runs without the dep
-
-        self.model = model
-        self.effort = effort  # kept for parity; OpenAI reasoning models read it below
-        self._client = openai.OpenAI()
+    model: str
+    effort: str
+    _client: Any
+    _rate_limit_error: type[BaseException]
+    max_completion_tokens: int = 8000
 
     def complete(
         self,
@@ -145,7 +184,7 @@ class OpenAIClient:
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": oai_msgs,
-            "max_completion_tokens": 8000,
+            "max_completion_tokens": self.max_completion_tokens,
         }
         if force_structured is not None:
             kwargs["response_format"] = {
@@ -164,8 +203,79 @@ class OpenAIClient:
                 }
                 for t in tools
             ]
-        resp = self._client.chat.completions.create(**kwargs)
+        create = self._client.chat.completions.create
+        resp = _with_retry(lambda: create(**kwargs), self._rate_limit_error)
         return _turn_from_openai(resp)
+
+
+class OpenAIClient(_OpenAICompatibleClient):
+    """Real OpenAI Chat Completions (needs `OPENAI_API_KEY`)."""
+
+    def __init__(self, model: str = "gpt-4o", *, effort: str = "medium") -> None:
+        import openai  # lazy: the engine runs without the dep
+
+        self.model = model
+        self.effort = effort  # kept for parity; OpenAI reasoning models read it below
+        self._client = openai.OpenAI()
+        self._rate_limit_error = openai.RateLimitError
+
+
+class GroqClient(_OpenAICompatibleClient):
+    """Groq's OpenAI-compatible endpoint (needs `GROQ_API_KEY`) — same wire
+    format as `OpenAIClient`, so the base class's `complete` is unchanged.
+    Defaults to `openai/gpt-oss-120b`, the model Groq hosts that supports both
+    tool calling and the structured decision schema.
+
+    Groq's free/on-demand tier caps this model at 8000 tokens/min *per
+    request* (prompt + completion combined), not just per minute — a single
+    oversized request is rejected outright, not merely throttled, so unlike
+    the plain rate-limit case `_with_retry` handles, there is no backoff that
+    fixes it. `max_completion_tokens` is kept small here to leave headroom for
+    the prompt; the investigator's per-exception token budget bounds the rest.
+    Any request that still doesn't fit is escalated by the caller — see
+    `orchestrate.py` (the real run) and `bench/agent_bench.py::evaluate` (the
+    benchmark) — never a crash."""
+
+    max_completion_tokens = 2000
+
+    def __init__(self, model: str = "openai/gpt-oss-120b", *, effort: str = "medium") -> None:
+        import openai  # lazy: the engine runs without the dep; Groq speaks its wire format
+
+        key = os.environ.get("GROQ_API_KEY")
+        if not key:
+            raise RuntimeError("GROQ_API_KEY is not set")
+        self.model = model
+        self.effort = effort
+        self._client = openai.OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
+        self._rate_limit_error = openai.RateLimitError
+
+
+class GeminiClient(_OpenAICompatibleClient):
+    """Google Gemini's OpenAI-compatible endpoint (needs `GEMINI_API_KEY`) —
+    full parity with tool calling and the structured decision schema, unlike
+    Groq's per-request size wall.
+
+    Defaults to `gemini-3.5-flash-lite`, not the larger `gemini-3.6-flash`:
+    empirically, the free tier caps `gemini-3.6-flash` at a hard 20
+    requests/*day*/project (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`
+    — exhausted in one sitting, only resets on a day boundary), while
+    `gemini-3.5-flash-lite` is throttled by a short rolling-window RPM limit
+    instead (~15/min, recovers in well under a minute) — the kind of limit
+    `_with_retry`'s backoff is built for. A full run completes; it is just
+    slower, not structurally blocked."""
+
+    def __init__(self, model: str = "gemini-3.5-flash-lite", *, effort: str = "medium") -> None:
+        import openai  # lazy: the engine runs without the dep; Gemini speaks its wire format
+
+        key = os.environ.get("GEMINI_API_KEY")
+        if not key:
+            raise RuntimeError("GEMINI_API_KEY is not set")
+        self.model = model
+        self.effort = effort
+        self._client = openai.OpenAI(
+            api_key=key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+        self._rate_limit_error = openai.RateLimitError
 
 
 # The investigator's terminal contract (schemas.py). OpenAI models don't have
@@ -304,16 +414,20 @@ def _to_openai_messages(m: dict[str, Any]) -> list[dict[str, Any]]:
             if b.get("type") == "text":
                 text_parts.append(b.get("text", ""))
             elif b.get("type") == "tool_use":
-                calls.append(
-                    {
-                        "id": b["id"],
-                        "type": "function",
-                        "function": {
-                            "name": b["name"],
-                            "arguments": json.dumps(b.get("input", {})),
-                        },
-                    }
-                )
+                call: dict[str, Any] = {
+                    "id": b["id"],
+                    "type": "function",
+                    "function": {
+                        "name": b["name"],
+                        "arguments": json.dumps(b.get("input", {})),
+                    },
+                }
+                if b.get("raw"):
+                    # e.g. Gemini's thought_signature — required on the *next*
+                    # turn's replay of this same tool call, or it 400s asking
+                    # for it by name (ai.google.dev/gemini-api/docs/thought-signatures)
+                    call["extra_content"] = b["raw"]
+                calls.append(call)
         msg: dict[str, Any] = {"role": "assistant", "content": "".join(text_parts) or None}
         if calls:
             msg["tool_calls"] = calls
@@ -353,7 +467,14 @@ def _turn_from_openai(resp: Any) -> Turn:
             args = json.loads(tc.function.arguments or "{}")
         except json.JSONDecodeError:
             args = {}
-        tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
+        tool_calls.append(
+            ToolCall(
+                id=tc.id,
+                name=tc.function.name,
+                arguments=args,
+                raw=getattr(tc, "extra_content", None),
+            )
+        )
     stop = _OPENAI_STOP.get(choice.finish_reason or "stop", "end_turn")
     structured: dict[str, Any] | None = None
     if not tool_calls and text.strip().startswith("{"):

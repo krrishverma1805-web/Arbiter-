@@ -89,5 +89,8 @@ Status at the close of the master-plan hardening pass (Stages A–D).
 - Live processor / bank / ERP connectors (v1 non-goal)
 - OCR for scanned PDFs
 - SSO, key rotation, SOC 2
-- A full live-model agent-bench run (needs a CI key)
+- A full live-model agent-bench run against **Claude or GPT** specifically
+  (needs a funded key) — a full 99-case run against **Gemini** is done
+  (`docs/STATUS.md`; 46/99 completed, the rest escalated on a free-tier rate
+  limit, not crashed)
 - The 5-minute pitch **video** — the builder's task
